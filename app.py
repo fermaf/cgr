@@ -169,11 +169,11 @@ elif seleccion == "Visualización de Clusters":
             dictamen_ids.append(dictamen_id)
             vector = index.fetch(ids=[dictamen_id])['vectors'][dictamen_id]['values']
             embeddings_list.append(vector)
-        embeddings_array = np.array(embeddings_list)
-        tsne = TSNE(n_components=2, perplexity=30, random_state=42)
-        vis_dims = tsne.fit_transform(embeddings_array)
-        df = pd.DataFrame(vis_dims, columns=['x', 'y'])
-        df['dictamen_id'] = dictamen_ids
+        #embeddings_array = np.array(embeddings_list)
+        #tsne = TSNE(n_components=2, perplexity=30, random_state=42)
+        #vis_dims = tsne.fit_transform(embeddings_array)
+        #df = pd.DataFrame(vis_dims, columns=['x', 'y'])
+        #df['dictamen_id'] = dictamen_ids
         st.subheader("Mapa de Clusters:")
         st.plotly_chart(px.scatter(df, x='x', y='y', hover_data=['dictamen_id']))
     else:
