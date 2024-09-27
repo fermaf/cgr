@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pinecone
 import openai
-import tiktoken
+#import tiktoken
 from sklearn.manifold import TSNE
 from pymongo import MongoClient
 from bson.objectid import ObjectId
