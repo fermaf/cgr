@@ -1,0 +1,11 @@
+streamlit
+matplotlib
+pinecone-client
+openai
+tiktoken
+scikit-learn
+pymongo
+bson
+numpy
+pandas
+plotly
