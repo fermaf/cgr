@@ -1,14 +1,13 @@
 streamlit==1.38.0
-matplotlib==3.7.1
+matplotlib==3.9.0
 pinecone-client==2.2.1
 openai==0.27.8
 tiktoken==0.4.0
-scikit-learn==1.2.2  # Cambia a una versión más estable
+scikit-learn==1.0.2
 pymongo==4.6.0
-numpy==1.24.3  # Cambia a una versión compatible con scikit-learn 1.2.2
+numpy==1.21.6
 pandas==2.0.3
 plotly==5.15.0
 pip>=24.2
 setuptools>=58.0.0
 wheel
-
