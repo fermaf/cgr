@@ -1,0 +1,61 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "workers-cgr",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-12-21",
+  "observability": {
+    "enabled": true
+  },
+  "kv_namespaces": [
+    {
+      "binding": "RAW_KV",
+      "id": "cad7a93913d744bcbaa2d80f923e5306"
+    },
+    {
+      "binding": "STATE_KV",
+      "id": "075e82b8cd94478ab3ab4bb3d7221c9a"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_id": "ad9cca3f-8795-4a7f-abcd-047d010590dc"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "PIPELINE_QUEUE",
+        "queue": "cgr-pipeline"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "cgr-pipeline"
+      }
+    ]
+  },
+  "vars": {
+    "APP_TIMEZONE": "America/Santiago",
+    "BACKFILL_CANONICAL": "false",
+    "BACKFILL_CANONICAL_LIMIT": "100",
+    "BACKFILL_DOCUMENTO_MISSING": "false",
+    "BACKFILL_DOCUMENTO_MISSING_LIMIT": "234",
+    "CGR_BASE_URL": "https://www.contraloria.cl",
+    "CRON_PAUSED": "false",
+    "DAILY_QUOTA": "30000",
+    "QUOTA_RESERVE_RATIO": "0.8",
+    "MISTRAL_429_BACKOFF_MS": "30000",
+    "MISTRAL_429_THRESHOLD": "2",
+    "MISTRAL_API_URL": "https://api.mistral.ai/v1/chat/completions",
+    "MISTRAL_MIN_INTERVAL_MS": "6000",
+    "MISTRAL_MODEL": "mistral-large-2411",
+    "MISTRAL_RETRY_BASE_MS": "500",
+    "MISTRAL_RETRY_MAX": "3",
+    "PINECONE_INDEX_HOST": "https://cgr-8aea039.svc.aped-4627-b74.pinecone.io",
+    "PINECONE_NAMESPACE": "mistralLarge2411",
+    "PIPELINE_PAUSED": "false",
+    "STABLE_PAGE_RATIO": "1.0",
+    "STABLE_PAGE_THRESHOLD": "2"
+  }
+}

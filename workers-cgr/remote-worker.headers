@@ -1,0 +1,12 @@
+HTTP/2 405 
+date: Mon, 29 Dec 2025 11:52:21 GMT
+content-type: application/json
+server: cloudflare
+cf-ray: 9b59173999ec29fe-SCL
+cf-cache-status: DYNAMIC
+set-cookie: __cflb=0H28vgHxwvgAQtjUGUFqYFDiSDreGJnUoHfA3Wus8Tw; SameSite=Lax; path=/; expires=Mon, 29-Dec-25 14:22:22 GMT; HttpOnly
+set-cookie: __cf_bm=9mIBT7xTYWa0o4_1TMsUwXV1ZFUOekc.tOasZwS9Rsc-1767009141-1.0.1.1-RVNx7t2Cm9XDPgfNLSlabHWKa.AQCBXXj0maOECpAQVtXeMIQKU3TSViiAXexQjloqYp7IIaeLbm01AgTKAdshCdVESjYz50.tB3lUphEiU; path=/; expires=Mon, 29-Dec-25 12:22:21 GMT; domain=.api.cloudflare.com; HttpOnly; Secure; SameSite=None
+set-cookie: _cfuvid=E3OKXX_CGEqfMRLEGaUDWON4uwHDdSs1uZMSCMv3AG4-1767009141190-0.0.1.1-604800000; path=/; domain=.api.cloudflare.com; HttpOnly; Secure; SameSite=None
+api-version: 2025-12-29
+cf-auditlog-id: 019b69f3-c095-7798-8025-0c4356c7347f
+
