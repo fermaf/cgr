@@ -1,7 +1,7 @@
 // Worker principal: HTTP, dashboard, cron y cola.
 import { fetchDictamenesPage, fetchDictamenesSearchPage } from './services/cgrClient';
-import { analyzeDictamen, analyzeFuentesLegales, buildPrompt } from './services/mistralClient';
-import { upsertRecord } from './services/pineconeClient';
+import { analyzeDictamen, analyzeFuentesLegales, buildPrompt, expandQuery, rerankResults, generateEmbedding } from './services/mistralClient';
+import { upsertRecord, queryRecords, fetchRecords } from './services/pineconeClient';
 import {
   finishRun,
   getLatestRawRef,
@@ -89,6 +89,9 @@ function jsonResponse(body: unknown, init?: ResponseInit): Response {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, x-import-token",
       ...init?.headers
     }
   });
@@ -1251,6 +1254,7 @@ function buildPineconeMetadata(
   const fecha = typeof source.fecha_documento === "string" ? source.fecha_documento : null;
   const createdAt = formatCreatedAt(timeZone);
   return {
+    id: source.doc_id || source.n_dictamen || null,
     Resumen: enrichment?.resumen ?? null,
     materia: typeof source.materia === "string" ? source.materia : null,
     titulo: enrichment?.titulo ?? null,
@@ -2034,7 +2038,8 @@ async function runVectorize(env: Env, dictamenId: string): Promise<boolean> {
     } : null;
     const metadata = buildPineconeMetadata(raw, enrichment, env.PINECONE_NAMESPACE, getTimeZone(env));
     const text = extractVectorText(raw, enrichment);
-    await upsertRecord(env, { id: dictamenId, text, metadata });
+    const values = await generateEmbedding(env, text);
+    await upsertRecord(env, { id: dictamenId, text, metadata, values });
     await updateDictamenStatus(env.DB, dictamenId, "vectorized");
     await finishRun(env.DB, runId, "completed");
     return true;
@@ -2198,6 +2203,16 @@ async function handleQueueMessage(message: QueueMessage, env: Env): Promise<void
 // Handler principal del Worker (HTTP + cron + queue).
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, x-import-token",
+          "Access-Control-Max-Age": "86400",
+        },
+      });
+    }
     const url = new URL(request.url);
     if (url.pathname === "/health") {
       return jsonResponse({ ok: true, time: new Date().toISOString() });
@@ -2226,6 +2241,98 @@ export default {
       const limit = Math.min(Number.isFinite(limitRaw) ? limitRaw : 100, 200);
       const runs = await listRuns(env.DB, limit);
       return jsonResponse({ runs });
+    }
+    if (url.pathname === "/search") {
+      const query = url.searchParams.get("q")?.trim();
+      if (!query) return jsonResponse({ error: "missing_query" }, { status: 400 });
+      const limit = Math.min(Number(url.searchParams.get("limit") ?? 10), 50);
+      const shouldExpand = url.searchParams.get("expand") !== "false";
+      const shouldRerank = url.searchParams.get("rerank") !== "false";
+
+      try {
+        let results: any;
+        let finalQuery = query;
+        let detectedIntent = "semantic_search";
+
+        // 1. Detección de intención: ¿Es un ID de dictamen?
+        // Formatos: E123456, 123456, E123456/24, 123456/2024, E123456N24
+        const isDictamenId = /^(E)?[0-9]+([\/N][0-9]+)?$/i.test(query);
+        let filter: Record<string, any> | undefined = undefined;
+
+        if (isDictamenId) {
+          detectedIntent = "exact_id";
+          const normalizedId = query.toUpperCase();
+          // En lugar de fetch, usamos un filtro de metadatos en la búsqueda semántica
+          filter = { id: { "$eq": normalizedId } };
+
+          // Generamos un embedding para la consulta (aunque el filtro dominará)
+          const queryVector = await generateEmbedding(env, query);
+          results = await queryRecords(env, queryVector, limit, filter);
+
+          // Si no hay resultados con el filtro exacto, intentamos sin filtro (búsqueda semántica pura)
+          if (!results.matches || results.matches.length === 0) {
+            results = await queryRecords(env, queryVector, limit);
+          }
+        } else {
+          // 2. Detección de intención: ¿Es una búsqueda por año?
+          const yearMatch = query.match(/\b(19|20)\d{2}\b/);
+
+          if (yearMatch) {
+            detectedIntent = "year_search";
+            const year = yearMatch[0];
+            filter = {
+              fecha: { "$gte": `${year}-01-01`, "$lte": `${year}-12-31` }
+            };
+          }
+
+          // 3. Expansión de consulta (opcional)
+          if (shouldExpand && query.length > 3) {
+            try {
+              finalQuery = await expandQuery(env, query);
+            } catch (e) {
+              console.error("Query expansion failed:", e);
+            }
+          }
+
+          // 4. Búsqueda semántica
+          // Generamos el embedding de la consulta
+          const queryVector = await generateEmbedding(env, finalQuery);
+          results = await queryRecords(env, queryVector, limit, filter);
+
+          // 5. Reranking (opcional)
+          if (shouldRerank && results.matches?.length > 1) {
+            try {
+              const reranked = await rerankResults(env, query, results.matches);
+              results.matches = reranked;
+            } catch (e) {
+              console.error("Reranking failed:", e);
+            }
+          }
+        }
+
+        return jsonResponse({
+          results,
+          meta: {
+            detected_intent: detectedIntent,
+            original_query: query,
+            expanded_query: finalQuery !== query ? finalQuery : undefined,
+            reranked: shouldRerank && !isDictamenId
+          }
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const stack = error instanceof Error ? error.stack : undefined;
+        return jsonResponse({
+          error: "search_failed",
+          message,
+          stack,
+          debug: {
+            pinecone_host: env.PINECONE_INDEX_HOST ? "SET" : "MISSING",
+            pinecone_key: env.PINECONE_API_KEY ? "SET" : "MISSING",
+            mistral_key: env.MISTRAL_API_KEY ? "SET" : "MISSING"
+          }
+        }, { status: 500 });
+      }
     }
     if (url.pathname === "/dictamenes") {
       const status = url.searchParams.get("estado") ?? void 0;
@@ -2278,6 +2385,24 @@ export default {
     }
     if (url.pathname === "/internal/edgecases" && request.method === "POST") {
       return handleEdgeCases(request, env);
+    }
+    if (url.pathname === "/internal/debug-pinecone") {
+      const url = new URL(`/describe_index_stats`, env.PINECONE_INDEX_HOST);
+      const response = await fetch(url.toString(), {
+        method: "POST",
+        headers: {
+          "Api-Key": env.PINECONE_API_KEY,
+          "Content-Type": "application/json"
+        }
+      });
+      const data = await response.json();
+      return jsonResponse({ data });
+    }
+    if (url.pathname === "/internal/force-vectorize") {
+      const id = url.searchParams.get("id");
+      if (!id) return jsonResponse({ error: "missing_id" }, { status: 400 });
+      const success = await runVectorize(env, id);
+      return jsonResponse({ success });
     }
     if (url.pathname === "/" || url.pathname === "/dashboard") {
       const dashboard = await getDashboardStats(env.DB);

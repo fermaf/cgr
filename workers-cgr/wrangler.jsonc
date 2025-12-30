@@ -52,7 +52,7 @@
     "MISTRAL_MODEL": "mistral-large-2411",
     "MISTRAL_RETRY_BASE_MS": "500",
     "MISTRAL_RETRY_MAX": "3",
-    "PINECONE_INDEX_HOST": "https://cgr-8aea039.svc.aped-4627-b74.pinecone.io",
+    "PINECONE_INDEX_HOST": "https://cgr-8aea039.svc.aped-4627-b74a.pinecone.io",
     "PINECONE_NAMESPACE": "mistralLarge2411",
     "PIPELINE_PAUSED": "false",
     "STABLE_PAGE_RATIO": "1.0",

@@ -60,7 +60,7 @@ async function resetMistral429(env: Env) {
   }
 }
 function getRawSource(raw: DictamenRaw): DictamenSource {
-  return raw._source ?? raw.source ?? raw.raw_data ?? raw;
+  return (raw._source ?? raw.source ?? (raw as any).raw_data ?? raw) as DictamenSource;
 }
 function buildPrompt(raw: DictamenRaw) {
   const source = getRawSource(raw);
@@ -185,7 +185,7 @@ function normalizeBooleanos(input?: Record<string, unknown>) {
 function normalizeFuentesLegales(input?: unknown[]) {
   if (!Array.isArray(input)) return void 0;
   return input.map((item) => {
-    const entry = item;
+    const entry = item as any;
     return {
       nombre: entry.nombre ? String(entry.nombre).trim() : null,
       articulo: entry.articulo ? String(entry.articulo).trim() : null,
@@ -210,7 +210,8 @@ async function analyzeDictamen(env: Env, raw: DictamenRaw) {
       body: JSON.stringify({
         model: env.MISTRAL_MODEL,
         messages: [{ role: "user", content: buildPrompt(raw) }],
-        temperature: 0.2
+        temperature: 0.2,
+        response_format: { type: "json_object" }
       })
     });
     if (response.ok) break;
@@ -226,14 +227,14 @@ async function analyzeDictamen(env: Env, raw: DictamenRaw) {
   if (!response) {
     throw new Error("Mistral error: no response");
   }
-  const payload = await response.json();
+  const payload = await response.json() as any;
   const content = payload.choices?.[0]?.message?.content;
   if (!content) return null;
   await resetMistral429(env);
   const jsonPayload = extractJsonPayload(content);
   if (!jsonPayload) return null;
   try {
-    const parsed = JSON.parse(jsonPayload);
+    const parsed = JSON.parse(jsonPayload) as any;
     const extrae = parsed.extrae_jurisprudencia ?? parsed;
     const extrae_jurisprudencia = {
       titulo: typeof extrae.titulo === "string" ? extrae.titulo : "",
@@ -244,7 +245,7 @@ async function analyzeDictamen(env: Env, raw: DictamenRaw) {
     const booleanos = normalizeBooleanos(
       parsed.booleanos ?? {}
     );
-    const fuentes = normalizeFuentesLegales(parsed.fuentes_legales);
+    const fuentes = normalizeFuentesLegales(parsed.fuentes_legales as any[]);
     return {
       extrae_jurisprudencia,
       genera_jurisprudencia: typeof parsed.genera_jurisprudencia === "boolean" ? parsed.genera_jurisprudencia : parsed.genera_jurisprudencia === void 0 ? void 0 : normalizeBoolean(parsed.genera_jurisprudencia),
@@ -284,7 +285,7 @@ async function analyzeFuentesLegales(env: Env, raw: DictamenRaw) {
     throw new Error(`Mistral error: ${response.status}`);
   }
   if (!response) throw new Error("Mistral error: no response");
-  const payload = await response.json();
+  const payload = await response.json() as any;
   const content = payload.choices?.[0]?.message?.content;
   if (!content) return null;
   await resetMistral429(env);
@@ -298,4 +299,141 @@ async function analyzeFuentesLegales(env: Env, raw: DictamenRaw) {
   }
 }
 
-export { analyzeDictamen, analyzeFuentesLegales, buildPrompt };
+async function expandQuery(env: Env, query: string): Promise<string> {
+  const prompt = `Como experto en Derecho Administrativo chileno y jurisprudencia de la Contraloría General de la República (CGR), tu tarea es expandir la siguiente consulta de un usuario para mejorar la búsqueda semántica.
+  
+  Consulta original: "${query}"
+  
+  Instrucciones:
+  1. Si la consulta es técnica, mantenla.
+  2. Si la consulta es en lenguaje coloquial, tradúcela a términos jurídicos usados por la CGR (ej: "echaron" -> "destitución", "muni" -> "municipalidad", "plata" -> "recursos públicos").
+  3. Si la consulta menciona un año, asegúrate de que el año esté presente en la consulta expandida.
+  4. Devuelve ÚNICAMENTE la consulta expandida, sin explicaciones.
+  
+  Consulta expandida:`;
+
+  const settings = getMistralSettings(env);
+  let response = null;
+  for (let attempt = 0; attempt <= settings.retryMax; attempt += 1) {
+    await rateLimitMistral(env);
+    response = await fetch("https://api.mistral.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${env.MISTRAL_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "mistral-small-latest",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.1
+      })
+    });
+    if (response.ok) break;
+    if (response.status === 429 && attempt < settings.retryMax) {
+      await recordMistral429(env);
+      await sleep(settings.retryBaseMs * 2 ** attempt);
+      continue;
+    }
+    throw new Error(`Mistral error: ${response.status}`);
+  }
+
+  const payload = await response?.json() as any;
+  const content = payload.choices?.[0]?.message?.content?.trim();
+  return content || query;
+}
+
+async function rerankResults(env: Env, query: string, results: any[]): Promise<any[]> {
+  if (results.length <= 1) return results;
+
+  const prompt = `Como experto en Derecho Administrativo chileno, evalúa la relevancia de los siguientes dictámenes respecto a la consulta del usuario.
+  
+  Consulta: "${query}"
+  
+  Dictámenes:
+  ${results.map((r, i) => `[${i}] Título: ${r.metadata?.titulo}\nResumen: ${r.metadata?.Resumen || r.metadata?.resumen}`).join('\n\n')}
+  
+  Instrucciones:
+  1. Ordena los índices de los dictámenes de más relevante a menos relevante.
+  2. Devuelve ÚNICAMENTE un arreglo JSON de índices, ej: [2, 0, 1].
+  3. Si un dictamen no tiene ninguna relación, omítelo.
+  
+  Orden de relevancia (JSON):`;
+
+  const settings = getMistralSettings(env);
+  let response = null;
+  for (let attempt = 0; attempt <= settings.retryMax; attempt += 1) {
+    await rateLimitMistral(env);
+    response = await fetch("https://api.mistral.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${env.MISTRAL_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "mistral-small-latest",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.1,
+        response_format: { type: "json_object" }
+      })
+    });
+    if (response.ok) break;
+    if (response.status === 429 && attempt < settings.retryMax) {
+      await recordMistral429(env);
+      await sleep(settings.retryBaseMs * 2 ** attempt);
+      continue;
+    }
+    throw new Error(`Mistral error: ${response.status}`);
+  }
+
+  const payload = await response?.json() as any;
+  const content = payload.choices?.[0]?.message?.content?.trim();
+  if (!content) return results;
+
+  try {
+    const jsonPayload = extractJsonArrayPayload(content) || content;
+    const indices = JSON.parse(jsonPayload);
+    if (Array.isArray(indices)) {
+      return indices
+        .map(i => results[i])
+        .filter(r => r !== undefined);
+    }
+  } catch (e) {
+    console.error("Rerank parsing failed:", e);
+  }
+
+  return results;
+}
+
+async function generateEmbedding(env: Env, input: string): Promise<number[]> {
+  const settings = getMistralSettings(env);
+  let response = null;
+  for (let attempt = 0; attempt <= settings.retryMax; attempt += 1) {
+    await rateLimitMistral(env);
+    response = await fetch("https://api.mistral.ai/v1/embeddings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${env.MISTRAL_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "mistral-embed",
+        input: [input]
+      })
+    });
+    if (response.ok) break;
+    if (response.status === 429 && attempt < settings.retryMax) {
+      await recordMistral429(env);
+      await sleep(settings.retryBaseMs * 2 ** attempt);
+      continue;
+    }
+    throw new Error(`Mistral embedding error: ${response.status}`);
+  }
+
+  const data = await response?.json() as any;
+  if (data?.data?.[0]?.embedding) {
+    return data.data[0].embedding;
+  }
+  throw new Error("Invalid embedding response");
+}
+
+export { analyzeDictamen, analyzeFuentesLegales, buildPrompt, expandQuery, rerankResults, generateEmbedding };
