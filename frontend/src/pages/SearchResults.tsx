@@ -28,7 +28,8 @@ export function SearchResults() {
                 if (year) params.set("year", year);
                 if (materia) params.set("materia", materia);
 
-                // Add timeout to avoid infinite loading
+                // Agregamos un Timeout (15 segundos) para evitar bloqueos infinitos de la pantalla de carga
+                // Esto es fundamental en aplicaciones de negocio donde la API puede tardar
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 15000);
 
@@ -57,6 +58,7 @@ export function SearchResults() {
         fetchResults();
     }, [query, page, year, materia]);
 
+    // Manejador del submit del formulario: Actualiza la URL y dispara un nuevo useEffect
     const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
@@ -74,7 +76,7 @@ export function SearchResults() {
     return (
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500 relative z-10 w-full">
 
-            {/* Mobile Filters Toggle */}
+            {/* Botón de Filtros para Móviles */}
             <button
                 className="md:hidden flex items-center justify-center gap-2 p-3 bg-white border border-slate-200 rounded-xl text-slate-700 font-medium hover:bg-slate-50 transition-colors shadow-sm"
                 onClick={() => setIsFiltersOpen(!isFiltersOpen)}
@@ -125,10 +127,10 @@ export function SearchResults() {
                 </div>
             </aside>
 
-            {/* Main Results Area */}
+            {/* Área Principal de Resultados */}
             <div className="flex-1 space-y-6">
 
-                {/* Search Header Premium */}
+                {/* Cabecera de Búsqueda Premium */}
                 <div className="bg-white p-1 rounded-2xl relative overflow-hidden group shadow-sm border border-slate-200">
                     <div className="flex items-center gap-4 bg-slate-50 p-2 rounded-xl transition-all duration-300 focus-within:ring-2 focus-within:ring-cgr-blue/20 focus-within:border-cgr-blue/30 focus-within:bg-white">
                         <div className="pl-4">
@@ -146,13 +148,13 @@ export function SearchResults() {
                     </div>
                 </div>
 
-                {/* Results Info */}
+                {/* Información de la Consulta */}
                 <div className="flex items-center justify-between text-xs font-mono text-slate-500 px-2 uppercase tracking-wide">
                     <span>Resultados Encontrados: <strong className="text-cgr-navy font-bold">{total}</strong></span>
                     <span>Página {page} / {totalPages || 1}</span>
                 </div>
 
-                {/* Results List */}
+                {/* Lista de Resultados Renderizados */}
                 <div className="space-y-4">
                     {loading ? (
                         <div className="py-24 text-center flex flex-col items-center justify-center text-slate-500">
@@ -174,7 +176,7 @@ export function SearchResults() {
                     )}
                 </div>
 
-                {/* Pagination */}
+                {/* Controles de Paginación */}
                 {totalPages > 1 && (
                     <div className="flex justify-center gap-3 pt-10 pb-10">
                         <button

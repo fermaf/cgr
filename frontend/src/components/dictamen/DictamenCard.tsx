@@ -13,7 +13,7 @@ export function DictamenCard({ dictamen }: DictamenCardProps) {
                 to={`/dictamen/${dictamen.id}`}
                 className="block h-full p-6 relative z-10"
             >
-                {/* Subtle left border highlight on hover */}
+                {/* Micro-animación premium: Barra lateral azul que se expande al pasar el mouse por encima (hover) */}
                 <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-cgr-navy to-cgr-blue transform origin-bottom scale-y-0 group-hover:scale-y-100 transition-transform duration-300 ease-out" />
 
                 <div className="flex justify-between items-start mb-4 relative z-10 pl-2">
@@ -73,7 +73,7 @@ export function DictamenCard({ dictamen }: DictamenCardProps) {
                         )}
                     </div>
 
-                    {/* Quick action buttons on hover */}
+                    {/* Botones de acción rápida: Solo visibles al pasar el mouse encima de la tarjeta */}
                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                         <button className="p-1.5 rounded-md hover:bg-slate-100 text-slate-400 hover:text-cgr-blue transition-colors">
                             <Download className="w-4 h-4" />

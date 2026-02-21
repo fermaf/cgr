@@ -8,9 +8,9 @@ import { insertEnrichment, updateDictamenStatus, insertDictamenBooleanosLLM, ins
 
 interface IngestParams {
     search?: string;
-    limit?: number; // max items to process
+    limit?: number; // cantidad máxima de ítems a procesar
     page?: number;
-    options?: any[]; // CGR search options
+    options?: any[]; // opciones de búsqueda propias de la CGR
 }
 
 export class IngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> {
@@ -26,32 +26,34 @@ export class IngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> {
                 this.env.CGR_BASE_URL,
                 page,
                 options,
-                undefined, // cookie
+                undefined, // cookie de sesión (no usado aquí)
                 search
             );
-            // We cast to any to satisfy Serializable constraint
+            // Realizamos un cast a 'any' para satisfacer la regla de serialización requerida por los Workflows de Cloudflare
             return { items: result.items.slice(0, limit) } as any;
         });
 
         const items = fetchResult.items;
 
-        // Step 2: Process each item
+        // Paso 2: Procesar cada dictamen de la lista rescatada
         for (const item of items) {
             const id = extractDictamenId(item) || 'unknown';
 
             await step.do(`process-item-${id}`, async () => {
-                // 1. Ingest (Stage 1)
+                // 1. Ingesta (Fase 1: Guardado Inicial)
+                // Aquí guardamos el JSON crudo para preservarlo.
                 const { dictamenId } = await ingestDictamen(this.env, item, {
                     status: 'ingested',
                     crawledFromCgr: 1,
                     origenImportacion: 'crawl_contraloria'
                 });
 
-                // 2. Enrich (Stage 2)
+                // 2. Enriquecimiento (Fase 2: Inteligencia Artificial LLM)
+                // Se envía a Mistral AI para extraer análisis y etiquetas.
                 const enrichment = await analyzeDictamen(this.env, item);
 
                 if (enrichment) {
-                    // 2a. Save Enrichment Row
+                    // 2a. Guardar la Fila de Enriquecimiento (Resumen, Análisis) en D1 (Relacional)
                     const enrichmentId = await insertEnrichment(this.env.DB, {
                         dictamen_id: dictamenId,
                         titulo: enrichment.extrae_jurisprudencia.titulo,
@@ -67,22 +69,23 @@ export class IngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> {
                         created_at: new Date().toISOString()
                     });
 
-                    // 2b. Save Boolean Flags
+                    // 2b. Guardar las Banderas Booleanas detectadas por la IA
                     await insertDictamenBooleanosLLM(this.env.DB, dictamenId, enrichment.booleanos, enrichmentId);
 
-                    // 2c. Save Tags
+                    // 2c. Guardar las Etiquetas (Tags)
                     for (const tag of enrichment.extrae_jurisprudencia.etiquetas) {
                         await insertDictamenEtiquetaLLM(this.env.DB, dictamenId, tag, enrichmentId);
                     }
 
-                    // 2d. Save Legal Sources
+                    // 2d. Guardar las Fuentes Legales que citó el dictamen
                     for (const source of enrichment.fuentes_legales) {
                         await insertDictamenFuenteLegal(this.env.DB, dictamenId, source, enrichmentId);
                     }
 
                     await updateDictamenStatus(this.env.DB, dictamenId, 'enriched');
 
-                    // 3. Vectorize (Stage 3)
+                    // 3. Vectorización (Fase 3: Embedding y Pinecone)
+                    // Convertimos la inteligencia en texto plano y la guardamos en un vector para permitir búsqueda semántica.
                     const textToEmbed = `
                         Título: ${enrichment.extrae_jurisprudencia.titulo}
                         Resumen: ${enrichment.extrae_jurisprudencia.resumen}

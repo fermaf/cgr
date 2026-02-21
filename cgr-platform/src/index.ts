@@ -4,14 +4,16 @@ import { getLatestEnrichment } from './storage/d1';
 import type { Env } from './types';
 import { IngestWorkflow } from './workflows/ingestWorkflow';
 
-// Export Workflow class so it can be bound
+// Exportamos la clase Workflow para que Cloudflare pueda asociarla (bind) a este worker
 export { IngestWorkflow };
 
+// Inicializamos Hono (nuestro framework web ligero) inyectando los tipos de entorno (Bindings)
 const app = new Hono<{ Bindings: Env }>();
 
 app.get('/', (c) => c.text('CGR Platform API'));
 
-// --- STATS ENDPOINT ---
+// --- ENDPOINT DE ESTADÍSTICAS ---
+// Este endpoint consulta directamente a la base de datos relacional D1 para obtener números generales.
 app.get('/api/v1/stats', async (c) => {
   const db = c.env.DB;
   try {
@@ -29,7 +31,10 @@ app.get('/api/v1/stats', async (c) => {
   }
 });
 
-// --- LIST / SEARCH ENDPOINT ---
+// --- ENDPOINT DE LISTADO Y BÚSQUEDA ---
+// Este es el corazón de la búsqueda. Implementa un patrón "Fallback" (Tolerancia a fallos):
+// 1. Intenta una búsqueda vectorial (semántica) usando Pinecone.
+// 2. Si falla o no hay query, recurre a una búsqueda relacional clásica (SQL LIKE) en Cloudflare D1.
 app.get('/api/v1/dictamenes', async (c) => {
   const query = c.req.query('q') || '';
   const page = parseInt(c.req.query('page') || '1', 10);
@@ -43,7 +48,8 @@ app.get('/api/v1/dictamenes', async (c) => {
 
     if (query.trim() !== '') {
       try {
-        // Pinecone Search
+        // 1. Búsqueda Vectorial (Pinecone)
+        // Buscamos similitud semántica. Multiplicamos el límite temporalmente para filtrar después si es necesario.
         const pcRes = await queryRecords(c.env, query, limit * 2);
         const matches = pcRes.matches || [];
         const data = matches.map((m: any) => ({
@@ -54,7 +60,7 @@ app.get('/api/v1/dictamenes', async (c) => {
           materia: m.metadata?.titulo || m.metadata?.materia || 'Materia Reservada o Sin título',
           resumen: m.metadata?.analisis || m.metadata?.resumen || '',
           es_enriquecido: 1,
-          origen_busqueda: 'vectorial'
+          origen_busqueda: 'vectorial' // Indicador clave para que el frontend muestre el badge correspondiente
         }));
 
         if (data.length > 0) {
@@ -62,12 +68,12 @@ app.get('/api/v1/dictamenes', async (c) => {
           totalToReturn = data.length;
         }
       } catch (err) {
-        console.error("Vector search exception, falling back to SQL.", err);
+        console.error("Excepción en la búsqueda vectorial, recurriendo a SQL estricto (Fallback).", err);
       }
     }
 
     if (!dataToReturn) {
-      // D1 List (Fallback o default)
+      // 2. Búsqueda Relacional D1 (Fallback o listado por defecto si no hay query)
       let condition = "";
       let binds: any[] = [];
 
@@ -105,7 +111,7 @@ app.get('/api/v1/dictamenes', async (c) => {
           materia: r.materia || 'Sin materia especificada',
           resumen: '',
           es_enriquecido,
-          origen_busqueda: 'literal'
+          origen_busqueda: 'literal' // Frontend detectará esto y mostrará que fue una búsqueda clásica
         };
       });
     }
@@ -120,7 +126,11 @@ app.get('/api/v1/dictamenes', async (c) => {
   }
 });
 
-// --- DETAIL ENDPOINT ---
+// --- ENDPOINT DE DETALLE DE DICTAMEN ---
+// Utiliza el ID (ej: UUID o String único) para consolidar información de varias fuentes:
+// 1. Metadata básica de D1
+// 2. Análisis e inteligencia IA más recientes desde D1
+// 3. Documento fuente original (raw) desde Cloudflare KV
 app.get('/api/v1/dictamenes/:id', async (c) => {
   const id = c.req.param('id');
   const db = c.env.DB;
@@ -159,7 +169,8 @@ app.get('/api/v1/dictamenes/:id', async (c) => {
   }
 });
 
-// --- LEGACY SEARCH ---
+// --- BÚSQUEDA LEGACY (HEREDADA) ---
+// Este endpoint mantiene compatibilidad hacia atrás si algún otro servicio lo llama pidiendo solo JSON crudo de vectores.
 app.get('/search', async (c) => {
   const query = c.req.query('q');
   if (!query) return c.json({ error: 'Missing q parameter' }, 400);
@@ -174,7 +185,9 @@ app.get('/search', async (c) => {
   }
 });
 
-// --- WORKFLOW TRIGGER ---
+// --- DISPARADOR DE FLUJO DE TRABAJO (WORKFLOW TRIGGER) ---
+// Los Workflows en Cloudflare permiten procesos asíncronos de larga duración.
+// Este endpoint encola un trabajo (Ingesta -> Análisis -> Vectorización) y retorna rápidamente.
 app.post('/ingest/trigger', async (c) => {
   try {
     const body = await c.req.json().catch(() => ({}));
