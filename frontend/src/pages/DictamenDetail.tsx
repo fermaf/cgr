@@ -123,10 +123,16 @@ export function DictamenDetail() {
                             <div className="relative z-10 selection:bg-blue-100 whitespace-pre-wrap text-justify overflow-auto">
                                 {raw.texto_completo || raw.documento_completo || raw.texto || raw.Descripcion ? (
                                     raw.texto_completo || raw.documento_completo || raw.texto || raw.Descripcion
-                                ) : (
+                                ) : Object.keys(raw || {}).length > 0 ? (
                                     <pre className="text-sm text-slate-600 bg-slate-50 p-4 rounded-lg font-mono text-left">
                                         {JSON.stringify(raw, null, 2)}
                                     </pre>
+                                ) : (
+                                    <div className="text-center py-12 text-slate-500 font-sans border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                                        <AlertCircle className="w-10 h-10 mx-auto mb-4 opacity-70 text-slate-400" />
+                                        <p className="font-bold text-lg text-slate-600">Texto Original No Disponible</p>
+                                        <p className="mt-2 text-sm leading-relaxed max-w-md mx-auto font-medium">El contenido íntegro de este documento no ha sido almacenado digitalmente en nuestras bases de datos estructuradas en texto plano.</p>
+                                    </div>
                                 )}
                             </div>
                         </div>
