@@ -1,0 +1,39 @@
+# CGR Platform - Manual Testing Guide
+
+## Prerequisites
+- Wrangler installed (`npm install -g wrangler`)
+- Cloudflare account with D1, KV, Workflows enable.
+- Local dev environment running.
+
+## 1. Start Local Development
+Runs the worker locally, simulating D1 and KV.
+```bash
+npm run dev
+```
+
+## 2. Trigger Ingestion (Manual)
+ Triggers the workflow to fetch `probidad` dictamenes from CGR.
+```bash
+curl -X POST http://localhost:8787/ingest/trigger \
+  -H "Content-Type: application/json" \
+  -d '{"search": "probidad", "limit": 5}'
+```
+Expected response:
+```json
+{"success":true, "workflowId":"...", "message":"Ingest workflow triggered"}
+```
+
+## 3. Verify Data (D1)
+Check if data was inserted into D1 (replace DB name/ID with local one if needed, or use wrangler d1 execute).
+```bash
+npx wrangler d1 execute cgr-dictamenes --local --command "SELECT * FROM dictamen ORDER BY created_at DESC LIMIT 5"
+```
+
+## 4. Search
+Query the Pinecone index (via proxy). Note: Local dev might need remote Pinecone access configured in .dev.vars.
+```bash
+curl "http://localhost:8787/search?q=probidad&limit=3"
+```
+
+## 5. Verify Workflow Status
+(If observability is enabled, check Cloudflare Dashboard > Workflows).

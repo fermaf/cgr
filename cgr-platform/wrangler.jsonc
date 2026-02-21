@@ -1,0 +1,46 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cgr-platform",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-02-18",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "workflows": [
+    {
+      "name": "ingest-workflow",
+      "binding": "WORKFLOW",
+      "class_name": "IngestWorkflow"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "DICTAMENES_SOURCE",
+      "id": "ac84374936a84e578928929243687a0b"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_id": "ad9cca3f-8795-4a7f-abcd-047d010590dc",
+      "database_name": "cgr-dictamenes"
+    }
+  ],
+  "vars": {
+    "APP_TIMEZONE": "America/Santiago",
+    "CGR_BASE_URL": "https://www.contraloria.cl",
+    "MISTRAL_API_URL": "https://gateway.ai.cloudflare.com/v1/63ac4f10cdedc71a1b09256622380278/cgr-gateway/mistral/v1",
+    "MISTRAL_MODEL": "mistral-large-2411",
+    "PINECONE_INDEX_HOST": "https://cgr-8aea039.svc.aped-4627-b74a.pinecone.io",
+    "PINECONE_NAMESPACE": "mistralLarge2411"
+  },
+  "triggers": {
+    "crons": [
+      "0 */6 * * *"
+    ]
+  }
+}

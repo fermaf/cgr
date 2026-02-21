@@ -1,0 +1,40 @@
+
+> dev
+> wrangler dev
+
+
+ ⛅️ wrangler 4.66.0 (update available 4.67.0)
+─────────────────────────────────────────────
+Using vars defined in .dev.vars
+Your Worker has access to the following bindings:
+Binding                                                                    Resource                  Mode
+env.WORKFLOW (IngestWorkflow)                                              Workflow                  local
+env.DICTAMENES_SOURCE (ac84374936a84e578928929243687a0b)                   KV Namespace              local
+env.DB (cgr-dictamenes)                                                    D1 Database               local
+env.APP_TIMEZONE ("America/Santiago")                                      Environment Variable      local
+env.CGR_BASE_URL ("https://www.contraloria.cl")                            Environment Variable      local
+env.MISTRAL_API_URL ("https://gateway.ai.cloudflare.com/v1/...")           Environment Variable      local
+env.MISTRAL_MODEL ("mistral-large-2411")                                   Environment Variable      local
+env.PINECONE_INDEX_HOST ("https://cgr-8aea039.svc.aped-4627-b74...")       Environment Variable      local
+env.PINECONE_NAMESPACE ("mistralLarge2411")                                Environment Variable      local
+env.MISTRAL_API_KEY ("(hidden)")                                           Environment Variable      local
+env.PINECONE_API_KEY ("(hidden)")                                          Environment Variable      local
+env.CF_AIG_AUTHORIZATION ("(hidden)")                                      Environment Variable      local
+
+❓ Your types might be out of date. Re-run `wrangler types` to ensure your types are correct.
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mScheduled Workers are not automatically triggered during local development.[0m
+
+  To manually trigger a scheduled event, run:
+    curl "http://localhost:8787/cdn-cgi/handler/scheduled"
+  For more details, see [4mhttps://developers.cloudflare.com/workers/configuration/cron-triggers/#test-cron-triggers-locally[0m
+
+
+⎔ Starting local server...
+[wrangler:warn] The latest compatibility date supported by the installed Cloudflare Workers Runtime is "2026-02-17",
+but you've requested "2026-02-18". Falling back to "2026-02-17"...
+Features enabled by your requested compatibility date may not be available.
+Upgrade to `wrangler@4.67.0` to remove this warning.
+[wrangler:info] Ready on http://localhost:8787
+[wrangler:info] GET /search 200 OK (1714ms)
+[wrangler:info] GET /search 200 OK (1460ms)
+[wrangler:info] GET /favicon.ico 404 Not Found (10ms)
