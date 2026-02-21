@@ -1,0 +1,62 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lora:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-cgr-light text-slate-800 antialiased font-sans flex flex-col min-h-screen selection:bg-cgr-blue selection:text-white m-0 p-0;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply tracking-tight font-sans text-cgr-navy;
+  }
+
+  /* Add futuristic smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-white/95 backdrop-blur-md border border-slate-200/60 shadow-glass-light transition-all duration-300;
+  }
+
+  .glass-dark {
+    @apply bg-white border border-slate-200 shadow-premium;
+  }
+
+  .glass-hover {
+    @apply hover:bg-slate-50 hover:border-cgr-navy/20 hover:shadow-premium;
+  }
+
+  .text-gradient {
+    @apply text-cgr-navy;
+  }
+
+  .bg-grid {
+    @apply bg-official-pattern;
+    /* Replaces dark grid with an official SVG pattern */
+  }
+}
+
+/* Custom scrollbar for modern looks */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-slate-50;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-200 border border-slate-50 rounded-full hover:bg-slate-300 transition-colors;
+}

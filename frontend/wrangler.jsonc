@@ -1,0 +1,30 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cgr-jurisprudencia-frontend",
+  "compatibility_date": "2025-03-07",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "pages_build_output_dir": "./dist",
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "d1_databases": [
+    {
+      "binding": "DICTAMENES_DB",
+      "database_name": "cgr-dictamenes",
+      "database_id": "c391c767-2c72-450c-8758-bee9e20c8a35"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "DICTAMENES_SOURCE",
+      "id": "ac84374936a84e578928929243687a0b"
+    },
+    {
+      "binding": "DICTAMENES_PASO",
+      "id": "4673b680cd704508a4fbc87789acb153"
+    }
+  ]
+}
