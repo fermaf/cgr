@@ -2,111 +2,99 @@ import { WorkflowEntrypoint, WorkflowStep, WorkflowEvent } from 'cloudflare:work
 import type { Env } from '../types';
 import { fetchDictamenesSearchPage } from '../clients/cgr';
 import { ingestDictamen, extractDictamenId } from '../lib/ingest';
-import { analyzeDictamen } from '../clients/mistral';
-import { upsertRecord } from '../clients/pinecone';
-import { insertEnrichment, updateDictamenStatus, insertDictamenBooleanosLLM, insertDictamenEtiquetaLLM, insertDictamenFuenteLegal } from '../storage/d1';
+import { getDictamenById } from '../storage/d1';
 
 interface IngestParams {
     search?: string;
     limit?: number; // cantidad máxima de ítems a procesar
-    page?: number;
     options?: any[]; // opciones de búsqueda propias de la CGR
+    lookbackDays?: number; // Cuántos días hacia atrás buscar
+    dateStart?: string; // Formato YYYY-MM-DD
+    dateEnd?: string; // Formato YYYY-MM-DD
 }
 
 export class IngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> {
     async run(event: WorkflowEvent<IngestParams>, step: WorkflowStep) {
         const params = event.payload;
-        const limit = params.limit ?? 10;
-        const page = params.page ?? 0;
-        const search = params.search ?? '';
-        const options = params.options ?? [];
+        let options = params.options ?? [];
+        let dateStart = params.dateStart;
+        let dateEnd = params.dateEnd;
 
-        const fetchResult = await step.do('fetch-cgr-page', async () => {
-            const result = await fetchDictamenesSearchPage(
-                this.env.CGR_BASE_URL,
-                page,
-                options,
-                undefined, // cookie de sesión (no usado aquí)
-                search
-            );
-            // Realizamos un cast a 'any' para satisfacer la regla de serialización requerida por los Workflows de Cloudflare
-            return { items: result.items.slice(0, limit) } as any;
-        });
+        // Si tenemos lookbackDays y NO fecha start/end, calculamos la ventana de tiempo.
+        if (params.lookbackDays !== undefined && !dateStart) {
+            const end = new Date();
+            const start = new Date(end.getTime() - params.lookbackDays * 24 * 60 * 60 * 1000);
+            dateStart = start.toISOString().split('T')[0];
+            dateEnd = end.toISOString().split('T')[0];
+        }
 
-        const items = fetchResult.items;
+        // Si existen start y end (manual o calculado), acotamos la búsqueda de CGR:
+        if (dateStart && dateEnd) {
+            options = [...options, {
+                type: 'range',
+                field: 'fecha_documento',
+                value: {
+                    gte: dateStart,
+                    lte: dateEnd
+                }
+            }];
+        }
 
-        // Paso 2: Procesar cada dictamen de la lista rescatada
-        for (const item of items) {
-            const id = extractDictamenId(item) || 'unknown';
+        let page = 0;
+        let totalIngested = 0;
+        let hasMore = true;
+        const maxPages = 50; // Límite de seguridad
+        const limit = params.limit ?? 10000;
 
-            await step.do(`process-item-${id}`, async () => {
-                // 1. Ingesta (Fase 1: Guardado Inicial)
-                // Aquí guardamos el JSON crudo para preservarlo.
-                const { dictamenId } = await ingestDictamen(this.env, item, {
-                    status: 'ingested',
-                    crawledFromCgr: 1,
-                    origenImportacion: 'crawl_contraloria'
+        while (hasMore && page < maxPages) {
+            // Guardamos el scope en una variable, porque en WorkflowStep.do las clausuras deben ser puras
+            const currentPage = page;
+            const currentOptions = options;
+            const searchStr = params.search ?? '';
+
+            const fetchResult = await step.do(`fetch-cgr-page-${currentPage}`, async () => {
+                const result = await fetchDictamenesSearchPage(
+                    this.env.CGR_BASE_URL,
+                    currentPage,
+                    currentOptions,
+                    undefined,
+                    searchStr
+                );
+                return { items: result.items as any[], nextCursor: result.nextCursor };
+            });
+
+            const items = fetchResult.items;
+
+            for (const item of items) {
+                const id = extractDictamenId(item) || 'unknown';
+
+                await step.do(`ingest-item-${id}`, async () => {
+                    const existing = await getDictamenById(this.env.DB, id);
+                    if (existing && existing.estado && existing.estado !== 'error') {
+                        console.log(`[SKIP] Dictamen ${id} ya existe en estado: ${existing.estado}`);
+                        return; // Omitir si ya está al menos en ingested/enriched/vectorized
+                    }
+
+                    await ingestDictamen(this.env, item, {
+                        status: 'ingested',
+                        crawledFromCgr: 1,
+                        origenImportacion: 'worker_cron_crawl'
+                    });
                 });
 
-                // 2. Enriquecimiento (Fase 2: Inteligencia Artificial LLM)
-                // Se envía a Mistral AI para extraer análisis y etiquetas.
-                const enrichment = await analyzeDictamen(this.env, item);
-
-                if (enrichment) {
-                    // 2a. Guardar la Fila de Enriquecimiento (Resumen, Análisis) en D1 (Relacional)
-                    const enrichmentId = await insertEnrichment(this.env.DB, {
-                        dictamen_id: dictamenId,
-                        titulo: enrichment.extrae_jurisprudencia.titulo,
-                        resumen: enrichment.extrae_jurisprudencia.resumen,
-                        analisis: enrichment.extrae_jurisprudencia.analisis,
-                        etiquetas_json: JSON.stringify(enrichment.extrae_jurisprudencia.etiquetas),
-                        genera_jurisprudencia_llm: enrichment.genera_jurisprudencia ? 1 : 0,
-                        fuentes_legales_missing: enrichment.fuentes_legales.length === 0 ? 1 : 0,
-                        booleanos_json: JSON.stringify(enrichment.booleanos),
-                        fuentes_legales_json: JSON.stringify(enrichment.fuentes_legales),
-                        model: this.env.MISTRAL_MODEL,
-                        migrated_from_mongo: 0,
-                        created_at: new Date().toISOString()
-                    });
-
-                    // 2b. Guardar las Banderas Booleanas detectadas por la IA
-                    await insertDictamenBooleanosLLM(this.env.DB, dictamenId, enrichment.booleanos, enrichmentId);
-
-                    // 2c. Guardar las Etiquetas (Tags)
-                    for (const tag of enrichment.extrae_jurisprudencia.etiquetas) {
-                        await insertDictamenEtiquetaLLM(this.env.DB, dictamenId, tag, enrichmentId);
-                    }
-
-                    // 2d. Guardar las Fuentes Legales que citó el dictamen
-                    for (const source of enrichment.fuentes_legales) {
-                        await insertDictamenFuenteLegal(this.env.DB, dictamenId, source, enrichmentId);
-                    }
-
-                    await updateDictamenStatus(this.env.DB, dictamenId, 'enriched');
-
-                    // 3. Vectorización (Fase 3: Embedding y Pinecone)
-                    // Convertimos la inteligencia en texto plano y la guardamos en un vector para permitir búsqueda semántica.
-                    const textToEmbed = `
-                        Título: ${enrichment.extrae_jurisprudencia.titulo}
-                        Resumen: ${enrichment.extrae_jurisprudencia.resumen}
-                        Análisis: ${enrichment.extrae_jurisprudencia.analisis}
-                    `.trim();
-
-                    await upsertRecord(this.env, {
-                        id: dictamenId,
-                        text: textToEmbed,
-                        metadata: {
-                            titulo: enrichment.extrae_jurisprudencia.titulo,
-                            fecha: String((item.source || item._source || item).fecha_documento || ''),
-                            ...enrichment.booleanos
-                        }
-                    });
-
-                    await updateDictamenStatus(this.env.DB, dictamenId, 'vectorized');
-                } else {
-                    await updateDictamenStatus(this.env.DB, dictamenId, 'error');
+                totalIngested++;
+                if (totalIngested >= limit) {
+                    hasMore = false;
+                    break;
                 }
-            });
+            }
+
+            if (!fetchResult.nextCursor || items.length === 0) {
+                hasMore = false;
+            } else {
+                page++;
+            }
         }
     }
 }
+

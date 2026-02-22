@@ -198,8 +198,8 @@ async function analyzeDictamen(env: Env, raw: DictamenRaw) {
       booleanos,
       fuentes_legales: fuentes ?? []
     };
-  } catch (error) {
-    console.error("Mistral analyzeDictamen error:", error);
+  } catch (error: any) {
+    console.error("Mistral analyzeDictamen error:", error?.status, error?.message || error);
     return null;
   }
 }

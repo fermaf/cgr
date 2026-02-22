@@ -1,7 +1,12 @@
 import type { Workflow, D1Database, KVNamespace } from '@cloudflare/workers-types';
 
-export type DictamenStatus = 'ingested' | 'enriched' | 'vectorized' | 'error' | 'invalid_input';
+// Estados del pipeline de procesamiento de dictámenes.
+// Ver tabla cat_estado_pipeline en D1.
+export type DictamenStatus = 'ingested' | 'enriched' | 'vectorized' | 'error';
 
+export type OrigenImportacion = 'mongoDb' | 'worker_cron_crawl' | 'worker_batch_ai' | 'worker_manual' | 'crawl_contraloria';
+
+// Booleanos jurídicos (tabla atributos_juridicos).
 export interface DictamenBooleanos {
   nuevo: number;
   aclarado: number;
@@ -17,7 +22,7 @@ export interface DictamenBooleanos {
   recurso_proteccion: number;
 }
 
-
+// JSON crudo de la fuente CGR.
 export interface DictamenSource {
   documento_completo?: unknown;
   fecha_documento?: unknown;
@@ -59,64 +64,49 @@ export type DictamenRaw = {
   [key: string]: unknown;
 };
 
+// Fila de la tabla enriquecimiento (PK = dictamen_id, relación 1:1).
 export interface EnrichmentRow {
-  id: string;
   dictamen_id: string;
   titulo: string | null;
   resumen: string | null;
   analisis: string | null;
   etiquetas_json: string | null;
-  genera_jurisprudencia_llm: number | null;
-  fuentes_legales_missing: number | null;
+  genera_jurisprudencia: number | null;
   booleanos_json: string | null;
   fuentes_legales_json: string | null;
-  model: string | null;
-  migrated_from_mongo: number | null;
-  created_at: string;
+  modelo_llm: string | null;
+  fecha_enriquecimiento: string | null;
+  procesado: number | null;
 }
 
-export interface DictamenBooleanosLLMRow extends DictamenBooleanos {
-  id: string;
-  dictamen_id: string;
-  enrichment_id: string;
-  created_at: string;
-}
-
+// Fila de la tabla historial_cambios.
 export interface HistorialCambiosRow {
-  id: string;
+  id: number;
   dictamen_id: string;
   campo_modificado: string;
   valor_anterior: string | null;
   valor_nuevo: string | null;
   origen: string;
-  created_at: string;
+  fecha_cambio: string;
 }
 
-
-export interface RawRefRow {
+// Fila de la tabla registro_ejecucion (ex run_log).
+export interface RegistroEjecucionRow {
   id: string;
-  dictamen_id: string;
-  raw_key: string;
-  sha256: string;
-  bytes: number;
-  created_at: string;
+  tipo: string;
+  estado: string;
+  detalle_json: string | null;
+  inicio: string;
+  fin: string | null;
 }
 
-export interface RunLogRow {
-  id: string;
-  run_type: string;
-  status: string;
-  detail_json: string | null;
-  started_at: string;
-  finished_at: string | null;
-}
-
+// Bindings y variables de entorno del Worker.
 export interface Env {
   // Bindings
   WORKFLOW: Workflow;
+  BACKFILL_WORKFLOW: Workflow;
   DB: D1Database;
   DICTAMENES_SOURCE: KVNamespace;
-
 
   // Vars
   APP_TIMEZONE: string;
@@ -130,6 +120,9 @@ export interface Env {
   MISTRAL_MIN_INTERVAL_MS?: string;
   MISTRAL_429_BACKOFF_MS?: string;
   MISTRAL_429_THRESHOLD?: string;
+  CRAWL_DAYS_LOOKBACK?: string;
+  BACKFILL_BATCH_SIZE?: string;
+  BACKFILL_DELAY_MS?: string;
 
   // Secrets
   PINECONE_API_KEY: string;

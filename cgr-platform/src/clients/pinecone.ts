@@ -7,15 +7,12 @@ async function upsertRecord(env: Env, record: PineconeRecord) {
   const baseUrl = env.PINECONE_INDEX_HOST.endsWith('/') ? env.PINECONE_INDEX_HOST.slice(0, -1) : env.PINECONE_INDEX_HOST;
   const url = new URL(`/records/namespaces/${env.PINECONE_NAMESPACE}/upsert`, baseUrl);
 
-  const payload = [
-    {
-      id: record.id,
-      fields: {
-        analisis: record.text, // Pinecone vectoriza internamente
-        ...record.metadata
-      }
-    }
-  ];
+  // Payload: un solo registro como objeto (no array) según API Pinecone Integrated Inference
+  const payload = {
+    _id: record.id,
+    analisis: record.text, // Pinecone vectoriza internamente via field_map
+    ...(record.metadata || {})
+  };
 
   const response = await fetch(url.toString(), {
     method: "POST",

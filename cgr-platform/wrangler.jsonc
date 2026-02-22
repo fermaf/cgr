@@ -15,6 +15,11 @@
       "name": "ingest-workflow",
       "binding": "WORKFLOW",
       "class_name": "IngestWorkflow"
+    },
+    {
+      "name": "backfill-workflow",
+      "binding": "BACKFILL_WORKFLOW",
+      "class_name": "BackfillWorkflow"
     }
   ],
   "kv_namespaces": [
@@ -26,7 +31,7 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_id": "ad9cca3f-8795-4a7f-abcd-047d010590dc",
+      "database_id": "c391c767-2c72-450c-8758-bee9e20c8a35",
       "database_name": "cgr-dictamenes"
     }
   ],
@@ -36,7 +41,10 @@
     "MISTRAL_API_URL": "https://gateway.ai.cloudflare.com/v1/63ac4f10cdedc71a1b09256622380278/cgr-gateway/mistral/v1",
     "MISTRAL_MODEL": "mistral-large-2411",
     "PINECONE_INDEX_HOST": "https://cgr-8aea039.svc.aped-4627-b74a.pinecone.io",
-    "PINECONE_NAMESPACE": "mistralLarge2411"
+    "PINECONE_NAMESPACE": "mistralLarge2411",
+    "CRAWL_DAYS_LOOKBACK": "3",
+    "BACKFILL_BATCH_SIZE": "50",
+    "BACKFILL_DELAY_MS": "500"
   },
   "triggers": {
     "crons": [

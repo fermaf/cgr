@@ -1,39 +1,60 @@
-# CGR.ai - Ecosistema de Plataforma Jurídica Inteligente
+# CGR.ai — Plataforma de Jurisprudencia Administrativa Inteligente
 
-**Estado de Producción:** Activo
-**Motor Princial:** Cloudflare Workers, Cloudflare D1, Mistral AI, Pinecone, React + Vite.
+**Estado:** Producción Activa · **Stack:** Cloudflare Workers + D1 + KV · Mistral AI · Pinecone · React 19 + Vite
 
-Bienvenidos al repositorio central de **CGR.ai**, el ecosistema de jurisprudencia administrativa avanzada diseñado para la Contraloría General de la República. 
-
-Este proyecto revoluciona la búsqueda y acceso a la normativa mediante Ingesta Masiva, Enriquecimiento vía Large Language Models (LLMs) y Búsquedas Semánticas ultra-rápidas gracias a computación en el borde (Edge Computing) y bases de datos vectoriales.
+Ecosistema de búsqueda semántica y enriquecimiento IA de dictámenes de la **Contraloría General de la República de Chile**.
 
 ---
 
-## 📚 Arquitectura Documental (Directorio `docs/`)
+## 📊 Datos de Producción
 
-Hemos consolidado todo el conocimiento, negocio y operación del sistema en los siguientes volúmenes ubicados en la carpeta `docs/`. **El Código de este repositorio se considera la "Fuente de la Verdad" primaria de toda esta documentación.**
- *(Si existe disonancia entre la documentación y el código en ambiente de producción, obedece al código).*
-
-1. **[Negocio y Estrategia](./docs/1_Negocio_y_Estrategia/README.md):** 
-   Propósito del producto, visión gubernamental, por qué usamos IA para el análisis jurídico.
-2. **[Arquitectura y Diseño](./docs/2_Arquitectura_y_Diseno/README.md):** 
-   Diagramas de componentes (C4), flujos de Cloudflare Workers, modelo relacional D1 de 13 tablas y modelo vectorial (Pinecone).
-3. **[Guía de Desarrollo y Onboarding](./docs/3_Guia_de_Desarrollo/README.md):** 
-   Manual para programadores junior/senior. Estructura de repositorios (`frontend`, `cgr-platform`), convenciones de código y comentarios didácticos añadidos en `.tsx` y `.ts`.
-4. **[Operación y Mantenimiento](./docs/4_Operacion_y_Mantenimiento/README.md):** 
-   Runbooks operativos, despliegues mediante `wrangler deploy`, estrategias de tolerancia a fallos y observabilidad.
-5. **[Manual de Usuario](./docs/5_Manual_de_Usuario/README.md):** 
-   Instrucciones finales para el abogado/consultor fiscal. Explicación didáctica sobre los badges de "BÚSQUEDA SEMÁNTICA" y "BÚSQUEDA LITERAL" del frontend.
+| Métrica | Valor |
+|---|---|
+| Dictámenes totales | **11.235** |
+| Vectorizados (búsqueda semántica) | **11.138** (99.1%) |
+| Modelo LLM | Mistral Large 2411 |
+| Embedding | Pinecone Integrated Inference (llama-text-embed-v2) |
+| Actualización | Automática cada 6 horas |
 
 ---
 
-## 🛠 Topología del Repositorio Raíz
+## 📚 Documentación
 
-- `/cgr-platform/`: **(PRODUCCIÓN)** Backend Serverless escrito en TypeScript. Contiene el orquestador (`Hono`), `Cloudflare Workflows` y la lógica de contacto con `Pinecone` y `Mistral AI`.
-- `/frontend/`: **(PRODUCCIÓN)** Aplicación web React/Vite orientada al usuario final, con un diseño institucional y heurísticas de tolerancia a fallos.
-- `/migracion/`: *(HISTÓRICO)* Scripts turbocargados que se utilizaron por única vez para mover la base de datos documental (`@mongoBackup`) hacia la estructura relacional Cloudflare `D1`. 
-- `/borrame/`: *(HISTÓRICO)* Código legacy y bocetos de documentación antigua (*Deprecated*).
-- `/docs/`: Centro documental empresarial y consolidado.
+Toda la documentación está centralizada en [`/docs`](./docs/README.md):
 
-## ✅ Recomendaciones de Mejora Continua
-Para acceder a un listado de oportunidades y refactorizaciones detectadas por nuestro equipo de Agentes Expertos IA, revisa el archivo **[feedback.md](./feedback.md)** en la raíz de este proyecto.
+| # | Documento | Descripción |
+|---|---|---|
+| 1 | [Negocio y Estrategia](./docs/01_negocio_y_estrategia.md) | Visión, propuesta de valor, usuarios |
+| 2 | [Arquitectura](./docs/02_arquitectura.md) | Componentes, esquema D1, Pinecone, AI Gateway |
+| 3 | [Guía de Desarrollo](./docs/03_guia_desarrollo.md) | Onboarding, stack, variables, testing |
+| 4 | [Operación y Mantenimiento](./docs/04_operacion_y_mantenimiento.md) | Endpoints, cron, workflows, troubleshooting |
+| 5 | [Manual de Usuario](./docs/05_manual_usuario.md) | Interfaz, búsqueda, badges |
+| 6 | [Feedback y Roadmap](./docs/06_feedback_y_roadmap.md) | Deudas técnicas, mejoras, roadmap |
+
+---
+
+## 🛠 Estructura del Repositorio
+
+```
+cgr/
+├── cgr-platform/          # Backend — Cloudflare Worker (Hono + TypeScript)
+├── frontend/              # Frontend — React 19 + Vite (Cloudflare Pages)
+├── docs/                  # Documentación centralizada
+├── migracion/             # (Histórico) Scripts de migración MongoDB → D1
+└── borrame/               # (Histórico) Código legacy deprecated
+```
+
+## 🚀 Inicio Rápido
+
+```bash
+# Backend
+cd cgr-platform && npm install && npm run dev
+
+# Frontend (otra terminal)
+cd frontend && npm install && npm run dev
+
+# Deploy
+cd cgr-platform && npx wrangler deploy
+```
+
+Ver [Guía de Desarrollo](./docs/03_guia_desarrollo.md) para instrucciones completas.
