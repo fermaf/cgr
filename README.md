@@ -1,60 +1,99 @@
-# CGR.ai — Plataforma de Jurisprudencia Administrativa Inteligente
+# CGR.ai
 
-**Estado:** Producción Activa · **Stack:** Cloudflare Workers + D1 + KV · Mistral AI · Pinecone · React 19 + Vite
+Plataforma de ingesta, análisis jurídico y búsqueda semántica de dictámenes de la Contraloría General de la República (Chile), ejecutada sobre Cloudflare Workers.
 
-Ecosistema de búsqueda semántica y enriquecimiento IA de dictámenes de la **Contraloría General de la República de Chile**.
+## Qué resuelve
 
----
+CGR.ai transforma documentos administrativos complejos en un repositorio consultable por:
 
-## 📊 Datos de Producción
+- búsqueda literal (SQL)
+- búsqueda semántica (vectorial)
+- ficha enriquecida por IA (resumen, análisis, etiquetas, booleanos jurídicos)
 
-| Métrica | Valor |
-|---|---|
-| Dictámenes totales | **11.235** |
-| Vectorizados (búsqueda semántica) | **11.138** (99.1%) |
-| Modelo LLM | Mistral Large 2411 |
-| Embedding | Pinecone Integrated Inference (llama-text-embed-v2) |
-| Actualización | Automática cada 6 horas |
+## Arquitectura en una vista
 
----
+- Ingesta: API pública de CGR -> Worker -> D1 (`dictamenes`) + KV (`DICTAMENES_SOURCE`)
+- Enriquecimiento: `ingested` -> Mistral -> `enriquecimiento` + tablas relacionales
+- Vectorización: texto enriquecido -> Pinecone -> estado `vectorized`
+- Operación: cron + Workflows + endpoints administrativos
 
-## 📚 Documentación
+## Estructura del monorepo
 
-Toda la documentación está centralizada en [`/docs`](./docs/README.md):
-
-| # | Documento | Descripción |
-|---|---|---|
-| 1 | [Negocio y Estrategia](./docs/01_negocio_y_estrategia.md) | Visión, propuesta de valor, usuarios |
-| 2 | [Arquitectura](./docs/02_arquitectura.md) | Componentes, esquema D1, Pinecone, AI Gateway |
-| 3 | [Guía de Desarrollo](./docs/03_guia_desarrollo.md) | Onboarding, stack, variables, testing |
-| 4 | [Operación y Mantenimiento](./docs/04_operacion_y_mantenimiento.md) | Endpoints, cron, workflows, troubleshooting |
-| 5 | [Manual de Usuario](./docs/05_manual_usuario.md) | Interfaz, búsqueda, badges |
-| 6 | [Feedback y Roadmap](./docs/06_feedback_y_roadmap.md) | Deudas técnicas, mejoras, roadmap |
-
----
-
-## 🛠 Estructura del Repositorio
-
-```
+```txt
 cgr/
-├── cgr-platform/          # Backend — Cloudflare Worker (Hono + TypeScript)
-├── frontend/              # Frontend — React 19 + Vite (Cloudflare Pages)
-├── docs/                  # Documentación centralizada
-├── migracion/             # (Histórico) Scripts de migración MongoDB → D1
-└── borrame/               # (Histórico) Código legacy deprecated
+├── cgr-platform/   # Backend productivo (Cloudflare Worker + Hono)
+├── frontend/       # Frontend (React + Vite + Pages)
+├── docs/           # Documentación técnica y operativa
+├── migracion/      # Scripts históricos de migración
+└── borrame/        # Código legado no productivo
 ```
 
-## 🚀 Inicio Rápido
+## Estado actual (24-feb-2026)
+
+- Workflows estabilizados frente a errores RPC por captura de `this` en `step.do`
+- Logging estructurado con `LOG_LEVEL` (`debug|info|warn|error`)
+- Ingesta tolerante a diferencias de esquema D1 para catálogos de abogados/descriptores
+- Operación recomendada: toda validación de D1 con `wrangler d1 execute ... --remote`
+
+## Inicio rápido
+
+### Backend
 
 ```bash
-# Backend
-cd cgr-platform && npm install && npm run dev
-
-# Frontend (otra terminal)
-cd frontend && npm install && npm run dev
-
-# Deploy
-cd cgr-platform && npx wrangler deploy
+cd cgr-platform
+npm install
+npm run dev
 ```
 
-Ver [Guía de Desarrollo](./docs/03_guia_desarrollo.md) para instrucciones completas.
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### Deploy backend
+
+```bash
+cd cgr-platform
+npx wrangler deploy
+```
+
+## Operación esencial
+
+### Crawl manual por rango de fechas
+
+```bash
+curl -X POST "https://cgr-platform.abogado.workers.dev/api/v1/dictamenes/crawl/range" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "date_start": "2025-06-01",
+    "date_end": "2025-10-27",
+    "limit": 50000
+  }'
+```
+
+### Lanzar batch de enriquecimiento
+
+```bash
+curl -X POST "https://cgr-platform.abogado.workers.dev/api/v1/dictamenes/batch-enrich" \
+  -H "Content-Type: application/json" \
+  -d '{"batchSize": 50, "delayMs": 1000}'
+```
+
+### Ver backlog real en producción
+
+```bash
+cd cgr-platform
+wrangler d1 execute cgr-dictamenes --remote --command "SELECT estado, COUNT(*) c FROM dictamenes GROUP BY estado ORDER BY c DESC;"
+```
+
+## Documentación
+
+Punto de entrada: [docs/README.md](./docs/README.md)
+
+- Arquitectura: [docs/02_arquitectura.md](./docs/02_arquitectura.md)
+- Desarrollo: [docs/03_guia_desarrollo.md](./docs/03_guia_desarrollo.md)
+- Operación: [docs/04_operacion_y_mantenimiento.md](./docs/04_operacion_y_mantenimiento.md)
+- Briefing agente experto: [docs/99_briefing_agente_experto.md](./docs/99_briefing_agente_experto.md)

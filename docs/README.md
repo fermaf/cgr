@@ -1,56 +1,43 @@
 # Documentación CGR.ai
 
-Centro documental del ecosistema **CGR.ai** — plataforma de jurisprudencia administrativa inteligente para la Contraloría General de la República de Chile.
+Esta carpeta concentra la documentación funcional, técnica y operativa del sistema.
 
-> [!NOTE]
-> **El código de producción (`cgr-platform/src` y `frontend/src`) es la fuente de verdad primaria.** Si existe discrepancia entre esta documentación y el código, obedezca al código.
+## Cómo usar esta documentación
 
----
+Ruta recomendada para nuevos integrantes:
+
+1. Leer [01_negocio_y_estrategia.md](./01_negocio_y_estrategia.md)
+2. Entender [02_arquitectura.md](./02_arquitectura.md)
+3. Preparar entorno con [03_guia_desarrollo.md](./03_guia_desarrollo.md)
+4. Operar producción con [04_operacion_y_mantenimiento.md](./04_operacion_y_mantenimiento.md)
 
 ## Índice
 
-| # | Documento | Descripción |
+| # | Documento | Propósito |
 |---|---|---|
-| 1 | [Negocio y Estrategia](./01_negocio_y_estrategia.md) | Visión del producto, propuesta de valor y usuarios target |
-| 2 | [Arquitectura](./02_arquitectura.md) | Diagrama de componentes, esquema D1, Pinecone, AI Gateway, flujos de datos |
-| 3 | [Guía de Desarrollo](./03_guia_desarrollo.md) | Onboarding, estructura de código, stack, desarrollo local y testing |
-| 4 | [Operación y Mantenimiento](./04_operacion_y_mantenimiento.md) | Endpoints, cron, workflows, deploy, secrets, troubleshooting |
-| 5 | [Manual de Usuario](./05_manual_usuario.md) | Interfaz frontend, búsqueda semántica, badges, vista de detalle |
-| 6 | [Feedback y Roadmap](./06_feedback_y_roadmap.md) | Deudas técnicas, mejoras propuestas y roadmap |
+| 01 | [Negocio y Estrategia](./01_negocio_y_estrategia.md) | Contexto del producto y valor público |
+| 02 | [Arquitectura](./02_arquitectura.md) | Diseño técnico y flujos de datos |
+| 03 | [Guía de Desarrollo](./03_guia_desarrollo.md) | Onboarding, entorno local, estándares |
+| 04 | [Operación y Mantenimiento](./04_operacion_y_mantenimiento.md) | Runbooks, endpoints, troubleshooting real |
+| 05 | [Manual de Usuario](./05_manual_usuario.md) | Uso funcional del frontend |
+| 06 | [Feedback y Roadmap](./06_feedback_y_roadmap.md) | Deuda técnica y evolución |
+| 07 | [Auditoría de llaves KV](./07_auditoria_llaves_kv.md) | Historial de saneamiento de claves |
+| 08 | [Ingeniería inversa API CGR](./08_ingenieria_inversa_api_cgr.md) | Detalles de integración con CGR |
+| 09 | [Guía avanzada API CGR](./09_guia_uso_avanzado_api_CGR.md) | Filtros y consultas avanzadas |
+| 11 | [ToDo Frontend](./11_ToDo_servicio_frontend.md) | Plan de evolución UI/UX |
+| 99 | [Briefing Agente Experto](./99_briefing_agente_experto.md) | Contexto operativo para agentes LLM |
 
----
+## Convenciones de verdad
 
-## Topología del Repositorio
+- Fuente primaria de comportamiento: `cgr-platform/src` y `frontend/src`.
+- Fuente primaria de estado productivo: comandos `wrangler ... --remote`.
+- Si hay discrepancia entre documento y código, prevalece el código.
+- Si hay discrepancia entre documento y producción, prevalece producción.
 
-```
-cgr/
-├── cgr-platform/          # Backend — Cloudflare Worker (TypeScript/Hono)
-│   ├── src/
-│   │   ├── index.ts        # API REST (endpoints)
-│   │   ├── types.ts        # Tipos e interfaces
-│   │   ├── clients/        # Mistral AI, Pinecone, CGR scraper
-│   │   ├── storage/        # D1, KV
-│   │   ├── workflows/      # IngestWorkflow, BackfillWorkflow
-│   │   └── lib/            # Utilidades (ingesta, hashing)
-│   └── wrangler.jsonc      # Configuración Cloudflare
-├── frontend/              # Frontend — React 19 + Vite (Cloudflare Pages)
-│   ├── src/
-│   │   ├── pages/          # Vistas principales
-│   │   ├── components/     # Componentes reutilizables
-│   │   └── types.ts        # Contratos de API
-│   └── functions/          # Cloudflare Pages Functions (proxy API)
-├── docs/                  # ← Estás aquí
-├── migracion/             # (HISTÓRICO) Scripts de migración MongoDB → D1
-└── borrame/               # (HISTÓRICO) Código legacy deprecated
-```
+## Actualizaciones mínimas exigidas
 
-## Datos de Producción (Febrero 2026)
+Cada cambio relevante en backend debe reflejarse en:
 
-| Métrica | Valor |
-|---|---|
-| Dictámenes totales | **11.235** |
-| Vectorizados (búsqueda semántica) | **11.138** |
-| Pendientes de enriquecimiento | **94** |
-| Modelo LLM | Mistral Large 2411 |
-| Base vectorial | Pinecone (llama-text-embed-v2) |
-| Namespace | `mistralLarge2411` |
+- este índice (si agrega o retira documentos)
+- [03_guia_desarrollo.md](./03_guia_desarrollo.md) (si cambia forma de desarrollar)
+- [04_operacion_y_mantenimiento.md](./04_operacion_y_mantenimiento.md) (si cambia forma de operar)

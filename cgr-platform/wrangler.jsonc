@@ -20,12 +20,21 @@
       "name": "backfill-workflow",
       "binding": "BACKFILL_WORKFLOW",
       "class_name": "BackfillWorkflow"
+    },
+    {
+      "name": "kv-sync-workflow",
+      "binding": "KV_SYNC_WORKFLOW",
+      "class_name": "KVSyncWorkflow"
     }
   ],
   "kv_namespaces": [
     {
       "binding": "DICTAMENES_SOURCE",
       "id": "ac84374936a84e578928929243687a0b"
+    },
+    {
+      "binding": "DICTAMENES_PASO",
+      "id": "4673b680cd704508a4fbc87789acb153"
     }
   ],
   "d1_databases": [
@@ -42,13 +51,14 @@
     "MISTRAL_MODEL": "mistral-large-2411",
     "PINECONE_INDEX_HOST": "https://cgr-8aea039.svc.aped-4627-b74a.pinecone.io",
     "PINECONE_NAMESPACE": "mistralLarge2411",
-    "CRAWL_DAYS_LOOKBACK": "3",
+    "LOG_LEVEL": "debug",
+    "CRAWL_DAYS_LOOKBACK": "120",
     "BACKFILL_BATCH_SIZE": "50",
     "BACKFILL_DELAY_MS": "500"
   },
-  "triggers": {
-    "crons": [
-      "0 */6 * * *"
-    ]
-  }
+   "triggers": {
+     "crons": [
+       "05 * * * *"
+     ]
+   }
 }

@@ -1,8 +1,10 @@
 // Cliente Mistral: genera analisis y parsea fuentes legales.
 import OpenAI from 'openai';
 import type { Env, DictamenRaw, DictamenSource } from '../types';
+import { logError, setLogLevel } from '../lib/log';
 
 function getMistralClient(env: Env) {
+  setLogLevel(env.LOG_LEVEL);
   const headers: Record<string, string> = {};
 
   if (env.CF_AIG_AUTHORIZATION) {
@@ -199,7 +201,7 @@ async function analyzeDictamen(env: Env, raw: DictamenRaw) {
       fuentes_legales: fuentes ?? []
     };
   } catch (error: any) {
-    console.error("Mistral analyzeDictamen error:", error?.status, error?.message || error);
+    logError('MISTRAL_ANALYZE_DICTAMEN_ERROR', error, { model: env.MISTRAL_MODEL });
     return null;
   }
 }
@@ -223,7 +225,7 @@ async function analyzeFuentesLegales(env: Env, raw: DictamenRaw) {
     const parsed = JSON.parse(jsonPayload as string);
     return normalizeFuentesLegales(parsed) ?? [];
   } catch (error) {
-    console.error("Mistral analyzeFuentesLegales error:", error);
+    logError('MISTRAL_FUENTES_ERROR', error, { model: env.MISTRAL_MODEL });
     return null;
   }
 }
@@ -254,7 +256,7 @@ async function expandQuery(env: Env, query: string): Promise<string> {
     const content = typeof contentRaw === 'string' ? contentRaw : undefined;
     return content?.trim() || query;
   } catch (error) {
-    console.error("Mistral expandQuery error:", error);
+    logError('MISTRAL_EXPAND_QUERY_ERROR', error, { model: "mistral-small-latest" });
     return query;
   }
 }
@@ -299,7 +301,7 @@ async function rerankResults(env: Env, query: string, results: any[]): Promise<a
         .filter(r => r !== undefined);
     }
   } catch (e) {
-    console.error("Mistral rerankResults error:", e);
+    logError('MISTRAL_RERANK_ERROR', e, { model: "mistral-small-latest" });
   }
 
   return results;
@@ -320,7 +322,7 @@ async function generateEmbedding(env: Env, input: string): Promise<number[]> {
     }
     throw new Error("Invalid embedding response");
   } catch (error) {
-    console.error("Mistral generateEmbedding error:", error);
+    logError('MISTRAL_EMBEDDING_ERROR', error, { model: "mistral-embed" });
     throw error;
   }
 }

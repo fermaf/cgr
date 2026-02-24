@@ -76,7 +76,6 @@ export interface EnrichmentRow {
   fuentes_legales_json: string | null;
   modelo_llm: string | null;
   fecha_enriquecimiento: string | null;
-  procesado: number | null;
 }
 
 // Fila de la tabla historial_cambios.
@@ -90,23 +89,17 @@ export interface HistorialCambiosRow {
   fecha_cambio: string;
 }
 
-// Fila de la tabla registro_ejecucion (ex run_log).
-export interface RegistroEjecucionRow {
-  id: string;
-  tipo: string;
-  estado: string;
-  detalle_json: string | null;
-  inicio: string;
-  fin: string | null;
-}
+
 
 // Bindings y variables de entorno del Worker.
 export interface Env {
   // Bindings
   WORKFLOW: Workflow;
   BACKFILL_WORKFLOW: Workflow;
+  KV_SYNC_WORKFLOW: Workflow;
   DB: D1Database;
   DICTAMENES_SOURCE: KVNamespace;
+  DICTAMENES_PASO: KVNamespace;
 
   // Vars
   APP_TIMEZONE: string;
@@ -123,6 +116,7 @@ export interface Env {
   CRAWL_DAYS_LOOKBACK?: string;
   BACKFILL_BATCH_SIZE?: string;
   BACKFILL_DELAY_MS?: string;
+  LOG_LEVEL?: string;
 
   // Secrets
   PINECONE_API_KEY: string;

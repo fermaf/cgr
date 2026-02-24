@@ -1,0 +1,35 @@
+# Event Catalog
+
+## HTTP
+
+- `HTTP`: method/path/status/duration
+- `HTTP_ERROR`: uncaught request pipeline errors
+
+## Ingest
+
+- `INGEST_RUN_START`
+- `INGEST_PAGE_START` (debug)
+- `INGEST_PAGE_DONE` (debug)
+- `INGEST_PAGE_ERROR`
+- `INGEST_RUN_DONE`
+- `INGEST_RUN_ERROR`
+
+## Backfill
+
+- `BACKFILL_RUN_START`
+- `BACKFILL_RUN_DONE`
+- `BACKFILL_RUN_ERROR`
+
+## KV Sync
+
+- `KVSYNC_RUN_START`
+- `KVSYNC_RUN_DONE`
+- `KVSYNC_RUN_ERROR`
+
+## Mistral
+
+- `MISTRAL_ANALYZE_DICTAMEN_ERROR`
+- `MISTRAL_FUENTES_ERROR`
+- `MISTRAL_EXPAND_QUERY_ERROR`
+- `MISTRAL_RERANK_ERROR`
+- `MISTRAL_EMBEDDING_ERROR`

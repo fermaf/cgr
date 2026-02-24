@@ -1,16 +1,73 @@
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 import { queryRecords } from './clients/pinecone';
 import { getLatestEnrichment, getLatestRawRef, updateDictamenStatus, insertEnrichment, insertDictamenBooleanosLLM, insertDictamenEtiquetaLLM, insertDictamenFuenteLegal } from './storage/d1';
 import type { Env, DictamenRaw } from './types';
 import { IngestWorkflow } from './workflows/ingestWorkflow';
 import { BackfillWorkflow } from './workflows/backfillWorkflow';
+import { KVSyncWorkflow } from './workflows/kvSyncWorkflow';
 import { analyzeDictamen } from './clients/mistral';
 import { upsertRecord } from './clients/pinecone';
+import { fetchDictamenesSearchPage } from './clients/cgr';
+import { extractDictamenId } from './lib/ingest';
+import { logInfo, logError, setLogLevel } from './lib/log';
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
+function isIsoDateYmd(value: unknown): value is string {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function parsePositiveInt(value: unknown, fallback: number, min = 1, max = Number.MAX_SAFE_INTEGER): number {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
+}
+
+async function readJsonBody(c: Context<{ Bindings: Env }>): Promise<Record<string, unknown>> {
+  const body = await c.req.json().catch(() => ({}));
+  return (body && typeof body === 'object') ? body : {};
+}
 
 // Exportamos las clases Workflow para que Cloudflare pueda asociarlas (bind)
-export { IngestWorkflow, BackfillWorkflow };
+export {
+  IngestWorkflow,
+  BackfillWorkflow,
+  KVSyncWorkflow
+};
 
 const app = new Hono<{ Bindings: Env }>();
+
+app.use('*', async (c, next) => {
+  setLogLevel(c.env.LOG_LEVEL);
+  const startedAt = Date.now();
+  const reqId = c.req.header('cf-ray') || crypto.randomUUID();
+  try {
+    await next();
+    logInfo('HTTP', {
+      reqId,
+      method: c.req.method,
+      path: c.req.path,
+      status: c.res.status,
+      durationMs: Date.now() - startedAt
+    });
+  } catch (error) {
+    logError('HTTP_ERROR', error, {
+      reqId,
+      method: c.req.method,
+      path: c.req.path,
+      durationMs: Date.now() - startedAt
+    });
+    throw error;
+  }
+});
 
 app.get('/', (c) => c.text('CGR Platform API'));
 
@@ -30,7 +87,7 @@ app.get('/api/v1/stats', async (c) => {
       by_year: (byYearRes.results ?? []).map(r => ({ anio: r.anio, count: r.count }))
     });
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return c.json({ error: errorMessage(e) }, 500);
   }
 });
 
@@ -60,7 +117,6 @@ app.get('/api/v1/dictamenes', async (c) => {
           fecha_documento: m.metadata?.fecha || '',
           materia: m.metadata?.titulo || m.metadata?.materia || 'Materia Reservada o Sin título',
           resumen: m.metadata?.analisis || m.metadata?.resumen || '',
-          es_enriquecido: 1,
           origen_busqueda: 'vectorial'
         }));
 
@@ -108,7 +164,6 @@ app.get('/api/v1/dictamenes', async (c) => {
         fecha_documento: r.fecha_documento || '',
         materia: r.materia || 'Sin materia especificada',
         resumen: '',
-        es_enriquecido: (r.estado === 'vectorized' || r.estado === 'enriched') ? 1 : 0,
         origen_busqueda: 'literal'
       }));
     }
@@ -118,7 +173,7 @@ app.get('/api/v1/dictamenes', async (c) => {
       meta: { page, limit, total: totalToReturn, totalPages: Math.ceil(totalToReturn / limit) }
     });
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return c.json({ error: errorMessage(e) }, 500);
   }
 });
 
@@ -135,7 +190,11 @@ app.get('/api/v1/dictamenes/:id', async (c) => {
     const rawRef = await getLatestRawRef(db, id);
     let raw = {};
     if (rawRef) {
-      raw = await c.env.DICTAMENES_SOURCE.get(rawRef.raw_key, 'json').catch(() => null) || {};
+      let rawJson = await c.env.DICTAMENES_SOURCE.get(rawRef.raw_key, 'json').catch(() => null);
+      if (!rawJson && !rawRef.raw_key.startsWith('dictamen:')) {
+        rawJson = await c.env.DICTAMENES_SOURCE.get(`dictamen:${id}`, 'json').catch(() => null);
+      }
+      raw = rawJson || {};
     }
 
     return c.json({
@@ -145,7 +204,6 @@ app.get('/api/v1/dictamenes/:id', async (c) => {
         anio: doc.anio || (doc.fecha_documento ? parseInt(doc.fecha_documento.split('-')[0], 10) : null),
         fecha_documento: doc.fecha_documento || '',
         materia: doc.materia || 'Sin materia',
-        es_enriquecido: (doc.estado === 'enriched' || doc.estado === 'vectorized') ? 1 : 0,
         estado: doc.estado,
         division_nombre: 'Contraloría General de la República',
       },
@@ -159,7 +217,7 @@ app.get('/api/v1/dictamenes/:id', async (c) => {
       } : null
     });
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return c.json({ error: errorMessage(e) }, 500);
   }
 });
 
@@ -172,30 +230,41 @@ app.get('/search', async (c) => {
     const results = await queryRecords(c.env, query, limit);
     return c.json(results);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return c.json({ error: errorMessage(e) }, 500);
   }
 });
 
 // --- ENDPOINTS ADMINISTRATIVOS ---
 
 app.post('/api/v1/dictamenes/crawl/range', async (c) => {
-  const body = await c.req.json().catch(() => ({}));
-  if (!body.date_start || !body.date_end) return c.json({ error: 'Missing date_start or date_end' }, 400);
+  const body = await readJsonBody(c);
+  const dateStart = body.date_start;
+  const dateEnd = body.date_end;
+  if (!isIsoDateYmd(dateStart) || !isIsoDateYmd(dateEnd)) {
+    return c.json({ error: 'date_start and date_end must use YYYY-MM-DD format' }, 400);
+  }
+  if (dateStart > dateEnd) {
+    return c.json({ error: 'date_start must be <= date_end' }, 400);
+  }
+  const limit = parsePositiveInt(body.limit, 50000, 1, 100000);
   const instance = await c.env.WORKFLOW.create({
-    params: { dateStart: body.date_start, dateEnd: body.date_end, limit: body.limit || 50000 }
+    params: { dateStart, dateEnd, limit }
   });
-  return c.json({ success: true, workflowId: instance.id });
+  logInfo('INGEST_WORKFLOW_CREATED', { workflowId: instance.id, dateStart, dateEnd, limit });
+  return c.json({ success: true, workflowId: instance.id, params: { dateStart, dateEnd, limit } });
 });
 
 app.post('/api/v1/dictamenes/batch-enrich', async (c) => {
-  const body = await c.req.json().catch(() => ({}));
+  const body = await readJsonBody(c);
+  const defaultBatch = parsePositiveInt(c.env.BACKFILL_BATCH_SIZE, 50, 1, 500);
+  const defaultDelay = parsePositiveInt(c.env.BACKFILL_DELAY_MS, 500, 0, 60000);
+  const batchSize = parsePositiveInt(body.batchSize, defaultBatch, 1, 500);
+  const delayMs = parsePositiveInt(body.delayMs, defaultDelay, 0, 60000);
   const instance = await c.env.BACKFILL_WORKFLOW.create({
-    params: {
-      batchSize: body.batchSize || parseInt(c.env.BACKFILL_BATCH_SIZE || '50', 10),
-      delayMs: body.delayMs || parseInt(c.env.BACKFILL_DELAY_MS || '500', 10)
-    }
+    params: { batchSize, delayMs }
   });
-  return c.json({ success: true, workflowId: instance.id });
+  logInfo('BACKFILL_WORKFLOW_CREATED', { workflowId: instance.id, batchSize, delayMs });
+  return c.json({ success: true, workflowId: instance.id, params: { batchSize, delayMs } });
 });
 
 app.post('/api/v1/dictamenes/:id/sync-vector', async (c) => {
@@ -216,7 +285,12 @@ app.post('/api/v1/dictamenes/:id/sync-vector', async (c) => {
   try {
     const rawRef = await getLatestRawRef(db, id);
     let rawJson: any = {};
-    if (rawRef) rawJson = await c.env.DICTAMENES_SOURCE.get(rawRef.raw_key, 'json');
+    if (rawRef) {
+      rawJson = await c.env.DICTAMENES_SOURCE.get(rawRef.raw_key, 'json');
+      if (!rawJson && !rawRef.raw_key.startsWith('dictamen:')) {
+        rawJson = await c.env.DICTAMENES_SOURCE.get(`dictamen:${id}`, 'json').catch(() => null);
+      }
+    }
     const sourceContent = rawJson?._source ?? rawJson?.source ?? rawJson?.raw_data ?? rawJson;
 
     await upsertRecord(c.env, {
@@ -231,7 +305,7 @@ app.post('/api/v1/dictamenes/:id/sync-vector', async (c) => {
     await db.prepare("UPDATE dictamenes SET estado = 'vectorized', updated_at = ? WHERE id = ?").bind(new Date().toISOString(), id).run();
     return c.json({ success: true, message: 'Vector sync done.' });
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return c.json({ error: errorMessage(e) }, 500);
   }
 });
 
@@ -242,7 +316,10 @@ app.post('/api/v1/dictamenes/:id/re-process', async (c) => {
   const rawRef = await getLatestRawRef(db, id);
   if (!rawRef) return c.json({ error: 'No se encontró referencia KV para este dictamen' }, 404);
 
-  let rawJson = await c.env.DICTAMENES_SOURCE.get(rawRef.raw_key, 'json') as DictamenRaw;
+  let rawJson = await c.env.DICTAMENES_SOURCE.get(rawRef.raw_key, 'json') as DictamenRaw | null;
+  if (!rawJson && !rawRef.raw_key.startsWith('dictamen:')) {
+    rawJson = await c.env.DICTAMENES_SOURCE.get(`dictamen:${id}`, 'json') as DictamenRaw | null;
+  }
   if (!rawJson) return c.json({ error: 'No se encontró JSON en KV' }, 404);
 
   try {
@@ -292,29 +369,77 @@ app.post('/api/v1/dictamenes/:id/re-process', async (c) => {
     await updateDictamenStatus(db, id, 'vectorized');
     return c.json({ success: true, message: 'Reproceso integral completado con éxito' });
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return c.json({ error: errorMessage(e) }, 500);
   }
 });
 
 // --- TRIGGER MANUAL ---
 app.post('/ingest/trigger', async (c) => {
   try {
-    const body = await c.req.json().catch(() => ({}));
+    const body = await readJsonBody(c);
+    const limit = parsePositiveInt(body.limit, 10, 1, 100000);
     const instance = await c.env.WORKFLOW.create({
-      params: { search: body.search, limit: body.limit || 10, options: body.options }
+      params: { search: body.search, limit, options: body.options }
     });
-    return c.json({ success: true, workflowId: instance.id });
+    logInfo('INGEST_TRIGGER_CREATED', { workflowId: instance.id, limit });
+    return c.json({ success: true, workflowId: instance.id, params: { search: body.search ?? '', limit } });
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+app.post('/api/v1/trigger/kv-sync', async (c) => {
+  const params = await readJsonBody(c);
+  if (c.env.KV_SYNC_WORKFLOW) {
+    const defaultParams = {
+      limit: parsePositiveInt(params.limit, 100, 1, 5000),
+      delayMs: parsePositiveInt(params.delayMs, 100, 0, 60000)
+    };
+    const instance = await c.env.KV_SYNC_WORKFLOW.create({ params: defaultParams });
+    logInfo('KVSYNC_WORKFLOW_CREATED', { workflowId: instance.id, ...defaultParams });
+    return c.json({ status: 'started', instanceId: instance.id, message: 'Workflow de KVSync iniciado', params: defaultParams });
+  } else {
+    // Si no está registrado en el env
+    return c.json({ error: 'Binding KV_SYNC_WORKFLOW no disponible en ambiente.' }, 500);
+  }
+});
+
+app.post('/api/v1/debug/cgr', async (c) => {
+  const body = await readJsonBody(c);
+  const lookback = parsePositiveInt(body.lookback, 1, 1, 3650);
+  const end = new Date();
+  const start = new Date(end.getTime() - lookback * 24 * 60 * 60 * 1000);
+  const options = [{
+    type: 'date',
+    field: 'fecha_documento',
+    value: {
+      gt: `${start.toISOString().split('T')[0]}T04:00:00.000Z`,
+      lt: `${end.toISOString().split('T')[0]}T23:59:59.000Z`
+    },
+    inner_id: 'av0',
+    dir: 'gt'
+  }];
+  try {
+    const res = await fetchDictamenesSearchPage(c.env.CGR_BASE_URL, 0, options);
+    return c.json({ success: true, count: res.items.length, first: res.items[0] ? extractDictamenId(res.items[0]) : null });
+  } catch (e: any) {
+    return c.json({ success: false, error: errorMessage(e) }, 500);
   }
 });
 
 export default {
   fetch: app.fetch,
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    const lookback = parseInt(env.CRAWL_DAYS_LOOKBACK || '3', 10);
-    await env.WORKFLOW.create({
-      params: { lookbackDays: lookback }
-    });
+    try {
+      setLogLevel(env.LOG_LEVEL);
+      const lookback = parsePositiveInt(env.CRAWL_DAYS_LOOKBACK, 3, 1, 3650);
+      const instance = await env.WORKFLOW.create({
+        params: { lookbackDays: lookback }
+      });
+      logInfo('CRON_INGEST_WORKFLOW_CREATED', { workflowId: instance.id, lookbackDays: lookback });
+    } catch (error) {
+      logError('CRON_INGEST_WORKFLOW_ERROR', error);
+      throw error;
+    }
   }
 };

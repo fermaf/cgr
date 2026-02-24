@@ -87,13 +87,22 @@ async function fetchDictamenesSearchPage(
     headers: {
       "Content-Type": "application/json",
       "User-Agent": CGR_USER_AGENT,
+      "Origin": "https://www.contraloria.cl",
+      "Referer": "https://www.contraloria.cl/web/cgr/buscador",
       ...sessionCookie ? { Cookie: sessionCookie } : {}
     },
     body
   });
   if (!response.ok) {
-    await response.text().catch(() => "");
-    throw new Error(`CGR fetch failed: ${response.status}`);
+    const text = await response.text().catch(() => "");
+    const snippet = text.slice(0, 240).replace(/\s+/g, " ");
+    throw new Error(`CGR fetch failed: ${response.status} body="${snippet}"`);
+  }
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    const text = await response.text().catch(() => "");
+    const snippet = text.slice(0, 240).replace(/\s+/g, " ");
+    throw new Error(`CGR fetch non-json response: content-type="${contentType}" body="${snippet}"`);
   }
   const data = await response.json() as any;
   const items = data.hits?.hits ?? [];
