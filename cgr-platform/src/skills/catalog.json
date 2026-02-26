@@ -1,0 +1,26 @@
+{
+  "version": "1.0",
+  "skills": [
+    {
+      "name": "cgr_network_baseurl_verify",
+      "mode": "diagnostic_only",
+      "description": "Verifica resolucion DNS y conectividad basica con CGR_BASE_URL.",
+      "owner": "platform",
+      "version": "1.0"
+    },
+    {
+      "name": "d1_remote_schema_verify",
+      "mode": "diagnostic_only",
+      "description": "Valida que el esquema D1 esperado exista y sea consistente.",
+      "owner": "platform",
+      "version": "1.0"
+    },
+    {
+      "name": "mistral_timeout_triage",
+      "mode": "diagnostic_only",
+      "description": "Diagnostica timeouts del gateway AI y recomienda backoff.",
+      "owner": "ai",
+      "version": "1.0"
+    }
+  ]
+}
