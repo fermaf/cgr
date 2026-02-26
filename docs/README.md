@@ -1,43 +1,67 @@
 # Documentación CGR.ai
 
-Esta carpeta concentra la documentación funcional, técnica y operativa del sistema.
+Este directorio separa documentación vigente, especializada de Skillgen y material histórico.
 
-## Cómo usar esta documentación
+Fecha de actualización: 2026-02-26.
 
-Ruta recomendada para nuevos integrantes:
+## Estructura
 
-1. Leer [01_negocio_y_estrategia.md](./01_negocio_y_estrategia.md)
-2. Entender [02_arquitectura.md](./02_arquitectura.md)
-3. Preparar entorno con [03_guia_desarrollo.md](./03_guia_desarrollo.md)
-4. Operar producción con [04_operacion_y_mantenimiento.md](./04_operacion_y_mantenimiento.md)
+- `docs/` (raíz): documentos vigentes transversales
+- `docs/skillgen/`: documentación vigente específica de Skillgen
+- `docs/historico/`: insumos históricos y borradores conservados
 
-## Índice
+## Ruta recomendada para nuevos integrantes
 
-| # | Documento | Propósito |
-|---|---|---|
-| 01 | [Negocio y Estrategia](./01_negocio_y_estrategia.md) | Contexto del producto y valor público |
-| 02 | [Arquitectura](./02_arquitectura.md) | Diseño técnico y flujos de datos |
-| 03 | [Guía de Desarrollo](./03_guia_desarrollo.md) | Onboarding, entorno local, estándares |
-| 04 | [Operación y Mantenimiento](./04_operacion_y_mantenimiento.md) | Runbooks, endpoints, troubleshooting real |
-| 05 | [Manual de Usuario](./05_manual_usuario.md) | Uso funcional del frontend |
-| 06 | [Feedback y Roadmap](./06_feedback_y_roadmap.md) | Deuda técnica y evolución |
-| 07 | [Auditoría de llaves KV](./07_auditoria_llaves_kv.md) | Historial de saneamiento de claves |
-| 08 | [Ingeniería inversa API CGR](./08_ingenieria_inversa_api_cgr.md) | Detalles de integración con CGR |
-| 09 | [Guía avanzada API CGR](./09_guia_uso_avanzado_api_CGR.md) | Filtros y consultas avanzadas |
-| 11 | [ToDo Frontend](./11_ToDo_servicio_frontend.md) | Plan de evolución UI/UX |
-| 99 | [Briefing Agente Experto](./99_briefing_agente_experto.md) | Contexto operativo para agentes LLM |
+1. `docs/01_negocio_y_estrategia.md`
+2. `docs/02_arquitectura.md`
+3. `docs/03_guia_desarrollo.md`
+4. `docs/04_operacion_y_mantenimiento.md`
+5. `docs/27 Skillgen Blueprint cgr.md`
+6. `docs/skillgen/README.md`
 
-## Convenciones de verdad
+## Índice vigente (general)
 
-- Fuente primaria de comportamiento: `cgr-platform/src` y `frontend/src`.
-- Fuente primaria de estado productivo: comandos `wrangler ... --remote`.
-- Si hay discrepancia entre documento y código, prevalece el código.
-- Si hay discrepancia entre documento y producción, prevalece producción.
+- `docs/01_negocio_y_estrategia.md`
+- `docs/02_arquitectura.md`
+- `docs/03_guia_desarrollo.md`
+- `docs/04_operacion_y_mantenimiento.md`
+- `docs/05_manual_usuario.md`
+- `docs/06_feedback_y_roadmap.md`
+- `docs/07_auditoria_llaves_kv.md`
+- `docs/08_ingenieria_inversa_api_cgr.md`
+- `docs/09_guia_uso_avanzado_api_CGR.md`
+- `docs/11_ToDo_servicio_frontend.md`
+- `docs/27 Skillgen Blueprint cgr.md`
 
-## Actualizaciones mínimas exigidas
+## Índice vigente (Skillgen)
 
-Cada cambio relevante en backend debe reflejarse en:
+- `docs/skillgen/README.md`
+- `docs/skillgen/10_paradigma_a_proyecto_aislado.md`
+- `docs/skillgen/20_paradigma_b_caso_uso_dictamenes_ai.md`
+- `docs/skillgen/30_tres_paradigmas_adicionales.md`
+- `docs/skillgen/40_plan_paso_produccion_y_commit.md`
+- `docs/skillgen/50_etapa2_iteracion1.md`
+- `docs/skillgen/60_higiene_documental_y_sandbox.md`
 
-- este índice (si agrega o retira documentos)
-- [03_guia_desarrollo.md](./03_guia_desarrollo.md) (si cambia forma de desarrollar)
-- [04_operacion_y_mantenimiento.md](./04_operacion_y_mantenimiento.md) (si cambia forma de operar)
+## Histórico (no operativo)
+
+- `docs/historico/etapa1_insumos_ai/31 finalStepStage01Qwen.md`
+- `docs/historico/etapa1_insumos_ai/32 finalStepStage01DeepSeek.md`
+- `docs/historico/etapa1_insumos_ai/33 finalStepStage01Grok.md`
+- `docs/historico/etapa1_insumos_ai/41 promptQwen2Codex.md`
+- `docs/historico/etapa1_insumos_ai/42 promptDeepSeek2Codex.md`
+- `docs/historico/etapa1_insumos_ai/43 promptGrokCodex.md`
+- `docs/historico/etapa1_insumos_ai/99_briefing_agente_experto.md`
+
+## Reglas de verdad
+
+- Fuente primaria del comportamiento: `cgr-platform/src` y `frontend/src`.
+- Si hay discrepancia entre docs y código, prevalece el código.
+- Si hay discrepancia entre código y producción, prevalece producción.
+
+## Regla de mantenimiento documental
+
+- Todo cambio de arquitectura o runbook debe actualizar al menos:
+  - `docs/03_guia_desarrollo.md`
+  - `docs/04_operacion_y_mantenimiento.md`
+  - `docs/27 Skillgen Blueprint cgr.md`
