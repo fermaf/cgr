@@ -117,7 +117,8 @@ app.get('/api/v1/dictamenes', async (c) => {
           fecha_documento: m.metadata?.fecha || '',
           materia: m.metadata?.titulo || m.metadata?.materia || 'Materia Reservada o Sin título',
           resumen: m.metadata?.analisis || m.metadata?.resumen || '',
-          origen_busqueda: 'vectorial'
+          origen_busqueda: 'vectorial',
+          estado: 'vectorized'
         }));
 
         if (data.length > 0) {
@@ -164,7 +165,8 @@ app.get('/api/v1/dictamenes', async (c) => {
         fecha_documento: r.fecha_documento || '',
         materia: r.materia || 'Sin materia especificada',
         resumen: '',
-        origen_busqueda: 'literal'
+        origen_busqueda: 'literal',
+        estado: r.estado || null
       }));
     }
 
@@ -375,6 +377,12 @@ app.post('/api/v1/dictamenes/:id/re-process', async (c) => {
 
 // --- TRIGGER MANUAL ---
 app.post('/ingest/trigger', async (c) => {
+  if (c.env.ENVIRONMENT === 'prod') {
+    const token = c.req.header('x-admin-token');
+    if (!token || token !== c.env.INGEST_TRIGGER_TOKEN) {
+      return c.json({ error: 'Unauthorized' }, 403);
+    }
+  }
   try {
     const body = await readJsonBody(c);
     const limit = parsePositiveInt(body.limit, 10, 1, 100000);
@@ -420,7 +428,7 @@ app.post('/api/v1/debug/cgr', async (c) => {
     dir: 'gt'
   }];
   try {
-    const res = await fetchDictamenesSearchPage(c.env.CGR_BASE_URL, 0, options);
+    const res = await fetchDictamenesSearchPage(c.env.CGR_BASE_URL, 0, options, undefined, '', c.env.CGR_API_TOKEN);
     return c.json({ success: true, count: res.items.length, first: res.items[0] ? extractDictamenId(res.items[0]) : null });
   } catch (e: any) {
     return c.json({ success: false, error: errorMessage(e) }, 500);

@@ -55,9 +55,7 @@
     "LOG_LEVEL": "debug",
     "CRAWL_DAYS_LOOKBACK": "3",
     "BACKFILL_BATCH_SIZE": "50",
-    "BACKFILL_DELAY_MS": "500",
-    "SKILL_TEST_ERROR":"0",
-    "SKILL_EXECUTION_ENABLED": "1"
+    "BACKFILL_DELAY_MS": "500"
   },
   "env": {
     "staging": {
@@ -72,9 +70,7 @@
         "LOG_LEVEL": "debug",
         "CRAWL_DAYS_LOOKBACK": "3",
         "BACKFILL_BATCH_SIZE": "50",
-        "BACKFILL_DELAY_MS": "500",
-        "SKILL_TEST_ERROR": "0",
-        "SKILL_EXECUTION_ENABLED": "1"
+        "BACKFILL_DELAY_MS": "500"
       },
       "kv_namespaces": [
         {

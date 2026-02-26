@@ -102,6 +102,7 @@ export interface Env {
   DICTAMENES_PASO: KVNamespace;
 
   // Vars
+  ENVIRONMENT?: string;
   APP_TIMEZONE: string;
   CGR_BASE_URL: string;
   MISTRAL_API_URL: string;
@@ -117,9 +118,13 @@ export interface Env {
   BACKFILL_BATCH_SIZE?: string;
   BACKFILL_DELAY_MS?: string;
   LOG_LEVEL?: string;
+  SKILL_TEST_ERROR?: string;
+  SKILL_EXECUTION_ENABLED?: string;
 
   // Secrets
   PINECONE_API_KEY: string;
   MISTRAL_API_KEY: string;
+  CGR_API_TOKEN?: string;
+  INGEST_TRIGGER_TOKEN?: string;
   CF_AIG_AUTHORIZATION?: string;
 }
