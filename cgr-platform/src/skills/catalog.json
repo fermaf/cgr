@@ -2,22 +2,57 @@
   "version": "1.0",
   "skills": [
     {
+      "name": "__UNMATCHED__",
+      "diagnostic_only": true,
+      "mode": "disabled",
+      "description": "Fallback cuando no existe regla explicita.",
+      "owner": "platform",
+      "version": "1.0"
+    },
+    {
+      "name": "check_env_sanity",
+      "diagnostic_only": true,
+      "mode": "diagnostic",
+      "description": "Valida bindings y variables de entorno basicas.",
+      "owner": "platform",
+      "version": "1.0"
+    },
+    {
+      "name": "check_d1_schema",
+      "diagnostic_only": true,
+      "mode": "diagnostic",
+      "description": "Verifica columnas minimas en skill_events y skill_runs.",
+      "owner": "platform",
+      "version": "1.0"
+    },
+    {
+      "name": "check_router_consistency",
+      "diagnostic_only": true,
+      "mode": "diagnostic",
+      "description": "Valida estructura de RouteDecision y presencia de fallback.",
+      "owner": "platform",
+      "version": "1.0"
+    },
+    {
       "name": "cgr_network_baseurl_verify",
-      "mode": "diagnostic_only",
+      "diagnostic_only": true,
+      "mode": "diagnostic",
       "description": "Verifica resolucion DNS y conectividad basica con CGR_BASE_URL.",
       "owner": "platform",
       "version": "1.0"
     },
     {
       "name": "d1_remote_schema_verify",
-      "mode": "diagnostic_only",
+      "diagnostic_only": true,
+      "mode": "diagnostic",
       "description": "Valida que el esquema D1 esperado exista y sea consistente.",
       "owner": "platform",
       "version": "1.0"
     },
     {
       "name": "mistral_timeout_triage",
-      "mode": "diagnostic_only",
+      "diagnostic_only": true,
+      "mode": "diagnostic",
       "description": "Diagnostica timeouts del gateway AI y recomienda backoff.",
       "owner": "ai",
       "version": "1.0"

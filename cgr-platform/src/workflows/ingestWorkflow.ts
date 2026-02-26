@@ -8,7 +8,10 @@ import { recordSkillRun } from '../storage/skillRuns';
 import { logDebug, logError, logInfo, logWarn, setLogLevel } from '../lib/log';
 import { normalizeIncident } from '../lib/incident';
 import { routeIncident } from '../lib/incidentRouter';
-import { executeSkill } from '../lib/skillExecutor';
+import type { SkillExecution } from '../lib/skillExecutor';
+import { runCheckEnvSanity } from '../skills/check_env_sanity';
+import { runCheckD1Schema } from '../skills/check_d1_schema';
+import { runCheckRouterConsistency } from '../skills/check_router_consistency';
 
 interface IngestParams {
   search?: string;
@@ -52,19 +55,66 @@ export class IngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> {
       console.log('[SKILL_DECISION]', JSON.stringify(decision));
       console.log(`Skill sugerido: ${decision.skill}`);
 
-      if (decision.matched) {
-        try {
-          const execution = await executeSkill(decision.skill, incident);
-          await recordSkillRun(env.DB, incident, decision, execution);
-        } catch (skillError) {
-          logWarn('SKILL_RUN_WARN', { reason: 'failed_to_execute_skill', error: skillError });
-        }
-      }
-
+      const skillExecutionEnabled = env.SKILL_EXECUTION_ENABLED === '1';
       try {
         await recordSkillEvent(env.DB, incident, decision, env.DICTAMENES_PASO);
       } catch (insertError) {
         logWarn('SKILL_EVENT_INSERT_WARN', { reason: 'failed_to_insert_skill_event', error: insertError });
+      }
+
+      if (skillExecutionEnabled) {
+        const skillExecutions: Array<{ name: string; run: () => Promise<SkillExecution> }> = [
+          {
+            name: 'check_env_sanity',
+            run: async () => {
+              const result = await runCheckEnvSanity(env, incident);
+              return {
+                skill: 'check_env_sanity',
+                mode: 'diagnostic',
+                status: result.status,
+                reason: result.status === 'success' ? 'diagnostic_ok' : 'diagnostic_failed',
+                output: { ...result.metadata, error: result.error ?? null }
+              };
+            }
+          },
+          {
+            name: 'check_d1_schema',
+            run: async () => {
+              const result = await runCheckD1Schema(env, incident);
+              return {
+                skill: 'check_d1_schema',
+                mode: 'diagnostic',
+                status: result.status,
+                reason: result.status === 'success' ? 'diagnostic_ok' : 'diagnostic_failed',
+                output: { ...result.metadata, error: result.error ?? null }
+              };
+            }
+          },
+          {
+            name: 'check_router_consistency',
+            run: async () => {
+              const result = await runCheckRouterConsistency(incident, decision);
+              return {
+                skill: 'check_router_consistency',
+                mode: 'diagnostic',
+                status: result.status,
+                reason: result.status === 'success' ? 'diagnostic_ok' : 'diagnostic_failed',
+                output: { ...result.metadata, error: result.error ?? null }
+              };
+            }
+          }
+        ];
+
+        for (const skill of skillExecutions) {
+          try {
+            const execution = await skill.run();
+            await recordSkillRun(env.DB, incident, { ...decision, skill: skill.name }, execution);
+          } catch (skillError) {
+            logWarn('SKILL_RUN_WARN', { reason: 'failed_to_execute_skill', error: skillError });
+          }
+        }
+      } else if (decision.matched) {
+        logInfo('SKILL_EXECUTION_SKIPPED', { skill: decision.skill, reason: 'disabled' });
       }
     };
 

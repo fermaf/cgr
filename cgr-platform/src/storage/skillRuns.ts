@@ -22,6 +22,14 @@ export type SkillRunRecord = {
   output_json: string;
 };
 
+function normalizeMode(mode: string): string {
+  return mode === 'diagnostic' || mode === 'disabled' ? mode : 'disabled';
+}
+
+function normalizeStatus(status: string): string {
+  return status === 'success' || status === 'error' ? status : 'error';
+}
+
 export async function recordSkillRun(
   db: D1Database,
   incident: Incident,
@@ -29,14 +37,20 @@ export async function recordSkillRun(
   execution: SkillExecution
 ): Promise<void> {
   const fingerprint = incident.fingerprint ?? 'unknown';
+  const mode = normalizeMode(execution.mode);
+  const status = normalizeStatus(execution.status);
+  const reason =
+    status === execution.status && mode === execution.mode
+      ? execution.reason
+      : `${execution.reason}|normalized`;
   const record: SkillRunRecord = {
     ts: incident.ts,
     incident_fingerprint: fingerprint,
     incident_code: incident.code,
     skill_name: decision.skill,
-    mode: execution.mode,
-    status: execution.status,
-    reason: execution.reason,
+    mode,
+    status,
+    reason,
     output_json: safeJsonStringify(execution.output ?? {})
   };
 
