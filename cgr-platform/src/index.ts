@@ -1,15 +1,15 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
-import { queryRecords } from './clients/pinecone';
+import type { D1Database } from '@cloudflare/workers-types';
+import { queryRecords, upsertRecord } from './clients/pinecone';
 import { getLatestEnrichment, getLatestRawRef, updateDictamenStatus, insertEnrichment, insertDictamenBooleanosLLM, insertDictamenEtiquetaLLM, insertDictamenFuenteLegal } from './storage/d1';
 import type { Env, DictamenRaw } from './types';
 import { IngestWorkflow } from './workflows/ingestWorkflow';
 import { BackfillWorkflow } from './workflows/backfillWorkflow';
 import { KVSyncWorkflow } from './workflows/kvSyncWorkflow';
 import { analyzeDictamen } from './clients/mistral';
-import { upsertRecord } from './clients/pinecone';
 import { fetchDictamenesSearchPage } from './clients/cgr';
-import { extractDictamenId } from './lib/ingest';
+import { ingestDictamen, extractDictamenId } from './lib/ingest';
 import { logInfo, logError, setLogLevel } from './lib/log';
 
 function errorMessage(error: unknown): string {
@@ -29,6 +29,159 @@ function parsePositiveInt(value: unknown, fallback: number, min = 1, max = Numbe
   const parsed = Number.parseInt(String(value ?? ''), 10);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(max, Math.max(min, parsed));
+}
+
+function parseOptionalInt(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') return null;
+  const parsed = Number.parseInt(String(value), 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isTruthy(value: unknown): boolean {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes';
+}
+
+function todayYmd(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+type AnalyticsHeatmapRow = {
+  year: number | null;
+  tipo_norma: string;
+  numero: string;
+  total_refs: number;
+  total_dictamenes: number;
+  last_source_date: string | null;
+};
+
+type AnalyticsTrendRow = {
+  year: number | null;
+  materia: string;
+  total_dictamenes: number;
+  relevantes: number;
+  last_source_date: string | null;
+};
+
+async function getLatestSnapshotDate(db: D1Database, tableName: string): Promise<string | null> {
+  const row = await db.prepare(`SELECT MAX(snapshot_date) AS snapshot_date FROM ${tableName}`).first<{ snapshot_date: string | null }>();
+  return row?.snapshot_date ?? null;
+}
+
+async function queryHeatmapLive(
+  db: D1Database,
+  yearFrom: number | null,
+  yearTo: number | null,
+  limit: number
+): Promise<AnalyticsHeatmapRow[]> {
+  const res = await db.prepare(`
+    SELECT
+      d.anio AS year,
+      COALESCE(NULLIF(TRIM(f.tipo_norma), ''), 'Desconocido') AS tipo_norma,
+      COALESCE(NULLIF(TRIM(f.numero), ''), '-') AS numero,
+      COUNT(*) AS total_refs,
+      COUNT(DISTINCT d.id) AS total_dictamenes,
+      MAX(COALESCE(d.fecha_documento, d.created_at)) AS last_source_date
+    FROM dictamen_fuentes_legales f
+    INNER JOIN dictamenes d ON d.id = f.dictamen_id
+    WHERE (? IS NULL OR d.anio >= ?)
+      AND (? IS NULL OR d.anio <= ?)
+    GROUP BY d.anio, COALESCE(NULLIF(TRIM(f.tipo_norma), ''), 'Desconocido'), COALESCE(NULLIF(TRIM(f.numero), ''), '-')
+    ORDER BY total_refs DESC, total_dictamenes DESC
+    LIMIT ?
+  `).bind(yearFrom, yearFrom, yearTo, yearTo, limit).all<AnalyticsHeatmapRow>();
+  return res.results ?? [];
+}
+
+async function queryTopicTrendsLive(
+  db: D1Database,
+  yearFrom: number | null,
+  yearTo: number | null,
+  limit: number
+): Promise<AnalyticsTrendRow[]> {
+  const res = await db.prepare(`
+    SELECT
+      d.anio AS year,
+      COALESCE(NULLIF(TRIM(d.materia), ''), 'Sin materia') AS materia,
+      COUNT(*) AS total_dictamenes,
+      SUM(CASE WHEN COALESCE(a.es_relevante, 0) = 1 THEN 1 ELSE 0 END) AS relevantes,
+      MAX(COALESCE(d.fecha_documento, d.created_at)) AS last_source_date
+    FROM dictamenes d
+    LEFT JOIN atributos_juridicos a ON a.dictamen_id = d.id
+    WHERE (? IS NULL OR d.anio >= ?)
+      AND (? IS NULL OR d.anio <= ?)
+    GROUP BY d.anio, COALESCE(NULLIF(TRIM(d.materia), ''), 'Sin materia')
+    ORDER BY total_dictamenes DESC, relevantes DESC
+    LIMIT ?
+  `).bind(yearFrom, yearFrom, yearTo, yearTo, limit).all<AnalyticsTrendRow>();
+  return res.results ?? [];
+}
+
+async function putAnalyticsCache(c: Context<{ Bindings: Env }>, key: string, value: unknown) {
+  const ttlSeconds = parsePositiveInt(c.env.ANALYTICS_CACHE_TTL_SECONDS, 900, 30, 86400);
+  await c.env.DICTAMENES_PASO.put(key, JSON.stringify(value), { expirationTtl: ttlSeconds }).catch(() => {});
+}
+
+async function refreshAnalyticsSnapshots(
+  db: D1Database,
+  snapshotDate: string,
+  yearFrom: number | null,
+  yearTo: number | null,
+  limit: number
+): Promise<{ heatmapRows: number; trendRows: number }> {
+  await db.prepare(`DELETE FROM stats_snapshot_normative_heatmap WHERE snapshot_date = ?`).bind(snapshotDate).run();
+  await db.prepare(`DELETE FROM stats_snapshot_topic_trends WHERE snapshot_date = ?`).bind(snapshotDate).run();
+
+  await db.prepare(`
+    INSERT INTO stats_snapshot_normative_heatmap
+      (snapshot_date, year, tipo_norma, numero, total_refs, total_dictamenes, last_source_date)
+    SELECT
+      ? AS snapshot_date,
+      d.anio AS year,
+      COALESCE(NULLIF(TRIM(f.tipo_norma), ''), 'Desconocido') AS tipo_norma,
+      COALESCE(NULLIF(TRIM(f.numero), ''), '-') AS numero,
+      COUNT(*) AS total_refs,
+      COUNT(DISTINCT d.id) AS total_dictamenes,
+      MAX(COALESCE(d.fecha_documento, d.created_at)) AS last_source_date
+    FROM dictamen_fuentes_legales f
+    INNER JOIN dictamenes d ON d.id = f.dictamen_id
+    WHERE (? IS NULL OR d.anio >= ?)
+      AND (? IS NULL OR d.anio <= ?)
+    GROUP BY d.anio, COALESCE(NULLIF(TRIM(f.tipo_norma), ''), 'Desconocido'), COALESCE(NULLIF(TRIM(f.numero), ''), '-')
+    ORDER BY total_refs DESC, total_dictamenes DESC
+    LIMIT ?
+  `).bind(snapshotDate, yearFrom, yearFrom, yearTo, yearTo, limit).run();
+
+  await db.prepare(`
+    INSERT INTO stats_snapshot_topic_trends
+      (snapshot_date, year, materia, total_dictamenes, relevantes, last_source_date)
+    SELECT
+      ? AS snapshot_date,
+      d.anio AS year,
+      COALESCE(NULLIF(TRIM(d.materia), ''), 'Sin materia') AS materia,
+      COUNT(*) AS total_dictamenes,
+      SUM(CASE WHEN COALESCE(a.es_relevante, 0) = 1 THEN 1 ELSE 0 END) AS relevantes,
+      MAX(COALESCE(d.fecha_documento, d.created_at)) AS last_source_date
+    FROM dictamenes d
+    LEFT JOIN atributos_juridicos a ON a.dictamen_id = d.id
+    WHERE (? IS NULL OR d.anio >= ?)
+      AND (? IS NULL OR d.anio <= ?)
+    GROUP BY d.anio, COALESCE(NULLIF(TRIM(d.materia), ''), 'Sin materia')
+    ORDER BY total_dictamenes DESC, relevantes DESC
+    LIMIT ?
+  `).bind(snapshotDate, yearFrom, yearFrom, yearTo, yearTo, limit).run();
+
+  const heatmapCountRow = await db.prepare(
+    `SELECT COUNT(*) AS c FROM stats_snapshot_normative_heatmap WHERE snapshot_date = ?`
+  ).bind(snapshotDate).first<{ c: number }>();
+  const trendCountRow = await db.prepare(
+    `SELECT COUNT(*) AS c FROM stats_snapshot_topic_trends WHERE snapshot_date = ?`
+  ).bind(snapshotDate).first<{ c: number }>();
+
+  return {
+    heatmapRows: heatmapCountRow?.c ?? 0,
+    trendRows: trendCountRow?.c ?? 0
+  };
 }
 
 async function readJsonBody(c: Context<{ Bindings: Env }>): Promise<Record<string, unknown>> {
@@ -87,6 +240,166 @@ app.get('/api/v1/stats', async (c) => {
       by_year: (byYearRes.results ?? []).map(r => ({ anio: r.anio, count: r.count }))
     });
   } catch (e: any) {
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+app.get('/api/v1/analytics/statutes/heatmap', async (c) => {
+  const db = c.env.DB;
+  const limit = parsePositiveInt(c.req.query('limit'), 50, 1, 500);
+  const yearFrom = parseOptionalInt(c.req.query('yearFrom'));
+  const yearTo = parseOptionalInt(c.req.query('yearTo'));
+  const useSnapshot = !isTruthy(c.req.query('live'));
+  const cacheKey = `analytics:heatmap:v1:yf:${yearFrom ?? 'na'}:yt:${yearTo ?? 'na'}:l:${limit}:snapshot:${useSnapshot ? 1 : 0}`;
+
+  try {
+    const cached = await c.env.DICTAMENES_PASO.get(cacheKey, 'json').catch(() => null);
+    if (cached && typeof cached === 'object') {
+      logInfo('ANALYTICS_HEATMAP_CACHE_HIT', { cacheKey, limit, yearFrom, yearTo, useSnapshot });
+      return c.json(cached);
+    }
+
+    let data: AnalyticsHeatmapRow[] = [];
+    let source = 'live';
+    let snapshotDate: string | null = null;
+
+    if (useSnapshot) {
+      snapshotDate = await getLatestSnapshotDate(db, 'stats_snapshot_normative_heatmap');
+      if (snapshotDate) {
+        const res = await db.prepare(`
+          SELECT year, tipo_norma, numero, total_refs, total_dictamenes, last_source_date
+          FROM stats_snapshot_normative_heatmap
+          WHERE snapshot_date = ?
+            AND (? IS NULL OR year >= ?)
+            AND (? IS NULL OR year <= ?)
+          ORDER BY total_refs DESC, total_dictamenes DESC
+          LIMIT ?
+        `).bind(snapshotDate, yearFrom, yearFrom, yearTo, yearTo, limit).all<AnalyticsHeatmapRow>();
+        data = res.results ?? [];
+        source = 'snapshot';
+      }
+    }
+
+    if (data.length === 0) {
+      data = await queryHeatmapLive(db, yearFrom, yearTo, limit);
+      source = 'live';
+    }
+
+    const response = {
+      data,
+      meta: {
+        source,
+        snapshotDate,
+        count: data.length,
+        limit,
+        yearFrom,
+        yearTo
+      }
+    };
+    await putAnalyticsCache(c, cacheKey, response);
+    logInfo('ANALYTICS_HEATMAP_QUERY', { source, count: data.length, limit, yearFrom, yearTo, useSnapshot });
+    return c.json(response);
+  } catch (e: unknown) {
+    logError('ANALYTICS_HEATMAP_ERROR', e, { limit, yearFrom, yearTo, useSnapshot });
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+app.get('/api/v1/analytics/topics/trends', async (c) => {
+  const db = c.env.DB;
+  const limit = parsePositiveInt(c.req.query('limit'), 50, 1, 500);
+  const yearFrom = parseOptionalInt(c.req.query('yearFrom'));
+  const yearTo = parseOptionalInt(c.req.query('yearTo'));
+  const useSnapshot = !isTruthy(c.req.query('live'));
+  const cacheKey = `analytics:topics:v1:yf:${yearFrom ?? 'na'}:yt:${yearTo ?? 'na'}:l:${limit}:snapshot:${useSnapshot ? 1 : 0}`;
+
+  try {
+    const cached = await c.env.DICTAMENES_PASO.get(cacheKey, 'json').catch(() => null);
+    if (cached && typeof cached === 'object') {
+      logInfo('ANALYTICS_TOPICS_CACHE_HIT', { cacheKey, limit, yearFrom, yearTo, useSnapshot });
+      return c.json(cached);
+    }
+
+    let data: AnalyticsTrendRow[] = [];
+    let source = 'live';
+    let snapshotDate: string | null = null;
+
+    if (useSnapshot) {
+      snapshotDate = await getLatestSnapshotDate(db, 'stats_snapshot_topic_trends');
+      if (snapshotDate) {
+        const res = await db.prepare(`
+          SELECT year, materia, total_dictamenes, relevantes, last_source_date
+          FROM stats_snapshot_topic_trends
+          WHERE snapshot_date = ?
+            AND (? IS NULL OR year >= ?)
+            AND (? IS NULL OR year <= ?)
+          ORDER BY total_dictamenes DESC, relevantes DESC
+          LIMIT ?
+        `).bind(snapshotDate, yearFrom, yearFrom, yearTo, yearTo, limit).all<AnalyticsTrendRow>();
+        data = res.results ?? [];
+        source = 'snapshot';
+      }
+    }
+
+    if (data.length === 0) {
+      data = await queryTopicTrendsLive(db, yearFrom, yearTo, limit);
+      source = 'live';
+    }
+
+    const response = {
+      data,
+      meta: {
+        source,
+        snapshotDate,
+        count: data.length,
+        limit,
+        yearFrom,
+        yearTo
+      }
+    };
+    await putAnalyticsCache(c, cacheKey, response);
+    logInfo('ANALYTICS_TOPICS_QUERY', { source, count: data.length, limit, yearFrom, yearTo, useSnapshot });
+    return c.json(response);
+  } catch (e: unknown) {
+    logError('ANALYTICS_TOPICS_ERROR', e, { limit, yearFrom, yearTo, useSnapshot });
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+app.post('/api/v1/analytics/refresh', async (c) => {
+  const db = c.env.DB;
+  const body = await readJsonBody(c);
+  const limit = parsePositiveInt(body.limit, 1000, 10, 10000);
+  const yearFrom = parseOptionalInt(body.yearFrom);
+  const yearTo = parseOptionalInt(body.yearTo);
+  const snapshotDate = isIsoDateYmd(body.snapshotDate) ? body.snapshotDate : todayYmd();
+
+  if (c.env.ENVIRONMENT === 'prod') {
+    const token = c.req.header('x-admin-token');
+    if (!token || token !== c.env.INGEST_TRIGGER_TOKEN) {
+      return c.json({ error: 'Unauthorized' }, 403);
+    }
+  }
+
+  try {
+    const counts = await refreshAnalyticsSnapshots(db, snapshotDate, yearFrom, yearTo, limit);
+    logInfo('ANALYTICS_REFRESH_DONE', {
+      snapshotDate,
+      yearFrom,
+      yearTo,
+      limit,
+      heatmapRows: counts.heatmapRows,
+      trendRows: counts.trendRows
+    });
+    return c.json({
+      success: true,
+      snapshotDate,
+      limit,
+      filters: { yearFrom, yearTo },
+      rows: counts
+    });
+  } catch (e: unknown) {
+    logError('ANALYTICS_REFRESH_ERROR', e, { snapshotDate, yearFrom, yearTo, limit });
     return c.json({ error: errorMessage(e) }, 500);
   }
 });
@@ -299,13 +612,27 @@ app.post('/api/v1/dictamenes/:id/sync-vector', async (c) => {
       id: id,
       text: textToEmbed,
       metadata: {
-        titulo: enrichment.titulo,
+        ...enrichment,
+        analisis: enrichment.analisis || "", // Cast null to string
+        materia: sourceContent?.materia,
+        descriptores_originales: sourceContent?.descriptores ? String(sourceContent.descriptores).split(/[,;\n]/).map((s: string) => s.trim()).filter((s: string) => s.length > 2) : [],
         fecha: String(sourceContent?.fecha_documento || ''),
-        ...(enrichment.booleanos_json ? JSON.parse(enrichment.booleanos_json) : {})
-      }
+        model: enrichment.modelo_llm || c.env.MISTRAL_MODEL
+      } as any // Use any temporarily if needed due to complex Partial mismatch
     });
+
+    // Registrar éxito de sincronización en D1 (v2)
+    await db.prepare(
+      `INSERT INTO pinecone_sync_status (dictamen_id, metadata_version, last_synced_at)
+       VALUES (?, 2, CURRENT_TIMESTAMP)
+       ON CONFLICT(dictamen_id) DO UPDATE SET 
+          metadata_version = 2, 
+          last_synced_at = CURRENT_TIMESTAMP,
+          sync_error = NULL`
+    ).bind(id).run();
+
     await db.prepare("UPDATE dictamenes SET estado = 'vectorized', updated_at = ? WHERE id = ?").bind(new Date().toISOString(), id).run();
-    return c.json({ success: true, message: 'Vector sync done.' });
+    return c.json({ success: true, message: 'Vector sync done (Standard v2).' });
   } catch (e: any) {
     return c.json({ error: errorMessage(e) }, 500);
   }
@@ -325,6 +652,10 @@ app.post('/api/v1/dictamenes/:id/re-process', async (c) => {
   if (!rawJson) return c.json({ error: 'No se encontró JSON en KV' }, 404);
 
   try {
+    // 1. RE-INGESTA: Regenerar catálogos y relaciones (Abogados, Descriptores) con el parser actual
+    await ingestDictamen(c.env, rawJson, { status: 'ingested' });
+
+    // 2. ENRIQUECIMIENTO: AI Mistral
     const enrichment = await analyzeDictamen(c.env, rawJson);
     if (!enrichment) throw new Error("Fallo en AI Mistral");
 
@@ -362,14 +693,98 @@ app.post('/api/v1/dictamenes/:id/re-process', async (c) => {
       id: id,
       text: textToEmbed,
       metadata: {
-        titulo: enrichment.extrae_jurisprudencia.titulo,
-        fecha: String(sourceContent?.fecha_documento || ''),
-        ...enrichment.booleanos
+        ...enrichment.extrae_jurisprudencia,
+        ...enrichment.booleanos,
+        materia: sourceContent.materia,
+        descriptores_originales: sourceContent.descriptores ? String(sourceContent.descriptores).split(/[,;\n]/).map((s: string) => s.trim()).filter((s: string) => s.length > 2) : [],
+        fecha: String(sourceContent.fecha_documento || ''),
+        model: c.env.MISTRAL_MODEL
       }
     });
 
+    // Registrar éxito de sincronización en D1 (v2)
+    await db.prepare(
+      `INSERT INTO pinecone_sync_status (dictamen_id, metadata_version, last_synced_at)
+       VALUES (?, 2, CURRENT_TIMESTAMP)
+       ON CONFLICT(dictamen_id) DO UPDATE SET 
+          metadata_version = 2, 
+          last_synced_at = CURRENT_TIMESTAMP,
+          sync_error = NULL`
+    ).bind(id).run();
+
     await updateDictamenStatus(db, id, 'vectorized');
     return c.json({ success: true, message: 'Reproceso integral completado con éxito' });
+  } catch (e: any) {
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+// --- BARRIDO MASIVO PINECONE (v2 Standards) ---
+app.post('/api/v1/dictamenes/sync-vector-mass', async (c) => {
+  const db = c.env.DB;
+  const body = await readJsonBody(c);
+  const limit = parsePositiveInt(body.limit, 10, 1, 100); // Lotes pequeños para evitar timeouts
+
+  try {
+    // 1. Buscar dictámenes que NO estén en metadata_version 2 (Gold)
+    const pending = await db.prepare(`
+      SELECT d.id 
+      FROM dictamenes d
+      LEFT JOIN pinecone_sync_status s ON d.id = s.dictamen_id
+      WHERE d.estado = 'vectorized' 
+      AND (s.metadata_version IS NULL OR s.metadata_version < 2)
+      LIMIT ?
+    `).bind(limit).all<{ id: string }>();
+
+    const ids = (pending.results ?? []).map(r => r.id);
+    if (ids.length === 0) return c.json({ success: true, message: 'Toda la metadata está en v2' });
+
+    let count = 0;
+    for (const id of ids) {
+      // Ejecutar sync individual de cada uno (reutilizando lógica interna o similar)
+      // Por simplicidad en este endpoint, recuperamos la data y hacemos upsert
+      const enrichment = await getLatestEnrichment(db, id);
+      const rawRef = await getLatestRawRef(db, id);
+      if (!enrichment || !rawRef) continue;
+
+      let rawJson: any = await c.env.DICTAMENES_SOURCE.get(rawRef.raw_key, 'json').catch(() => null);
+      if (!rawJson && !rawRef.raw_key.startsWith('dictamen:')) {
+        rawJson = await c.env.DICTAMENES_SOURCE.get(`dictamen:${id}`, 'json').catch(() => null);
+      }
+      if (!rawJson) continue;
+
+      const sourceContent = rawJson?._source ?? rawJson?.source ?? rawJson?.raw_data ?? rawJson;
+      const textToEmbed = `
+            Título: ${enrichment.titulo}
+            Resumen: ${enrichment.resumen}
+            Análisis: ${enrichment.analisis}
+        `.trim();
+
+      await upsertRecord(c.env, {
+        id: id,
+        text: textToEmbed,
+        metadata: {
+          ...enrichment,
+          analisis: enrichment.analisis || "",
+          materia: sourceContent?.materia,
+          descriptores_originales: sourceContent?.descriptores ? String(sourceContent.descriptores).split(/[,;\n]/).map((s: string) => s.trim()).filter((s: string) => s.length > 2) : [],
+          fecha: String(sourceContent?.fecha_documento || ''),
+          model: enrichment.modelo_llm || c.env.MISTRAL_MODEL
+        } as any
+      });
+
+      await db.prepare(`
+            INSERT INTO pinecone_sync_status (dictamen_id, metadata_version, last_synced_at)
+            VALUES (?, 2, CURRENT_TIMESTAMP)
+            ON CONFLICT(dictamen_id) DO UPDATE SET 
+               metadata_version = 2, 
+               last_synced_at = CURRENT_TIMESTAMP,
+               sync_error = NULL
+        `).bind(id).run();
+      count++;
+    }
+
+    return c.json({ success: true, processed: count, total_pending: ids.length });
   } catch (e: any) {
     return c.json({ error: errorMessage(e) }, 500);
   }

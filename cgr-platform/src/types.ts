@@ -117,6 +117,7 @@ export interface Env {
   CRAWL_DAYS_LOOKBACK?: string;
   BACKFILL_BATCH_SIZE?: string;
   BACKFILL_DELAY_MS?: string;
+  ANALYTICS_CACHE_TTL_SECONDS?: string;
   LOG_LEVEL?: string;
   SKILL_TEST_ERROR?: string;
   SKILL_EXECUTION_ENABLED?: string;
