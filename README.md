@@ -1,99 +1,73 @@
-# CGR.ai
+# CGR.ai: Plataforma de Gobernanza Documental Inteligente
 
-Plataforma de ingesta, análisis jurídico y búsqueda semántica de dictámenes de la Contraloría General de la República (Chile), ejecutada sobre Cloudflare Workers.
+CGR.ai es un ecosistema *serverless* diseñado para la ingesta, análisis jurídico y búsqueda semántica de la jurisprudencia administrativa de la **Contraloría General de la República de Chile**. 
 
-## Qué resuelve
+Ejecutada integralmente sobre el borde (edge) de Cloudflare, la plataforma transforma documentos complejos en un **Activo de Datos Monetizable** mediante el uso de Inteligencia Artificial (Mistral), Bases de Datos Vectoriales (Pinecone) y Orquestación Durable (Workflows).
 
-CGR.ai transforma documentos administrativos complejos en un repositorio consultable por:
+---
 
-- búsqueda literal (SQL)
-- búsqueda semántica (vectorial)
-- ficha enriquecida por IA (resumen, análisis, etiquetas, booleanos jurídicos)
+## 🏛 Estructura del Monorepo (Higiene Documental)
 
-## Arquitectura en una vista
+El repositorio está organizado como un sistema modular optimizado para el despliegue escalable:
 
-- Ingesta: API pública de CGR -> Worker -> D1 (`dictamenes`) + KV (`DICTAMENES_SOURCE`)
-- Enriquecimiento: `ingested` -> Mistral -> `enriquecimiento` + tablas relacionales
-- Vectorización: texto enriquecido -> Pinecone -> estado `vectorized`
-- Operación: cron + Workflows + endpoints administrativos
+- **[`cgr-platform/`](cgr-platform/)**: Backend productivo. Un Cloudflare Worker (Hono) que orquesta el ciclo de vida del dato (Crawl -> Enrich -> Vectorize).
+- **[`frontend/`](frontend/)**: Aplicación de usuario final construida en React + Vite, desplegada en Cloudflare Pages con soporte para búsqueda semántica y literal.
+- **[`docs/`](docs/)**: El cerebro del proyecto. Contribuye al estándar **"El Librero v2"**: exhaustivo, experto y auditable.
+- **[`skillgen/`](skillgen/)**: Módulo de gobernanza determinista y diseño de "Skills" para el manejo de incidentes y lógica de negocio compleja.
+- **[`scripts/`](scripts/)**: Utilidades de mantenimiento para D1 y disparadores de procesos batch.
 
-## Estructura del monorepo
+---
 
-```txt
-cgr/
-├── cgr-platform/   # Backend productivo (Cloudflare Worker + Hono)
-├── frontend/       # Frontend (React + Vite + Pages)
-├── docs/           # Documentación técnica y operativa
-├── migracion/      # Scripts históricos de migración
-└── borrame/        # Código legado no productivo
-```
+## 🚀 Inicio Rápido para Desarrolladores
 
-## Estado actual (24-feb-2026)
+### 1. Requisitos
+- Node.js & npm.
+- [Cloudflare Wrangler](https://developers.cloudflare.com/workers/wrangler/install-upgrading/) instalado globalmente.
 
-- Workflows estabilizados frente a errores RPC por captura de `this` en `step.do`
-- Logging estructurado con `LOG_LEVEL` (`debug|info|warn|error`)
-- Ingesta tolerante a diferencias de esquema D1 para catálogos de abogados/descriptores
-- Operación recomendada: toda validación de D1 con `wrangler d1 execute ... --remote`
-
-## Inicio rápido
-
-### Backend
-
+### 2. Levantar el Backend
 ```bash
 cd cgr-platform
 npm install
 npm run dev
 ```
 
-### Frontend
-
+### 3. Levantar el Frontend
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-### Deploy backend
+---
 
-```bash
-cd cgr-platform
-npx wrangler deploy
-```
+## 📚 Documentación Maestra (El Librero v2)
 
-## Operación esencial
+Toda la inteligencia técnica y estratégica ha sido consolidada en la versión 2.
 
-### Crawl manual por rango de fechas
+> [!IMPORTANT]
+> **Punto de Entrada Maestro**: [**docs/README.md**](docs/README.md) -> [**docs/v2/platform/index.md**](docs/v2/platform/index.md)
 
-```bash
-curl -X POST "https://cgr-platform.abogado.workers.dev/api/v1/dictamenes/crawl/range" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "date_start": "2025-06-01",
-    "date_end": "2025-10-27",
-    "limit": 50000
-  }'
-```
+### Atajos Estratégicos
+- **[Visión Ejecutiva](docs/v2/platform/01_vision_ejecutiva.md)**: Valor de negocio y ROI.
+- **[Arquitectura C4](docs/v2/platform/02_arquitectura_c4.md)**: Flujos de datos e ingeniería inversa de CGR.
+- **[Referencia de API](docs/v2/platform/03_referencia_api.md)**: Guía total de los 14 endpoints productivos.
+- **[Roadmap 2026-2027](docs/v2/platform/08_roadmap.md)**: Fases de explotación de grafos normativos.
 
-### Lanzar batch de enriquecimiento
+> [!TIP]
+> **Roadmap en ejecución (2026-02-27)**:
+> - Fase 1 ejecutada: endpoints analytics + snapshots D1 + cache KV.
+> - Fase 2 bootstrap ejecutada: endpoint de linaje jurisprudencial.
+> - Fase 3 pendiente.
 
-```bash
-curl -X POST "https://cgr-platform.abogado.workers.dev/api/v1/dictamenes/batch-enrich" \
-  -H "Content-Type: application/json" \
-  -d '{"batchSize": 50, "delayMs": 1000}'
-```
+---
 
-### Ver backlog real en producción
+## 🛡 Gobernanza y Operación
 
-```bash
-cd cgr-platform
-wrangler d1 execute cgr-dictamenes --remote --command "SELECT estado, COUNT(*) c FROM dictamenes GROUP BY estado ORDER BY c DESC;"
-```
+La plataforma se auto-mantiene mediante procesos de **Higiene de Datos** y **Gobernanza Determinista**:
+- **Workflows**: Ingesta diaria resiliente ante fallos de red o API.
+- **Audit Ready**: Cada cambio en el dataset es trazable mediante la tabla `historial_cambios` en D1.
+- **Integrated Inference**: Pinecone maneja la vectorización atómica evitando discrepancias entre modelos.
 
-## Documentación
-
-Punto de entrada: [docs/README.md](./docs/README.md)
-
-- Arquitectura: [docs/02_arquitectura.md](./docs/02_arquitectura.md)
-- Desarrollo: [docs/03_guia_desarrollo.md](./docs/03_guia_desarrollo.md)
-- Operación: [docs/04_operacion_y_mantenimiento.md](./docs/04_operacion_y_mantenimiento.md)
-- Briefing agente experto: [docs/99_briefing_agente_experto.md](./docs/99_briefing_agente_experto.md)
+---
+**Fecha de Actualización**: 2026-02-27  
+**Estado del Repositorio**: Producción / Expert Audit Ready

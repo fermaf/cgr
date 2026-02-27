@@ -1,67 +1,46 @@
-# Documentación CGR.ai
+# 📚 Documentación CGR.ai
 
-Este directorio separa documentación vigente, especializada de Skillgen y material histórico.
+Bienvenido al repositorio central de inteligencia de **CGR-Platform**. Este sistema está documentado bajo la metodología **"El Librero"**: detallada, experta y didáctica.
 
-Fecha de actualización: 2026-02-26.
+---
 
-## Estructura
+## 🚀 Documentación Vigente (Oficial)
 
-- `docs/` (raíz): documentos vigentes transversales
-- `docs/skillgen/`: documentación vigente específica de Skillgen
-- `docs/historico/`: insumos históricos y borradores conservados
+Toda la documentación operativa, técnica y de negocio actual se encuentra en el directorio **`docs/v2/platform/`**.
 
-## Ruta recomendada para nuevos integrantes
+> [!IMPORTANT]
+> **Punto de Entrada Maestro**: [**v2/platform/index.md**](v2/platform/index.md)
+> 
+> Si eres un desarrollador, agente LLM o auditor, este es el único índice que debes seguir para entender la arquitectura actual del sistema.
 
-1. `docs/01_negocio_y_estrategia.md`
-2. `docs/02_arquitectura.md`
-3. `docs/03_guia_desarrollo.md`
-4. `docs/04_operacion_y_mantenimiento.md`
-5. `docs/27 Skillgen Blueprint cgr.md`
-6. `docs/skillgen/README.md`
+### Estructura de Navegación v2
+1. **[Estrategia y Negocio](v2/platform/01_vision_ejecutiva.md)**: ¿Por qué existe CGR.ai?
+2. **[Arquitectura C4](v2/platform/02_arquitectura_c4.md)**: Diagramas de flujo e ingeniería inversa de CGR.
+3. **[Referencia API](v2/platform/03_referencia_api.md)**: Especificación técnica total de los 14 endpoints.
+4. **[Operaciones y Mantenimiento](v2/platform/04_operaciones_y_mantenimiento.md)**: Guía de Skills y Troubleshooting.
+5. **[Casos de Uso](v2/platform/05_casos_de_uso.md)**: Trazas JSON y ejemplos reales.
+6. **[Gestión de Entornos](v2/platform/06_entornos_y_despliegue.md)**: Auditoría de riesgos Prod vs Staging.
+7. **[Gobernanza de Datos](v2/platform/07_gobernanza_y_estratigrafia_datos.md)**: Alquimia de IDs y capas de datos.
+8. **[Roadmap y Monetización](v2/platform/08_roadmap.md)**: Plan ejecutivo de explotación de grafos normativos.
 
-## Índice vigente (general)
+> [!TIP]
+> **Estado de ejecución actual del roadmap**:
+> - Fase 1 implementada (analytics + snapshots + cache).
+> - Fase 2 bootstrap implementada (`/api/v1/dictamenes/:id/lineage`).
+> - Fase 3 pendiente.
 
-- `docs/01_negocio_y_estrategia.md`
-- `docs/02_arquitectura.md`
-- `docs/03_guia_desarrollo.md`
-- `docs/04_operacion_y_mantenimiento.md`
-- `docs/05_manual_usuario.md`
-- `docs/06_feedback_y_roadmap.md`
-- `docs/07_auditoria_llaves_kv.md`
-- `docs/08_ingenieria_inversa_api_cgr.md`
-- `docs/09_guia_uso_avanzado_api_CGR.md`
-- `docs/11_ToDo_servicio_frontend.md`
-- `docs/27 Skillgen Blueprint cgr.md`
+---
 
-## Índice vigente (Skillgen)
+## 🛠 Módulos Especializados
+- **Skillgen**: [Guía de Gobernanza Determinista](skillgen/README.md)
+    - Documentación sobre el diseño de Skills y orquestación de incidentes.
 
-- `docs/skillgen/README.md`
-- `docs/skillgen/10_paradigma_a_proyecto_aislado.md`
-- `docs/skillgen/20_paradigma_b_caso_uso_dictamenes_ai.md`
-- `docs/skillgen/30_tres_paradigmas_adicionales.md`
-- `docs/skillgen/40_plan_paso_produccion_y_commit.md`
-- `docs/skillgen/50_etapa2_iteracion1.md`
-- `docs/skillgen/60_higiene_documental_y_sandbox.md`
+---
 
-## Histórico (no operativo)
+## 📂 Archivo Histórico (Legacy)
+Los materiales antiguos (versiones 2024-2025) han sido depurados y movidos a:
+- [**docs/historico/legacy_v1/**](historico/legacy_v1/): Documentos originales de la fase de prototipado.
 
-- `docs/historico/etapa1_insumos_ai/31 finalStepStage01Qwen.md`
-- `docs/historico/etapa1_insumos_ai/32 finalStepStage01DeepSeek.md`
-- `docs/historico/etapa1_insumos_ai/33 finalStepStage01Grok.md`
-- `docs/historico/etapa1_insumos_ai/41 promptQwen2Codex.md`
-- `docs/historico/etapa1_insumos_ai/42 promptDeepSeek2Codex.md`
-- `docs/historico/etapa1_insumos_ai/43 promptGrokCodex.md`
-- `docs/historico/etapa1_insumos_ai/99_briefing_agente_experto.md`
-
-## Reglas de verdad
-
-- Fuente primaria del comportamiento: `cgr-platform/src` y `frontend/src`.
-- Si hay discrepancia entre docs y código, prevalece el código.
-- Si hay discrepancia entre código y producción, prevalece producción.
-
-## Regla de mantenimiento documental
-
-- Todo cambio de arquitectura o runbook debe actualizar al menos:
-  - `docs/03_guia_desarrollo.md`
-  - `docs/04_operacion_y_mantenimiento.md`
-  - `docs/27 Skillgen Blueprint cgr.md`
+---
+**Fecha de última revisión mayor**: 2026-02-27
+**Estándar de Calidad**: El Librero v2 (Expert Audit Ready)
