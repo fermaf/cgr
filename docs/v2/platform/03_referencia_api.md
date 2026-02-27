@@ -104,6 +104,23 @@ curl -X GET "https://cgr-platform.abogado.workers.dev/api/v1/analytics/topics/tr
 
 ---
 
+### 1.6 Linaje Jurisprudencial (Fase 2 Bootstrap)
+Retorna un subgrafo local de relaciones entrantes/salientes basadas en `dictamen_referencias`.
+
+- **Endpoint**: `/api/v1/dictamenes/:id/lineage`
+- **Descripción**:
+  - `rootId`: dictamen solicitado.
+  - `nodes`: nodo raíz + nodos vecinos encontrados en D1.
+  - `edges`: relaciones `incoming_reference` y `outgoing_reference`.
+
+#### Ejemplo
+```bash
+curl -X GET "https://cgr-platform.abogado.workers.dev/api/v1/dictamenes/012345N24/lineage" \
+  -H "Accept: application/json"
+```
+
+---
+
 ## 2. Operaciones Administrativas (`POST`)
 
 ### 2.1 Ingesta por Rango de Fechas (`IngestWorkflow`)

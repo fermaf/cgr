@@ -109,6 +109,26 @@ sequenceDiagram
 
 ---
 
+## Nivel 3.3: Consulta de Linaje Jurisprudencial (Fase 2 Bootstrap)
+El endpoint `/api/v1/dictamenes/:id/lineage` arma un subgrafo local con relaciones entrantes y salientes usando `dictamen_referencias`.
+
+```mermaid
+sequenceDiagram
+    participant U as Usuario/Frontend
+    participant A as API Lineage
+    participant D as D1
+
+    U->>A: GET /api/v1/dictamenes/:id/lineage
+    A->>D: SELECT nodo raíz en dictamenes
+    A->>D: SELECT referencias salientes (dictamen_id = :id)
+    A->>D: SELECT referencias entrantes (dictamen_ref_nombre = :id)
+    A->>D: SELECT metadata de nodos vecinos
+    D-->>A: nodos + aristas
+    A-->>U: JSON {rootId,nodes,edges}
+```
+
+---
+
 ## Nivel 3.1: Ingeniería Inversa y Scraping de CGR
 El sistema interactúa con el portal oficial de la Contraloría General de la República mediante una API "oculta" de Elasticsearch.
 

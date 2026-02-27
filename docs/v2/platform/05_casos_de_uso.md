@@ -123,3 +123,23 @@ Este documento presenta escenarios técnicos detallados que demuestran la potenc
 5. **Resultado esperado**:
    - Respuesta con bloque `meta.source` (`snapshot` o `live`).
    - Reducción de consultas analíticas directas sobre tablas base.
+
+---
+
+## Escenario F: Navegación de Linaje de un Dictamen
+**Contexto**: Analista necesita confirmar si un dictamen histórico fue citado por pronunciamientos posteriores.
+
+1. **Consulta de linaje**:
+   ```bash
+   curl -X GET "https://cgr-platform.abogado.workers.dev/api/v1/dictamenes/012345N24/lineage" \
+     -H "Accept: application/json"
+   ```
+2. **Salida esperada**:
+   - `rootId`: ID solicitado.
+   - `nodes`: lista con metadata mínima (`id`, `anio`, `fecha_documento`, `materia`).
+   - `edges`: relaciones clasificadas en:
+     - `outgoing_reference` (dictámenes referidos por el root).
+     - `incoming_reference` (dictámenes que referencian al root).
+3. **Valor operacional**:
+   - Permite detectar rápidamente riesgo de jurisprudencia desactualizada.
+   - Sirve como base para la siguiente evolución de grafo navegable (depth > 1).

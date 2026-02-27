@@ -63,6 +63,23 @@ type AnalyticsTrendRow = {
   last_source_date: string | null;
 };
 
+type LineageEdgeRow = {
+  from_id: string;
+  to_id: string;
+  relation_type: string;
+  relation_year: string | null;
+  relation_url: string | null;
+};
+
+type LineageNodeRow = {
+  id: string;
+  numero: string | null;
+  anio: number | null;
+  fecha_documento: string | null;
+  materia: string | null;
+  estado: string | null;
+};
+
 async function getLatestSnapshotDate(db: D1Database, tableName: string): Promise<string | null> {
   const row = await db.prepare(`SELECT MAX(snapshot_date) AS snapshot_date FROM ${tableName}`).first<{ snapshot_date: string | null }>();
   return row?.snapshot_date ?? null;
@@ -532,6 +549,86 @@ app.get('/api/v1/dictamenes/:id', async (c) => {
       } : null
     });
   } catch (e: any) {
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+app.get('/api/v1/dictamenes/:id/lineage', async (c) => {
+  const id = c.req.param('id');
+  const db = c.env.DB;
+
+  try {
+    const baseNode = await db.prepare(
+      `SELECT id, numero, anio, fecha_documento, materia, estado
+       FROM dictamenes
+       WHERE id = ?`
+    ).bind(id).first<LineageNodeRow>();
+
+    if (!baseNode) return c.json({ error: 'Documento no encontrado' }, 404);
+
+    const outgoingRes = await db.prepare(
+      `SELECT
+         r.dictamen_id AS from_id,
+         r.dictamen_ref_nombre AS to_id,
+         'outgoing_reference' AS relation_type,
+         r.year AS relation_year,
+         r.url AS relation_url
+       FROM dictamen_referencias r
+       WHERE r.dictamen_id = ?
+         AND r.dictamen_ref_nombre IS NOT NULL
+         AND TRIM(r.dictamen_ref_nombre) <> ''`
+    ).bind(id).all<LineageEdgeRow>();
+
+    const incomingRes = await db.prepare(
+      `SELECT
+         r.dictamen_id AS from_id,
+         r.dictamen_ref_nombre AS to_id,
+         'incoming_reference' AS relation_type,
+         r.year AS relation_year,
+         r.url AS relation_url
+       FROM dictamen_referencias r
+       WHERE r.dictamen_ref_nombre = ?`
+    ).bind(id).all<LineageEdgeRow>();
+
+    const edges = [...(outgoingRes.results ?? []), ...(incomingRes.results ?? [])];
+    const neighborIds = Array.from(
+      new Set(
+        edges.flatMap((edge) => [edge.from_id, edge.to_id]).filter((candidateId) => candidateId && candidateId !== id)
+      )
+    );
+
+    const neighbors: LineageNodeRow[] = [];
+    if (neighborIds.length > 0) {
+      const placeholders = neighborIds.map(() => '?').join(',');
+      const res = await db.prepare(
+        `SELECT id, numero, anio, fecha_documento, materia, estado
+         FROM dictamenes
+         WHERE id IN (${placeholders})`
+      ).bind(...neighborIds).all<LineageNodeRow>();
+      neighbors.push(...(res.results ?? []));
+    }
+
+    const nodes = [baseNode, ...neighbors];
+
+    logInfo('LINEAGE_QUERY', {
+      dictamenId: id,
+      nodes: nodes.length,
+      edges: edges.length
+    });
+
+    return c.json({
+      data: {
+        rootId: id,
+        nodes,
+        edges
+      },
+      meta: {
+        nodeCount: nodes.length,
+        edgeCount: edges.length
+      }
+    });
+  } catch (e: unknown) {
+    logError('LINEAGE_QUERY_ERROR', e, { dictamenId: id });
     return c.json({ error: errorMessage(e) }, 500);
   }
 });
