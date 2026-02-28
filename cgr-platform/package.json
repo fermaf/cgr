@@ -4,12 +4,14 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy --minify",
-    "cf-typegen": "wrangler types --env-interface CloudflareBindings"
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings",
+    "d1:sanity": "wrangler d1 execute cgr-dictamenes --local --command \"SELECT name FROM sqlite_master WHERE type='table' ORDER BY name; SELECT COUNT(*) AS n FROM skill_events;\""
   },
   "dependencies": {
     "@mistralai/mistralai": "^1.14.0",
     "hono": "^4.11.10",
-    "openai": "^6.22.0"
+    "openai": "^6.22.0",
+    "yaml": "^2.8.2"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260218.0",

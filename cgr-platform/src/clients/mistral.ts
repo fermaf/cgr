@@ -247,7 +247,7 @@ async function expandQuery(env: Env, query: string): Promise<string> {
 
   try {
     const response = await client.chat.completions.create({
-      model: "mistral-small-latest",
+      model: env.MISTRAL_MODEL,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.1
     });
@@ -256,7 +256,7 @@ async function expandQuery(env: Env, query: string): Promise<string> {
     const content = typeof contentRaw === 'string' ? contentRaw : undefined;
     return content?.trim() || query;
   } catch (error) {
-    logError('MISTRAL_EXPAND_QUERY_ERROR', error, { model: "mistral-small-latest" });
+    logError('MISTRAL_EXPAND_QUERY_ERROR', error, { model: env.MISTRAL_MODEL });
     return query;
   }
 }
@@ -282,7 +282,7 @@ async function rerankResults(env: Env, query: string, results: any[]): Promise<a
 
   try {
     const response = await client.chat.completions.create({
-      model: "mistral-small-latest",
+      model: env.MISTRAL_MODEL,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.1,
       response_format: { type: "json_object" }
@@ -301,7 +301,7 @@ async function rerankResults(env: Env, query: string, results: any[]): Promise<a
         .filter(r => r !== undefined);
     }
   } catch (e) {
-    logError('MISTRAL_RERANK_ERROR', e, { model: "mistral-small-latest" });
+    logError('MISTRAL_RERANK_ERROR', e, { model: env.MISTRAL_MODEL });
   }
 
   return results;
@@ -312,7 +312,7 @@ async function generateEmbedding(env: Env, input: string): Promise<number[]> {
 
   try {
     const response = await client.embeddings.create({
-      model: "mistral-embed",
+      model: env.MISTRAL_MODEL,
       input: [input]
     });
 
@@ -322,7 +322,7 @@ async function generateEmbedding(env: Env, input: string): Promise<number[]> {
     }
     throw new Error("Invalid embedding response");
   } catch (error) {
-    logError('MISTRAL_EMBEDDING_ERROR', error, { model: "mistral-embed" });
+    logError('MISTRAL_EMBEDDING_ERROR', error, { model: env.MISTRAL_MODEL });
     throw error;
   }
 }

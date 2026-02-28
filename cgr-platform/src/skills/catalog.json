@@ -1,5 +1,5 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "skills": [
     {
       "name": "__UNMATCHED__",
@@ -37,25 +37,25 @@
       "name": "cgr_network_baseurl_verify",
       "diagnostic_only": true,
       "mode": "diagnostic",
-      "description": "Verifica resolucion DNS y conectividad basica con CGR_BASE_URL.",
+      "description": "Diagnostico basico de CGR_BASE_URL (formato, esquema, host).",
       "owner": "platform",
-      "version": "1.0"
+      "version": "1.1"
     },
     {
       "name": "d1_remote_schema_verify",
       "diagnostic_only": true,
       "mode": "diagnostic",
-      "description": "Valida que el esquema D1 esperado exista y sea consistente.",
+      "description": "Valida columnas minimas en skill_events y skill_runs.",
       "owner": "platform",
-      "version": "1.0"
+      "version": "1.1"
     },
     {
       "name": "mistral_timeout_triage",
       "diagnostic_only": true,
       "mode": "diagnostic",
-      "description": "Diagnostica timeouts del gateway AI y recomienda backoff.",
+      "description": "Diagnostico de configuracion de Mistral y timeouts (sin llamadas externas).",
       "owner": "ai",
-      "version": "1.0"
+      "version": "1.1"
     }
   ]
 }

@@ -1,13 +1,13 @@
 // Acceso a D1 (base: cgr-dictamenes c391c767).
 // Tablas principales: dictamenes, enriquecimiento, registro_ejecucion.
-import type { DictamenStatus, EnrichmentRow, RegistroEjecucionRow } from '../types';
+// Tablas principales: dictamenes, enriquecimiento
+import type { DictamenStatus, EnrichmentRow } from '../types';
 
 // Parámetros de upsert para la tabla dictamenes.
 type DictamenUpsertParams = {
   id: string;
   generaJurisprudencia: number | null;
   status: DictamenStatus;
-  crawledFromCgr?: number | null;
   numero?: string | null;
   anio?: number | null;
   fechaDocumento?: string | null;
@@ -22,39 +22,6 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-// ─── Registro de Ejecución (ex run_log) ─────────────────────────────
-
-async function startRun(db: D1Database, tipo: string, detail?: unknown): Promise<string> {
-  const id = crypto.randomUUID();
-  const inicio = nowIso();
-  const detailJson = detail ? JSON.stringify(detail) : null;
-  await db.prepare(
-    `INSERT INTO registro_ejecucion (id, tipo, estado, detalle_json, inicio)
-     VALUES (?, ?, ?, ?, ?)`
-  ).bind(id, tipo, "started", detailJson, inicio).run();
-  return id;
-}
-
-async function finishRun(db: D1Database, runId: string, estado: string, detail?: unknown): Promise<void> {
-  const fin = nowIso();
-  const existing = await db.prepare("SELECT detalle_json FROM registro_ejecucion WHERE id = ?").bind(runId).first<{ detalle_json: string | null }>();
-  const existingJson = existing?.detalle_json ?? null;
-  const existingParsed = existingJson ? safeParseJson(existingJson) : null;
-  let mergedDetail;
-  if (detail === void 0) {
-    mergedDetail = void 0;
-  } else if (isPlainObject(existingParsed) && isPlainObject(detail)) {
-    mergedDetail = { ...existingParsed, ...detail };
-  } else {
-    mergedDetail = detail;
-  }
-  const detailJson = mergedDetail === void 0 ? existingJson : mergedDetail === null ? null : JSON.stringify(mergedDetail);
-  await db.prepare(
-    `UPDATE registro_ejecucion
-     SET estado = ?, detalle_json = ?, fin = ?
-     WHERE id = ?`
-  ).bind(estado, detailJson, fin, runId).run();
-}
 
 // ─── Historial de Cambios ────────────────────────────────────────────
 
@@ -104,7 +71,6 @@ async function upsertDictamen(db: D1Database, params: DictamenUpsertParams): Pro
            materia = COALESCE(?, materia),
            criterio = COALESCE(?, criterio),
            destinatarios = COALESCE(?, destinatarios),
-           crawled_from_cgr = COALESCE(?, crawled_from_cgr),
            origen_importacion = COALESCE(?, origen_importacion),
            estado = ?,
            updated_at = ?
@@ -117,7 +83,6 @@ async function upsertDictamen(db: D1Database, params: DictamenUpsertParams): Pro
       params.materia ?? null,
       params.criterio ?? null,
       params.destinatarios ?? null,
-      params.crawledFromCgr ?? null,
       params.origenImportacion ?? null,
       params.status,
       now,
@@ -127,8 +92,8 @@ async function upsertDictamen(db: D1Database, params: DictamenUpsertParams): Pro
     await db.prepare(
       `INSERT INTO dictamenes
        (id, numero, anio, fecha_documento, fecha_indexacion, materia, criterio, destinatarios,
-        crawled_from_cgr, origen_importacion, estado, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        origen_importacion, estado, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
       params.id,
       params.numero ?? null,
@@ -138,7 +103,6 @@ async function upsertDictamen(db: D1Database, params: DictamenUpsertParams): Pro
       params.materia ?? null,
       params.criterio ?? null,
       params.destinatarios ?? null,
-      params.crawledFromCgr ?? 0,
       params.origenImportacion ?? 'crawl_contraloria',
       params.status,
       now,
@@ -221,7 +185,7 @@ async function listDictamenes(
 // No necesitamos tabla `raw_ref` — la función es pura.
 
 function getKvKey(dictamenId: string): string {
-  return `dictamen:${dictamenId}`;
+  return dictamenId; // Removido el prefijo "dictamen:" para coincidir con legacy original de mongo.
 }
 
 // Función de compatibilidad para código que usaba getLatestRawRef.
@@ -252,8 +216,8 @@ async function insertEnrichment(
     `INSERT OR REPLACE INTO enriquecimiento
      (dictamen_id, titulo, resumen, analisis, etiquetas_json,
       genera_jurisprudencia, booleanos_json, fuentes_legales_json,
-      modelo_llm, fecha_enriquecimiento, procesado)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
+      modelo_llm, fecha_enriquecimiento)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(
     row.dictamen_id,
     row.titulo,
@@ -273,7 +237,7 @@ async function getLatestEnrichment(db: D1Database, dictamenId: string): Promise<
   const result = await db.prepare(
     `SELECT dictamen_id, titulo, resumen, analisis, etiquetas_json,
             genera_jurisprudencia, booleanos_json, fuentes_legales_json,
-            modelo_llm, fecha_enriquecimiento, procesado
+            modelo_llm, fecha_enriquecimiento
      FROM enriquecimiento
      WHERE dictamen_id = ?`
   ).bind(dictamenId).first<EnrichmentRow>();
@@ -392,14 +356,8 @@ async function getDashboardStats(db: D1Database): Promise<{
   counts.total = counts.ingested + counts.enriched + counts.vectorized + counts.error;
 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1e3).toISOString();
-  const runsResult = await db.prepare(
-    `SELECT estado, COUNT(*) as count FROM registro_ejecucion WHERE inicio >= ? GROUP BY estado`
-  ).bind(since).all<{ estado: string; count: number }>();
+  // Se eliminó la dependencia de registro_ejecucion
   const runs24h = { total: 0, errors: 0 };
-  for (const row of runsResult.results ?? []) {
-    runs24h.total += row.count;
-    if (row.estado === "error") runs24h.errors += row.count;
-  }
 
   const qualityResult = await db.prepare(
     `SELECT
@@ -423,11 +381,10 @@ async function getDashboardStats(db: D1Database): Promise<{
   };
 
   const recentSince = new Date(Date.now() - 2 * 60 * 1e3).toISOString();
-  const recentRuns = await db.prepare("SELECT COUNT(*) as count FROM registro_ejecucion WHERE inicio >= ?").bind(recentSince).first<{ count: number }>();
-  const lastRun = await db.prepare("SELECT MAX(inicio) as last_run FROM registro_ejecucion").first<{ last_run: string | null }>();
+  // Se eliminó la dependencia de registro_ejecucion
   const activity = {
-    recentRuns: recentRuns?.count ?? 0,
-    lastRunAt: lastRun?.last_run ?? null
+    recentRuns: 0,
+    lastRunAt: null
   };
 
   const pending = {
@@ -438,10 +395,7 @@ async function getDashboardStats(db: D1Database): Promise<{
   return { counts, runs24h, quality, activity, pending };
 }
 
-async function listRuns(db: D1Database, limit = 50): Promise<RegistroEjecucionRow[]> {
-  const result = await db.prepare("SELECT * FROM registro_ejecucion ORDER BY inicio DESC LIMIT ?").bind(limit).all<RegistroEjecucionRow>();
-  return result.results ?? [];
-}
+
 
 // ─── Auxiliares ───────────────────────────────────────────────────────
 
@@ -456,8 +410,6 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 export {
   nowIso,
-  startRun,
-  finishRun,
   upsertDictamen,
   updateDictamenStatus,
   getKvKey,
@@ -466,7 +418,6 @@ export {
   getLatestEnrichment,
   getStats,
   getDashboardStats,
-  listRuns,
   listDictamenes,
   getDictamenById,
   listDictamenByStatus,

@@ -1,9 +1,16 @@
+// cgr-platform/src/lib/ingest.ts
 // Ingesta de dictámenes desde CGR.cl → KV + D1.
-// Adaptado a cgr-dictamenes (c391c767): tabla dictamenes (plural),
+// Adaptado a cgr-dictamenes: tabla dictamenes (plural),
 // clave KV = dictamen:{ID}, sin sha256/raw_ref.
-import type { Env, DictamenRaw, DictamenSource, DictamenStatus } from '../types';
-import { upsertDictamen, updateDictamenStatus, getKvKey, insertDictamenBooleanosLLM } from '../storage/d1';
 
+import type { Env, DictamenRaw, DictamenSource, DictamenStatus } from '../types';
+import type { D1Database } from '@cloudflare/workers-types';
+
+import {
+  upsertDictamen,
+  getKvKey,
+  insertDictamenBooleanosLLM,
+} from '../storage/d1';
 
 function getSource(raw: DictamenRaw): DictamenSource {
   const rawAny = raw as any;
@@ -12,9 +19,12 @@ function getSource(raw: DictamenRaw): DictamenSource {
 
 function normalizeText(value: unknown) {
   if (!value) return null;
-  if (typeof value === "string") return value.trim() || null;
+  if (typeof value === 'string') return value.trim() || null;
   if (Array.isArray(value)) {
-    const joined = value.map((item) => String(item).trim()).filter(Boolean).join(", ");
+    const joined = value
+      .map((item) => String(item).trim())
+      .filter(Boolean)
+      .join(', ');
     return joined || null;
   }
   return String(value).trim() || null;
@@ -23,46 +33,46 @@ function normalizeText(value: unknown) {
 function normalizeFlag(value: unknown) {
   if (value === true) return 1;
   if (value === false) return 0;
-  if (typeof value === "number") return value ? 1 : 0;
-  if (typeof value === "string") {
+  if (typeof value === 'number') return value ? 1 : 0;
+  if (typeof value === 'string') {
     const trimmed = value.trim().toLowerCase();
-    if (trimmed === "si" || trimmed === "true" || trimmed === "1") return 1;
-    if (trimmed === "no" || trimmed === "false" || trimmed === "0") return 0;
+    if (trimmed === 'si' || trimmed === 'true' || trimmed === '1') return 1;
+    if (trimmed === 'no' || trimmed === 'false' || trimmed === '0') return 0;
   }
   return null;
 }
 
 function extractDictamenId(raw: DictamenRaw): string {
   const source = getSource(raw);
-  if (source.numeric_doc_id && source.year_doc_id) {
-    const year = String(source.year_doc_id).slice(-2);
-    return `${source.numeric_doc_id}N${year}`;
+  if ((source as any).numeric_doc_id && (source as any).year_doc_id) {
+    const year = String((source as any).year_doc_id).slice(-2);
+    return `${(source as any).numeric_doc_id}N${year}`;
   }
-  const fromSource = typeof source.doc_id === "string" ? source.doc_id : null;
-  const fromRaw = typeof raw._id === "string" ? raw._id : null;
-  const fromId = typeof raw.id === "string" ? raw.id : null;
-  return fromSource ?? fromRaw ?? fromId ?? "unknown";
+  const fromSource = typeof (source as any).doc_id === 'string' ? (source as any).doc_id : null;
+  const fromRaw = typeof (raw as any)._id === 'string' ? (raw as any)._id : null;
+  const fromId = typeof (raw as any).id === 'string' ? (raw as any).id : null;
+  return fromSource ?? fromRaw ?? fromId ?? 'unknown';
 }
 
 function extractGeneraJurisprudencia(raw: DictamenRaw): number | null {
-  const source = getSource(raw);
+  const source = getSource(raw) as any;
   const value = source.genera_jurisprudencia;
-  if (typeof value === "boolean") return value ? 1 : 0;
-  if (typeof value === "number") return value ? 1 : 0;
-  if (typeof value === "string") {
+  if (typeof value === 'boolean') return value ? 1 : 0;
+  if (typeof value === 'number') return value ? 1 : 0;
+  if (typeof value === 'string') {
     const trimmed = value.trim().toLowerCase();
-    if (trimmed === "si" || trimmed === "true" || trimmed === "1") return 1;
-    if (trimmed === "no" || trimmed === "false" || trimmed === "0") return 0;
+    if (trimmed === 'si' || trimmed === 'true' || trimmed === '1') return 1;
+    if (trimmed === 'no' || trimmed === 'false' || trimmed === '0') return 0;
   }
-  const criterio = typeof source.criterio === "string" ? source.criterio.toLowerCase() : "";
-  if (criterio.includes("genera jurisprudencia")) return 1;
-  if (criterio.includes("aplica jurisprudencia")) return 0;
+  const criterio = typeof source.criterio === 'string' ? source.criterio.toLowerCase() : '';
+  if (criterio.includes('genera jurisprudencia')) return 1;
+  if (criterio.includes('aplica jurisprudencia')) return 0;
   return null;
 }
 
 // Extraer año desde fecha_documento del source.
 function extractAnio(source: DictamenSource): number | null {
-  const fecha = normalizeText(source.fecha_documento);
+  const fecha = normalizeText((source as any).fecha_documento);
   if (!fecha) return null;
   const match = fecha.match(/(\d{4})/);
   return match ? parseInt(match[1], 10) : null;
@@ -71,18 +81,40 @@ function extractAnio(source: DictamenSource): number | null {
 // Extraer diccionarios (abogados, descriptores) como listas limpias
 function extractCommaSeparatedList(value: unknown): string[] {
   if (!value) return [];
-  if (typeof value === "string") {
-    return value.split(/[,;\n]/).map(s => s.trim()).filter(s => s.length > 2);
+  if (typeof value === 'string') {
+    // 1. Heurística: Si detectamos demasiados espacios sin comas, es probable que sea un cargo (ej: "Ministro de Salud")
+    const words = value.trim().split(/\s+/);
+    if (words.length >= 3 && !value.includes(',')) {
+      return [];
+    }
+
+    return value
+      .split(/[,;\n\s]+/)
+      .map((s) => s.trim().toUpperCase())
+      .filter((s) => {
+        // Filtro de Ruido y Lista Negra Ampliada:
+        const noiseTerms = [
+          'DE', 'DEL', 'LOS', 'LAS', 'RES', 'N°', 'FECHA', 'ANT', 'CHILE',
+          'SALUD', 'DEFENSA', 'ESTADO', 'GENERAL', 'DIRECTOR', 'MINISTRO',
+          'PRESIDENTA', 'JEFE', 'GRAL', 'CMTE', 'ALTE', 'CONSEJO', 'JUNTA'
+        ];
+        return (
+          s.length >= 2 &&
+          s.length <= 5 &&
+          /^[A-Z]+$/.test(s) &&
+          !noiseTerms.includes(s)
+        );
+      });
   }
   if (Array.isArray(value)) {
-    return value.map(s => String(s).trim()).filter(s => s.length > 2);
+    return value.map((s) => String(s).trim().toUpperCase()).filter((s) => s.length >= 2);
   }
   return [];
 }
 
 function isMissingColumnError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
-  return message.includes("has no column named") || message.includes("no such column");
+  return message.includes('has no column named') || message.includes('no such column');
 }
 
 async function upsertCatalogAndLink(
@@ -97,27 +129,39 @@ async function upsertCatalogAndLink(
     candidateTermColumns: string[];
   }
 ): Promise<void> {
+  const termNorm =
+    options.normalizerSqlFn === 'LOWER'
+      ? term.toLowerCase()
+      : options.normalizerSqlFn === 'UPPER'
+        ? term.toUpperCase()
+        : term;
+
   for (const termColumn of options.candidateTermColumns) {
     try {
-      await db.prepare(
-        `INSERT OR IGNORE INTO ${options.catalogTable} (${termColumn}) VALUES (${options.normalizerSqlFn}(?))`
-      ).bind(term).run();
+      await db
+        .prepare(`INSERT OR IGNORE INTO ${options.catalogTable} (${termColumn}) VALUES (?)`)
+        .bind(termNorm)
+        .run();
 
-      await db.prepare(
-        `INSERT OR IGNORE INTO ${options.relationTable} (dictamen_id, ${options.relationForeignIdColumn})
-         SELECT ?, id FROM ${options.catalogTable} WHERE ${termColumn} = ${options.normalizerSqlFn}(?)`
-      ).bind(dictamenId, term).run();
+      await db
+        .prepare(
+          `INSERT OR IGNORE INTO ${options.relationTable} (dictamen_id, ${options.relationForeignIdColumn})
+           SELECT ?, id FROM ${options.catalogTable} WHERE ${termColumn} = ?`
+        )
+        .bind(dictamenId, termNorm)
+        .run();
+
       return;
     } catch (error) {
-      if (!isMissingColumnError(error)) {
-        throw error;
-      }
-      console.warn(`[Ingest] Columna ${termColumn} no existe en ${options.catalogTable}. Probando fallback...`);
+      if (!isMissingColumnError(error)) throw error;
+      console.warn(
+        `[Ingest] Columna ${termColumn} no existe en ${options.catalogTable}. Probando fallback...`
+      );
     }
   }
 
   throw new Error(
-    `No compatible column found for ${options.catalogTable}. Tried: ${options.candidateTermColumns.join(", ")}`
+    `No compatible column found for ${options.catalogTable}. Tried: ${options.candidateTermColumns.join(', ')}`
   );
 }
 
@@ -130,10 +174,10 @@ async function ingestDictamen(
     origenImportacion?: string | null;
   }
 ): Promise<{ dictamenId: string; kvKey: string }> {
-  const source = getSource(raw);
+  const source = getSource(raw) as any;
   const dictamenId = extractDictamenId(raw);
   const generaJurisprudencia = extractGeneraJurisprudencia(raw);
-  const status = options?.status ?? "ingested";
+  const status = options?.status ?? 'ingested';
   const origenImport = options?.origenImportacion ?? 'crawl_contraloria';
 
   // 1. Upsert en D1 (tabla dictamenes)
@@ -164,8 +208,9 @@ async function ingestDictamen(
     reconsiderado: normalizeFlag(source.reconsiderado) === 1,
     aplicado: normalizeFlag(source.aplicado) === 1,
     reactivado: normalizeFlag(source.reactivado) === 1,
-    recurso_proteccion: normalizeFlag(source.recurso_proteccion) === 1
+    recurso_proteccion: normalizeFlag(source.recurso_proteccion) === 1,
   };
+
   await insertDictamenBooleanosLLM(env.DB, dictamenId, rawBooleanos);
 
   // 1.6. Extraer y poblar listas de validación/entidades
@@ -176,7 +221,7 @@ async function ingestDictamen(
       relationTable: 'dictamen_descriptores',
       relationForeignIdColumn: 'descriptor_id',
       normalizerSqlFn: 'LOWER',
-      candidateTermColumns: ['termino', 'nombre']
+      candidateTermColumns: ['termino'], // producción
     });
   }
 
@@ -187,7 +232,7 @@ async function ingestDictamen(
       relationTable: 'dictamen_abogados',
       relationForeignIdColumn: 'abogado_id',
       normalizerSqlFn: 'UPPER',
-      candidateTermColumns: ['nombre', 'termino', 'iniciales']
+      candidateTermColumns: ['iniciales'], // producción
     });
   }
 
@@ -198,23 +243,33 @@ async function ingestDictamen(
 
   try {
     await env.DICTAMENES_SOURCE.put(kvKey, payload);
+
     await env.DB.prepare(
       `INSERT INTO kv_sync_status (dictamen_id, en_source, source_written_at)
-       VALUES (?, 1, ?)
-       ON CONFLICT(dictamen_id) DO UPDATE SET en_source = 1, source_written_at = excluded.source_written_at, updated_at = excluded.source_written_at`
-    ).bind(dictamenId, now).run();
+     VALUES (?, 1, ?)
+     ON CONFLICT(dictamen_id) DO UPDATE SET
+       en_source = 1,
+       source_written_at = excluded.source_written_at,
+       updated_at = excluded.source_written_at`
+    )
+      .bind(dictamenId, now)
+      .run();
+
   } catch (error: any) {
     await env.DB.prepare(
       `INSERT INTO kv_sync_status (dictamen_id, en_source, source_error)
-       VALUES (?, 0, ?)
-       ON CONFLICT(dictamen_id) DO UPDATE SET source_error = excluded.source_error, updated_at = ?`
-    ).bind(dictamenId, error.message, now).run();
+     VALUES (?, 0, ?)
+     ON CONFLICT(dictamen_id) DO UPDATE SET
+       source_error = excluded.source_error,
+       updated_at = ?`
+    )
+      .bind(dictamenId, error?.message ?? String(error), now)
+      .run();
+
     throw error;
   }
-
   return { dictamenId, kvKey };
 }
-
 
 export {
   extractDictamenId,

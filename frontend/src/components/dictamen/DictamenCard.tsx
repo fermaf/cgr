@@ -7,6 +7,8 @@ interface DictamenCardProps {
 }
 
 export function DictamenCard({ dictamen }: DictamenCardProps) {
+    const isEnriched = dictamen.estado === "enriched" || dictamen.estado === "vectorized";
+
     return (
         <div className="relative group block bg-white rounded-2xl border border-slate-200 transition-all duration-300 overflow-hidden shadow-sm hover:shadow-premium hover:-translate-y-1">
             <Link
@@ -42,7 +44,7 @@ export function DictamenCard({ dictamen }: DictamenCardProps) {
                             </span>
                         )}
 
-                        {dictamen.es_enriquecido === 1 ? (
+                        {isEnriched ? (
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-[10px] font-bold text-cgr-blue border border-blue-200 shadow-sm tracking-wider">
                                 <span className="w-1.5 h-1.5 rounded-full bg-cgr-blue" />
                                 ANÁLISIS IA

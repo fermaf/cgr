@@ -153,8 +153,9 @@ export default {
                 const abogadosIniciales = abogadosStr.trim().split(/\s+/)
                     .map((a: string) => normalize(a, 'upper'))
                     .filter((a: string | null) => {
-                        // Noise filter: only 2-5 letter initials. Skip junk like "RES" or dates.
-                        return a && /^[A-Z]{2,5}$/.test(a) && a !== 'RES';
+                        // Noise filter: only 2-5 letter initials. Skip junk like "RES" or titles.
+                        const noiseTerms = ['RES', 'N°', 'FECHA', 'ANT', 'DEL', 'LOS', 'LAS'];
+                        return a && /^[A-Z]{2,5}$/.test(a) && !noiseTerms.includes(a);
                     }) as string[];
 
                 // 6. Normalization: Descriptors (Multi-value)

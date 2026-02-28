@@ -49,7 +49,7 @@
     "APP_TIMEZONE": "America/Santiago",
     "CGR_BASE_URL": "https://www.contraloria.cl",
     "MISTRAL_API_URL": "https://gateway.ai.cloudflare.com/v1/63ac4f10cdedc71a1b09256622380278/cgr-gateway/mistral/v1",
-    "MISTRAL_MODEL": "mistral-large-2411",
+    "MISTRAL_MODEL": "mistral-large-2512",
     "PINECONE_INDEX_HOST": "https://cgr-8aea039.svc.aped-4627-b74a.pinecone.io",
     "PINECONE_NAMESPACE": "mistralLarge2411",
     "LOG_LEVEL": "debug",
@@ -66,7 +66,7 @@
         "APP_TIMEZONE": "America/Santiago",
         "CGR_BASE_URL": "https://www.contraloria.cl",
         "MISTRAL_API_URL": "https://gateway.ai.cloudflare.com/v1/63ac4f10cdedc71a1b09256622380278/cgr-gateway/mistral/v1",
-        "MISTRAL_MODEL": "mistral-large-2411",
+        "MISTRAL_MODEL": "mistral-large-2512",
         "PINECONE_INDEX_HOST": "https://cgr-8aea039.svc.aped-4627-b74a.pinecone.io",
         "PINECONE_NAMESPACE": "mistralLarge2411",
         "LOG_LEVEL": "debug",
@@ -117,7 +117,7 @@
         "APP_TIMEZONE": "America/Santiago",
         "CGR_BASE_URL": "https://www.contraloria.cl",
         "MISTRAL_API_URL": "https://gateway.ai.cloudflare.com/v1/63ac4f10cdedc71a1b09256622380278/cgr-gateway/mistral/v1",
-        "MISTRAL_MODEL": "mistral-large-2411",
+        "MISTRAL_MODEL": "mistral-large-2512",
         "PINECONE_INDEX_HOST": "https://cgr-8aea039.svc.aped-4627-b74a.pinecone.io",
         "PINECONE_NAMESPACE": "mistralLarge2411",
         "LOG_LEVEL": "debug",
@@ -162,9 +162,9 @@
       ]
     }
   },
-   "triggers": {
-     "crons": [
-       "05 3 * * *"
-     ]
-   }
+  "triggers": {
+    "crons": [
+      "05 3 * * *"
+    ]
+  }
 }

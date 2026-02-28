@@ -12,6 +12,9 @@ import type { SkillExecution } from '../lib/skillExecutor';
 import { runCheckEnvSanity } from '../skills/check_env_sanity';
 import { runCheckD1Schema } from '../skills/check_d1_schema';
 import { runCheckRouterConsistency } from '../skills/check_router_consistency';
+import { runCgrNetworkBaseurlVerify } from '../skills/cgr_network_baseurl_verify';
+import { runD1RemoteSchemaVerify } from '../skills/d1_remote_schema_verify';
+import { runMistralTimeoutTriage } from '../skills/mistral_timeout_triage';
 
 interface IngestParams {
   search?: string;
@@ -96,6 +99,45 @@ export class IngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> {
               const result = await runCheckRouterConsistency(incident, decision);
               return {
                 skill: 'check_router_consistency',
+                mode: 'diagnostic',
+                status: result.status,
+                reason: result.status === 'success' ? 'diagnostic_ok' : 'diagnostic_failed',
+                output: { ...result.metadata, error: result.error ?? null }
+              };
+            }
+          },
+          {
+            name: 'cgr_network_baseurl_verify',
+            run: async () => {
+              const result = await runCgrNetworkBaseurlVerify(env, incident);
+              return {
+                skill: 'cgr_network_baseurl_verify',
+                mode: 'diagnostic',
+                status: result.status,
+                reason: result.status === 'success' ? 'diagnostic_ok' : 'diagnostic_failed',
+                output: { ...result.metadata, error: result.error ?? null }
+              };
+            }
+          },
+          {
+            name: 'd1_remote_schema_verify',
+            run: async () => {
+              const result = await runD1RemoteSchemaVerify(env, incident);
+              return {
+                skill: 'd1_remote_schema_verify',
+                mode: 'diagnostic',
+                status: result.status,
+                reason: result.status === 'success' ? 'diagnostic_ok' : 'diagnostic_failed',
+                output: { ...result.metadata, error: result.error ?? null }
+              };
+            }
+          },
+          {
+            name: 'mistral_timeout_triage',
+            run: async () => {
+              const result = await runMistralTimeoutTriage(env, incident);
+              return {
+                skill: 'mistral_timeout_triage',
                 mode: 'diagnostic',
                 status: result.status,
                 reason: result.status === 'success' ? 'diagnostic_ok' : 'diagnostic_failed',

@@ -39,7 +39,32 @@ export function DictamenDetail() {
 
     if (!data) return null;
 
-    const { meta, raw, intelligence } = data;
+    const { meta, raw, extrae_jurisprudencia } = data;
+    const isEnriched = meta.estado === "enriched" || meta.estado === "vectorized" || !!extrae_jurisprudencia;
+
+    const extractText = (source: any): string | null => {
+        if (!source || typeof source !== "object") return null;
+        const direct =
+            source.texto_completo ||
+            source.documento_completo ||
+            source.texto ||
+            source.Descripcion;
+        if (typeof direct === "string" && direct.trim().length > 0) return direct;
+
+        const nested = source._source || source.source || source.raw_data;
+        if (nested && typeof nested === "object") {
+            const nestedText =
+                nested.texto_completo ||
+                nested.documento_completo ||
+                nested.texto ||
+                nested.Descripcion;
+            if (typeof nestedText === "string" && nestedText.trim().length > 0) return nestedText;
+        }
+
+        return null;
+    };
+
+    const textoIntegro = extractText(raw);
 
     return (
         <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700 relative z-10 pb-20">
@@ -71,9 +96,9 @@ export function DictamenDetail() {
                     </div>
                     <span className={cn(
                         "px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider border flex items-center gap-2 whitespace-nowrap shadow-sm",
-                        meta.es_enriquecido ? "bg-blue-50 text-cgr-blue border-blue-200" : "bg-slate-50 text-slate-500 border-slate-200"
+                        isEnriched ? "bg-blue-50 text-cgr-blue border-blue-200" : "bg-slate-50 text-slate-500 border-slate-200"
                     )}>
-                        {meta.es_enriquecido ? <><Sparkles className="w-4 h-4" /> ANÁLISIS IA</> : <><FileCheck className="w-4 h-4" /> ESTÁNDAR</>}
+                        {isEnriched ? <><Sparkles className="w-4 h-4" /> ANÁLISIS IA</> : <><FileCheck className="w-4 h-4" /> ESTÁNDAR</>}
                     </span>
                 </div>
 
@@ -121,12 +146,8 @@ export function DictamenDetail() {
                             </div>
 
                             <div className="relative z-10 selection:bg-blue-100 whitespace-pre-wrap text-justify overflow-auto">
-                                {raw.texto_completo || raw.documento_completo || raw.texto || raw.Descripcion ? (
-                                    raw.texto_completo || raw.documento_completo || raw.texto || raw.Descripcion
-                                ) : Object.keys(raw || {}).length > 0 ? (
-                                    <pre className="text-sm text-slate-600 bg-slate-50 p-4 rounded-lg font-mono text-left">
-                                        {JSON.stringify(raw, null, 2)}
-                                    </pre>
+                                {textoIntegro ? (
+                                    textoIntegro
                                 ) : (
                                     <div className="text-center py-12 text-slate-500 font-sans border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50">
                                         <AlertCircle className="w-10 h-10 mx-auto mb-4 opacity-70 text-slate-400" />
@@ -158,7 +179,7 @@ export function DictamenDetail() {
                 </article>
 
                 <aside className="lg:col-span-1 space-y-6 order-1 lg:order-2">
-                    {intelligence?.extrae_jurisprudencia?.resumen && (
+                    {extrae_jurisprudencia?.resumen && (
                         <div className="bg-cgr-navy rounded-2xl p-7 border border-cgr-navy shadow-premium relative overflow-hidden group">
                             <h3 className="font-bold text-white flex items-center gap-3 mb-5 relative z-10 uppercase tracking-wide text-sm font-sans">
                                 <span className="p-2 bg-white/10 text-white rounded-lg border border-white/20">
@@ -167,16 +188,16 @@ export function DictamenDetail() {
                                 Resumen Ejecutivo IA
                             </h3>
                             <p className="text-blue-50 text-base leading-relaxed relative z-10 font-sans font-light">
-                                {intelligence.extrae_jurisprudencia.resumen}
+                                {extrae_jurisprudencia.resumen}
                             </p>
                         </div>
                     )}
 
-                    {intelligence?.extrae_jurisprudencia?.analisis && (
+                    {extrae_jurisprudencia?.analisis && (
                         <div className="bg-white p-7 rounded-2xl border border-slate-200 border-l-4 border-l-cgr-blue shadow-sm">
                             <h3 className="font-bold text-slate-400 text-[10px] uppercase tracking-widest mb-4">Análisis Jurídico</h3>
                             <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-line font-sans font-medium">
-                                {intelligence.extrae_jurisprudencia.analisis}
+                                {extrae_jurisprudencia.analisis}
                             </p>
                         </div>
                     )}

@@ -1,0 +1,109 @@
+{
+  "version": 1,
+  "priorities": [
+    "policy",
+    "context",
+    "intent",
+    "result"
+  ],
+  "policy": [
+    {
+      "id": "fail_closed_prod_db_write",
+      "if": "env == 'prod' && requires_write == true",
+      "action": "block",
+      "reason": "Fail-closed: writes to prod require explicit approval"
+    },
+    {
+      "id": "fail_closed_remote_ops",
+      "if": "remote == true && requires_write == true",
+      "action": "block",
+      "reason": "Fail-closed: remote writes disabled by default"
+    },
+    {
+      "id": "fail_closed_destructive",
+      "if": "destructive == true",
+      "action": "block",
+      "reason": "Fail-closed: destructive operations blocked"
+    }
+  ],
+  "context": [
+    {
+      "id": "prefer_local_diagnosis",
+      "if": "intent == 'diagnosis' && env == 'local'",
+      "boost": 10
+    },
+    {
+      "id": "prod_requires_determinism",
+      "if": "env == 'prod'",
+      "require_deterministic": true
+    }
+  ],
+  "intent": [
+    {
+      "id": "d1_schema_verify_intent",
+      "if": "intent in ['diagnosis','db_schema_check']",
+      "suggest_skill": "d1_remote_schema_verify"
+    },
+    {
+      "id": "workflow_rpc_fix_intent",
+      "if": "intent in ['workflow_fix','incident']",
+      "suggest_skill": "workflow_rpc_this_capture_guard"
+    },
+    {
+      "id": "batch_enrich_intent",
+      "if": "intent in ['operation','batch_enrich']",
+      "suggest_skill": "batch_enrich_trigger"
+    }
+  ],
+  "result": [
+    {
+      "id": "d1_schema_mismatch_error",
+      "match": {
+        "source": "logs",
+        "type": "regex",
+        "pattern": "table\\s+([a-zA-Z0-9_]+)\\s+has no column named\\s+'?([a-zA-Z0-9_]+)'?"
+      },
+      "extract": {
+        "entity": "table_column",
+        "groups": [
+          "table",
+          "column"
+        ]
+      },
+      "route_to": "d1_remote_schema_verify"
+    },
+    {
+      "id": "workflow_rpc_exception",
+      "match": {
+        "source": "logs",
+        "type": "string",
+        "pattern": "RPC Exception"
+      },
+      "route_to": "workflow_rpc_this_capture_guard"
+    },
+    {
+      "id": "mistral_timeout",
+      "match": {
+        "source": "logs",
+        "type": "string",
+        "pattern": "gateway_timeout"
+      },
+      "route_to": "mistral_timeout_triage"
+    },
+    {
+      "id": "d1_missing_table",
+      "match": {
+        "source": "logs",
+        "type": "regex",
+        "pattern": "no such table:\\s*([a-zA-Z0-9_]+)"
+      },
+      "extract": {
+        "entity": "table",
+        "groups": [
+          "table"
+        ]
+      },
+      "route_to": "d1_missing_table_triage"
+    }
+  ]
+}

@@ -25,6 +25,40 @@ npm run dev
 
 URL local por defecto: `http://localhost:8787`
 
+## Skillgen local (sin --persist-to)
+
+Ejecuta siempre desde `cgr-platform` para usar la misma BD local por defecto:
+
+```bash
+npm run d1:sanity
+```
+
+Prueba error real (CGR_BASE_URL inválida):
+
+1) Cambia temporalmente `CGR_BASE_URL` en `wrangler.jsonc` a `https://invalid.invalid`.
+2) Corre `npm run dev`.
+3) Dispara:
+
+```bash
+curl -sS -X POST http://localhost:8787/ingest/trigger \
+  -H 'Content-Type: application/json' \
+  --data '{"search":"","limit":1,"options":[]}'
+```
+
+4) Verifica inserts:
+
+```bash
+wrangler d1 execute cgr-dictamenes --local --command "SELECT COUNT(*) AS n FROM skill_events;"
+```
+
+Prueba error sintético (SKILL_TEST_ERROR=1):
+
+1) Restaura `CGR_BASE_URL` a `https://www.contraloria.cl` y setea `SKILL_TEST_ERROR` en `wrangler.jsonc` a `"1"`.
+2) Repite `npm run dev` y el `curl` anterior.
+3) Verifica inserts y revisa logs (`INCIDENT.code` debe ser `WORKFLOW_TEST_ERROR`).
+
+Al terminar, deja `CGR_BASE_URL` correcto y `SKILL_TEST_ERROR` en `"0"`.
+
 ## Comandos operativos frecuentes
 
 ### Deploy
@@ -49,6 +83,7 @@ wrangler d1 execute cgr-dictamenes --remote --command "SELECT estado, COUNT(*) c
 
 Definidas en `wrangler.jsonc`:
 
+- `ENVIRONMENT` (`local|prod|unknown`)
 - `CGR_BASE_URL`
 - `MISTRAL_API_URL`
 - `MISTRAL_MODEL`
@@ -61,6 +96,7 @@ Definidas en `wrangler.jsonc`:
 
 Secrets:
 
+- `CGR_API_TOKEN` (obligatorio en `ENVIRONMENT=prod`)
 - `MISTRAL_API_KEY`
 - `PINECONE_API_KEY`
 - `CF_AIG_AUTHORIZATION` (si aplica por gateway)

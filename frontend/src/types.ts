@@ -24,7 +24,7 @@ export interface DictamenMeta {
     division_id: number;
     division_nombre?: string;
     criterio?: string;
-    es_enriquecido: number;
+    estado?: 'ingested' | 'enriched' | 'vectorized' | 'error' | null;
     origen_busqueda?: 'vectorial' | 'literal';
 }
 
@@ -44,7 +44,7 @@ export interface DictamenDetail extends DictamenMeta {
 export interface DictamenResponse {
     meta: DictamenDetail;
     raw: any; // El JSON original de la fuente
-    intelligence: any; // El JSON completo del enriquecimiento por IA
+    extrae_jurisprudencia: any; // Enriquecimiento por IA (resumen/análisis/etiquetas)
 }
 
 export interface SearchResponse {
