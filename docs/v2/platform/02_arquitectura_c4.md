@@ -180,7 +180,7 @@ Un agente LLM debe entender estas abstracciones para manipular datos:
   - `updateDictamenStatus()`: Controla la máquina de estados (`ingested` -> `enriched` -> `vectorized`).
 
 - **AI Client (`src/clients/mistral.ts`)**:
-  - `analyzeDictamen()`: Encapsula el prompt legal y la lógica de validación de JSON retornado por el LLM.
+  - `analyzeDictamen()`: Encapsula la lógica de **Inferencia Consolidada**. Utiliza un único prompt masivo para extraer Jurisprudencia, Atributos Jurídicos y Fuentes Legales en un solo paso atómico, optimizando latencia y reduciendo costos de tokens mediante contexto compartido.
 
 - **Incident Manager (`src/lib/incident.ts`)**:
   - Estructura `Incident`: Contiene `stack`, `context`, `severity` y `metadata`.

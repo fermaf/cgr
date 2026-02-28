@@ -22,82 +22,85 @@ function getRawSource(raw: DictamenRaw): DictamenSource {
   return (raw._source ?? raw.source ?? (raw as any).raw_data ?? raw) as DictamenSource;
 }
 
-function buildPrompt(raw: DictamenRaw) {
+function buildPromptConsolidado(raw: DictamenRaw) {
   const source = getRawSource(raw);
-  const documento = source.documento_completo ?? "";
-  return [
-    "Eres un abogado, eminencia en derecho administrativo en Chile. Te gusta estudiar dictámenes de la Controlaría General de la República y analizar la jurisprudencia que nace de ésta.",
-    "Tu entrada <web-scraping>, es un dictamen.",
-    "Respondes estrictamente de forma estructurada, con estas propiedades:",
-    "-titulo: Efectiva descripción del dictamen, hecho en menos de 66 caracteres,",
-    "-resumen: Una brillante narración jurisprudencial del dictamen. En menos de 246 caracteres",
-    '-análisis: narrativa jurisprudencial, señalando el contexto jurídico desde los hechos, el razonamiento y la  fundamentación empleada, basado en la normativa, los principios del Derecho y/o doctrina, todo; con el fin de  obtener "jurisprudencia", digna del Derecho Administrativo chileno. Hecho en menos de 999 Tokens.',
-    "-etiquetas: Arreglo con las más representativas descripciones el dictamen. Con entre 3 a 6 elementos.",
-    '-genera_jurisprudencia: Booleano "true" si objetivamente el dictamen está generando doctrina administrativa.',
-    "",
-    "Tus respuestas deben cumplir con estas Políticas:",
-    "-Todo dato personal debe ser anónimo, con el fin de impedir la identificación de personas naturales.",
-    "-Los cargos públicos y roles administrativos son identificadores válidos, y hasta necesarios, cuando el contexto lo requiere.",
-    "-Salvo referencia implícita, la norma jurídica se cita siempre con estas reglas.",
-    "a) si es Constitución, Ley o Decreto Ley basta identificarla por su nombre o número.",
-    "b) Si es normativa administrativa (Decretos, Resoluciones, Circular, etc.), se identifican con una triada compuesta por: el organismo autor, el año y el número del documento. (Eventualmente también un ID que garantices individualización).",
-    "-No haces referencia a ti mismo ni al identificador del dictamen en estudio.",
-    "-Evitar expresiones redundantes como “en este dictamen...”, “el dictamen señala...”, “este dictamen aborda...”. En su lugar, utilizar formulaciones impersonales como “Se aborda...”, “Se establece...”. Asimismo, omitir referencias innecesarias como “de Chile” o “chilenas” al mencionar leyes o instituciones, ya que el contexto nacional es evidente y su reiteración resulta innecesaria.",
-    "",
-    "El formato JSON de tu salida debe ser esta estructura:",
-    "{",
-    '"titulo":"",',
-    '"resumen":"",',
-    '"analisis":"",',
-    '"etiquetas":[],',
-    '"genera_jurisprudencia":false',
-    "}",
-    "<web-scraping>",
-    String(documento),
-    "</web-scraping>"
-  ].join("\n");
-}
+  const inputData = JSON.stringify({
+    ...source,
+    documento_completo: source.documento_completo
+  }, null, 2);
 
-function buildFuentesLegalesPrompt(raw: DictamenRaw) {
-  const source = getRawSource(raw);
-  const fuentes = source.fuentes_legales ?? "";
   return [
-    "You are a parser specialized in Chilean legal citations.",
+    "Eres un abogado, eminencia en derecho administrativo en Chile.",
     "",
-    "Task:",
-    "- Input: a string containing one or more legal references separated by commas (`, `).",
+    "Tu entrada es el dictamen completo (texto íntegro + metadatos + campo 'fuentes_legales' si existe).",
     "",
-    "For each reference, output an object with the following fields:",
-    "nombre: the first word before the first space. Example values: Ley, DL, DFL, DTO, RES, POL, CCI, etc.",
+    "### TAREA CRÍTICA (PROFUNDIDAD SEMÁNTICA):",
+    "Analiza el dictamen y entrega UNA SOLA respuesta JSON integral.",
+    "PROHIBICIÓN ABSOLUTA: No puedes usar puntos suspensivos (...), ni frases como \"[omitiendo]\", \"[continúa...]\", \"[resumen...]\" o cualquier forma de truncamiento en el campo \"analisis\".",
     "",
-    "numero: all the numeric part immediately after nombre, including internal slashes (/), except the last segment if it represents a year.",
+    "### 1. Jurisprudencia",
+    "- titulo: descripción efectiva del dictamen, máximo 66 caracteres.",
+    "- resumen: narración jurisprudencial brillante, máximo 246 caracteres.",
+    "- analisis: narrativa jurisprudencial de ALTA PROFUNDIDAD SEMÁNTICA.",
+    "  * Explica contexto, hechos, razonamiento y fundamentación jurídica completa.",
+    "  * INTEGRACIÓN DE CITAS: No hagas listas de dictámenes. Cada vez que menciones jurisprudencia previa (ej. dictamen X), integra la cita en la narrativa explicando brevemente su relevancia o relación con el caso actual.",
+    "  * El objetivo es que el texto sea rico para búsquedas vectoriales (Pinecone) pero fluido para un experto.",
+    "  * Mínimo 1500 caracteres, máximo 999 tokens. DEBE SER TEXTO CONTINUO.",
+    "- etiquetas: array de 3 a 6 etiquetas.",
+    "- genera_jurisprudencia: boolean true si genera doctrina administrativa.",
     "",
-    "year: if there is a slash (/) in numero, extract the last numeric segment:",
+    "### 2. Booleanos",
+    "Clasifica según dictamen: nuevo, aclarado, relevante, confirmado, boletin, alterado, complementado, reconsiderado_parcialmente, reconsiderado, aplicado, reactivado, recurso_proteccion. (SI/1 o afirmación clara -> true; NO/vacío o ausencia -> false).",
     "",
-    "If the last segment is two digits (e.g., 91), expand it to four digits (1991).",
+    "### 3. Fuentes Legales",
+    "Extrae referencias explícitas del texto. NO INVENTES fuentes que no estén en el texto.",
+    "- nombre: sigla (Ley, DL, DFL, DTO, etc.).",
+    "- numero: identificador numérico.",
+    "- year: 4 dígitos (ej. 91 -> 1991).",
+    "- sector, articulo, extra: según aparezca (o null).",
     "",
-    "If the last segment is four digits (e.g., 2004), keep it as-is.",
+    "### Políticas de Estilo (Obligatorias):",
+    "- Impersonalidad total: \"Se establece\", \"Se concluye\". NUNCA \"el dictamen señala\".",
+    "- NUNCA menciones \"de Chile\" o \"chilenas\".",
+    "- Anonimización estricta de personas naturales.",
     "",
-    "After extracting year, remove it from numero.",
+    "### Formato de Salida (JSON ÚNICAMENTE, SIN BLOQUES DE CÓDIGO, SIN COMENTARIOS):",
+    "{",
+    '  "extrae_jurisprudencia": {',
+    '    "titulo": "",',
+    '    "resumen": "",',
+    '    "analisis": "",',
+    '    "etiquetas": []',
+    "  },",
+    '  "genera_jurisprudencia": false,',
+    '  "booleanos": {',
+    '    "nuevo": false,',
+    '    "aclarado": false,',
+    '    "relevante": false,',
+    '    "confirmado": false,',
+    '    "boletin": false,',
+    '    "alterado": false,',
+    '    "complementado": false,',
+    '    "reconsiderado_parcialmente": false,',
+    '    "reconsiderado": false,',
+    '    "aplicado": false,',
+    '    "reactivado": false,',
+    '    "recurso_proteccion": false',
+    "  },",
+    '  "fuentes_legales": [',
+    "    {",
+    '      "nombre": "",',
+    '      "numero": "",',
+    '      "year": null,',
+    '      "sector": null,',
+    '      "articulo": null,',
+    '      "extra": null',
+    "    }",
+    "  ]",
+    "}",
     "",
-    "If no year is present, set year as null.",
-    "",
-    "-`sector`: the text that immediately follows the year (if present), up to the next tag like art/ or the next comma. If no sector exists, set it as null.",
-    "- `articulo`: the value after the `art / ` tag, up to the next space or tag.",
-    "- `extra`: everything after the `articulo` value, copied exactly as it appears, without processing, interpreting, or fragmenting it, If no extra exists, set it as null.",
-    "",
-    "Rules:",
-    "- Always output one object per reference.",
-    "- If there are multiple references, output a single JSON array (`[...]`) containing one object per reference.",
-    "- Do not use the original reference string as a key in the output.",
-    "- Do not group references together; treat each one separately.",
-    "- Only output pure JSON, without code block markers (```), and without any commentary or explanation.",
-    "- Always output all fields, even if some have `null` as their value.",
-    "-Do not wrap the output with json or any code block markers. Only return the raw JSON array, without backticks, quotes, or labels like json.",
-    "",
-    "Parse the following legal references according to the rules and structure provided:",
-    "(if there is no data below, just outoput: [{}] )",
-    String(fuentes)
+    "Input:",
+    inputData
   ].join("\n");
 }
 
@@ -169,8 +172,8 @@ async function analyzeDictamen(env: Env, raw: DictamenRaw) {
   try {
     const response = await client.chat.completions.create({
       model: env.MISTRAL_MODEL,
-      messages: [{ role: "user", content: buildPrompt(raw) }],
-      temperature: 0.2,
+      messages: [{ role: "user", content: buildPromptConsolidado(raw) }],
+      temperature: 0.1,
       response_format: { type: "json_object" }
     });
 
@@ -206,29 +209,6 @@ async function analyzeDictamen(env: Env, raw: DictamenRaw) {
   }
 }
 
-async function analyzeFuentesLegales(env: Env, raw: DictamenRaw) {
-  const client = getMistralClient(env);
-  const prompt = buildFuentesLegalesPrompt(raw);
-
-  try {
-    const response = await client.chat.completions.create({
-      model: env.MISTRAL_MODEL,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.1
-    });
-
-    const contentRaw = response.choices?.[0]?.message?.content;
-    const content = typeof contentRaw === 'string' ? contentRaw : undefined;
-    if (!content) return null;
-
-    const jsonPayload = typeof content === 'string' ? (extractJsonArrayPayload(content) || content) : JSON.stringify(content);
-    const parsed = JSON.parse(jsonPayload as string);
-    return normalizeFuentesLegales(parsed) ?? [];
-  } catch (error) {
-    logError('MISTRAL_FUENTES_ERROR', error, { model: env.MISTRAL_MODEL });
-    return null;
-  }
-}
 
 async function expandQuery(env: Env, query: string): Promise<string> {
   const prompt = `Como experto en Derecho Administrativo chileno y jurisprudencia de la Contraloría General de la República (CGR), tu tarea es expandir la siguiente consulta de un usuario para mejorar la búsqueda semántica.
@@ -327,4 +307,4 @@ async function generateEmbedding(env: Env, input: string): Promise<number[]> {
   }
 }
 
-export { analyzeDictamen, analyzeFuentesLegales, buildPrompt, expandQuery, rerankResults, generateEmbedding };
+export { analyzeDictamen, buildPromptConsolidado, expandQuery, rerankResults, generateEmbedding };

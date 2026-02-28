@@ -4,11 +4,11 @@ Esta guía establece las directivas obligatorias para cualquier agente LLM o des
 
 ---
 
-## 📖 1. Filosofía de "El Librero"
+## 📖 1. Filosofía de "El Librero" 
 - **Exhaustividad sobre Simplicidad**: Nada es "obvio". Si una función tiene un parámetro opcional, documéntalo. Si un endpoint tiene un fallback, explica por qué existe y cómo se activa.
 - **Source of Truth**: El código (`src/`) es la verdad absoluta. Si la documentación dice X y el código hace Y, actualiza la documentación inmediatamente.
 - **Didáctica para Nerds**: Escribe como un experto hablando con otros expertos, pero estructuralo para que un junior pueda seguir el flujo sin perderse.
-
+- **Citación a El librero**: Cita el enlace a este documento en la documentación que generes (son las politicas de la casa).
 ---
 
 ## 🏗 2. Marco de Trabajo: Diátaxis
