@@ -108,9 +108,9 @@ export function AdminDashboard() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.4 }}
-                        className="p-6 border border-slate-700/50 rounded-2xl bg-slate-900/40 backdrop-blur-md"
+                        className="p-6 border border-slate-200 shadow-sm rounded-2xl bg-white"
                     >
-                        <h2 className="text-xl font-bold mb-6 text-slate-100 flex items-center gap-2">
+                        <h2 className="text-xl font-bold mb-6 text-slate-800 flex items-center gap-2">
                             <Database className="w-5 h-5 text-cgr-gold" />
                             Tasa de Crecimiento y Brechas Históricas
                         </h2>
@@ -171,8 +171,8 @@ function TabButton({ icon: Icon, label, active, onClick }: { icon: any, label: s
         <button
             onClick={onClick}
             className={`flex items-center gap-2 px-5 py-3 rounded-t-xl font-medium transition-all duration-300 border-b-2 whitespace-nowrap ${active
-                    ? "bg-slate-200/50 border-cgr-navy text-cgr-navy drop-shadow-sm font-bold"
-                    : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                ? "bg-slate-200/50 border-cgr-navy text-cgr-navy drop-shadow-sm font-bold"
+                : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100"
                 }`}
         >
             <Icon className={`w-4 h-4 ${active ? "text-cgr-gold" : ""}`} />

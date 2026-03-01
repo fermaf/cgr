@@ -12,45 +12,45 @@ export function SemanticHeatmap({ data }: { data: SemanticData }) {
         name: item.materia,
         size: item.count,
         fill: [
-            '#0f172a', '#1e293b', '#334155', '#475569', '#64748b',
-            '#0369a1', '#0284c7', '#0ea5e9', '#38bdf8', '#7dd3fc',
-            '#1d4ed8', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd'
+            '#e0f2fe', '#bae6fd', '#7dd3fc', '#38bdf8', '#0ea5e9',
+            '#dbeafe', '#bfdbfe', '#93c5fd', '#60a5fa', '#3b82f6',
+            '#eef2ff', '#e0e7ff', '#c7d2fe', '#a5b4fc', '#818cf8'
         ][index % 15]
     }));
 
     return (
         <div className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-gradient-to-br from-cgr-navy/80 to-slate-900 border border-cgr-gold/20 p-6 rounded-2xl flex flex-col justify-center relative overflow-hidden group">
-                    <div className="absolute -right-4 -top-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                <div className="bg-white border border-slate-200 shadow-sm p-6 rounded-2xl flex flex-col justify-center relative overflow-hidden group">
+                    <div className="absolute -right-4 -top-4 opacity-10 group-hover:opacity-20 transition-opacity">
                         <Brain className="w-32 h-32 text-cgr-gold" />
                     </div>
                     <div className="relative z-10">
-                        <p className="text-sm text-slate-400 font-semibold tracking-widest uppercase mb-2">Dictámenes Relevantes</p>
-                        <p className="text-4xl font-black text-white">{data.impacto.relevantes.toLocaleString()}</p>
-                        <p className="text-xs text-cgr-gold mt-2">Marcados por atributos_juridicos</p>
+                        <p className="text-sm text-slate-500 font-semibold tracking-widest uppercase mb-2">Dictámenes Relevantes</p>
+                        <p className="text-4xl font-black text-slate-800">{data.impacto.relevantes.toLocaleString()}</p>
+                        <p className="text-xs text-cgr-gold mt-2 font-medium">Marcados por atributos_juridicos</p>
                     </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-red-500/20 p-6 rounded-2xl flex flex-col justify-center relative overflow-hidden group">
+                <div className="bg-white border border-red-200 shadow-sm p-6 rounded-2xl flex flex-col justify-center relative overflow-hidden group">
                     <div className="absolute -right-4 -top-4 opacity-5 group-hover:opacity-10 transition-opacity">
                         <Gavel className="w-32 h-32 text-red-500" />
                     </div>
                     <div className="relative z-10">
-                        <p className="text-sm text-slate-400 font-semibold tracking-widest uppercase mb-2">Recursos Protección</p>
-                        <p className="text-4xl font-black text-white">{data.impacto.recursos.toLocaleString()}</p>
-                        <p className="text-xs text-red-400 mt-2">Casos judicializados detectados</p>
+                        <p className="text-sm text-slate-500 font-semibold tracking-widest uppercase mb-2">Recursos Protección</p>
+                        <p className="text-4xl font-black text-slate-800">{data.impacto.recursos.toLocaleString()}</p>
+                        <p className="text-xs text-red-500 mt-2 font-medium">Casos judicializados detectados</p>
                     </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-cgr-blue/80 to-slate-900 border border-blue-400/20 p-6 rounded-2xl flex flex-col justify-center relative overflow-hidden group">
+                <div className="bg-white border border-blue-200 shadow-sm p-6 rounded-2xl flex flex-col justify-center relative overflow-hidden group">
                     <div className="absolute -right-4 -top-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                        <Scale className="w-32 h-32 text-blue-400" />
+                        <Scale className="w-32 h-32 text-blue-500" />
                     </div>
                     <div className="relative z-10">
-                        <p className="text-sm text-slate-400 font-semibold tracking-widest uppercase mb-2">Genera Jurisprudencia</p>
-                        <p className="text-4xl font-black text-white">{data.impacto.genera_juris.toLocaleString()}</p>
-                        <p className="text-xs text-blue-300 mt-2">Marcados por IA Generativa</p>
+                        <p className="text-sm text-slate-500 font-semibold tracking-widest uppercase mb-2">Genera Jurisprudencia</p>
+                        <p className="text-4xl font-black text-slate-800">{data.impacto.genera_juris.toLocaleString()}</p>
+                        <p className="text-xs text-blue-600 mt-2 font-medium">Marcados por IA Generativa</p>
                     </div>
                 </div>
             </div>
@@ -84,6 +84,11 @@ export function SemanticHeatmap({ data }: { data: SemanticData }) {
 const CustomizedContent = (props: any) => {
     const { depth, x, y, width, height, name, fill } = props;
 
+    // No dibujar fondo para el nodo root para evitar que cubra u oscurezca los hijos
+    if (depth === 0) {
+        return null;
+    }
+
     return (
         <g>
             <rect
@@ -93,21 +98,20 @@ const CustomizedContent = (props: any) => {
                 height={height}
                 style={{
                     fill,
-                    stroke: '#0f172a',
-                    strokeWidth: 2 / (depth + 1e-10),
-                    strokeOpacity: 1 / (depth + 1e-10),
+                    stroke: '#ffffff',
+                    strokeWidth: 2,
                 }}
             />
-            {width > 50 && height > 30 && (
+            {width > 50 && height > 30 && name && (
                 <text
                     x={x + width / 2}
                     y={y + height / 2 + 7}
                     textAnchor="middle"
-                    fill="#fff"
+                    fill="#0f172a"
                     fontSize={13}
                     fontWeight={600}
                     className="pointer-events-none"
-                    style={{ textShadow: '0px 1px 3px rgba(0,0,0,0.8)' }}
+                    style={{ textShadow: '0px 1px 2px rgba(255,255,255,0.9)' }}
                 >
                     {name.length > 20 ? name.substring(0, 18) + '...' : name}
                 </text>

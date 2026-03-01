@@ -25,7 +25,7 @@ export function DictamenCard({ dictamen }: DictamenCardProps) {
                         </div>
                         <div>
                             <h3 className="font-sans font-bold text-lg md:text-xl text-slate-800 group-hover:text-cgr-navy transition-colors leading-tight">
-                                Dictamen N° {dictamen.numero || "S/N"}
+                                ID {dictamen.id}
                             </h3>
                             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-1 block">
                                 {dictamen.anio}
