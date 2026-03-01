@@ -48,14 +48,14 @@ export function TimelineChart({ data }: { data: VolumetriaData[] }) {
                             <stop offset="95%" stopColor="#eab308" stopOpacity={0} />
                         </linearGradient>
                     </defs>
-                    <XAxis dataKey="year" stroke="#475569" tick={{ fill: '#94a3b8' }} />
-                    <YAxis stroke="#475569" tick={{ fill: '#94a3b8' }} />
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                    <XAxis dataKey="year" stroke="#cbd5e1" tick={{ fill: '#64748b', fontWeight: 500 }} />
+                    <YAxis stroke="#cbd5e1" tick={{ fill: '#64748b', fontWeight: 500 }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                     <Tooltip
-                        contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', borderColor: '#334155', borderRadius: '0.75rem', color: '#fff' }}
-                        itemStyle={{ color: '#fff' }}
+                        contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', borderColor: '#e2e8f0', borderRadius: '0.75rem', color: '#1e293b' }}
+                        itemStyle={{ color: '#1e293b', fontWeight: 500 }}
                     />
-                    <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                    <Legend wrapperStyle={{ paddingTop: '20px', color: '#64748b' }} />
                     <Area type="monotone" dataKey="total" stroke="#818cf8" fillOpacity={1} fill="url(#colorTotal)" name="Total Ingresados" />
                     <Area type="monotone" dataKey="vectorized" stroke="#eab308" fillOpacity={1} fill="url(#colorVectorized)" name="Vectorizados (Completos)" />
                 </AreaChart>

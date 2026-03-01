@@ -53,19 +53,19 @@ export function OperacionalStats({ opData, transData }: { opData: OperacionalDat
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                 {/* Cuello de Botella Transaccional (Distribución de Estados) */}
-                <div className="bg-slate-800/40 border border-slate-700/50 p-6 rounded-2xl">
-                    <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <div className="bg-white border border-slate-200 shadow-sm p-6 rounded-2xl">
+                    <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                         <Activity className="text-cgr-gold w-5 h-5" />
                         Distribución de Estados (Embudos)
                     </h3>
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={transData} layout="vertical" margin={{ top: 0, right: 30, left: 20, bottom: 0 }}>
-                                <XAxis type="number" stroke="#475569" tick={{ fill: '#94a3b8' }} />
-                                <YAxis dataKey="estado" type="category" width={100} stroke="#475569" tick={{ fill: '#94a3b8' }} />
+                                <XAxis type="number" stroke="#e2e8f0" tick={{ fill: '#64748b' }} />
+                                <YAxis dataKey="estado" type="category" width={100} stroke="#e2e8f0" tick={{ fill: '#64748b', fontWeight: 500 }} />
                                 <RechartsTooltip
-                                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                                    contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', borderColor: '#334155', borderRadius: '0.75rem', color: '#fff' }}
+                                    cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+                                    contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', borderColor: '#e2e8f0', borderRadius: '0.75rem', color: '#1e293b' }}
                                 />
                                 <Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]}>
                                     {transData.map((e, index) => (
@@ -78,9 +78,9 @@ export function OperacionalStats({ opData, transData }: { opData: OperacionalDat
                 </div>
 
                 {/* KV Sync Status */}
-                <div className="bg-slate-800/40 border border-slate-700/50 p-6 rounded-2xl">
-                    <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                        <DatabaseZap className="text-blue-400 w-5 h-5" />
+                <div className="bg-white border border-slate-200 shadow-sm p-6 rounded-2xl">
+                    <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <DatabaseZap className="text-blue-500 w-5 h-5" />
                         Salud de Replicación KV (Source vs Paso)
                     </h3>
                     <div className="flex flex-col md:flex-row items-center gap-8 h-64">
@@ -102,24 +102,24 @@ export function OperacionalStats({ opData, transData }: { opData: OperacionalDat
                                         ))}
                                     </Pie>
                                     <RechartsTooltip
-                                        contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', borderColor: '#334155', borderRadius: '0.75rem', color: '#fff' }}
+                                        contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', borderColor: '#e2e8f0', borderRadius: '0.75rem', color: '#1e293b' }}
                                     />
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
                         <div className="space-y-4 flex-1">
-                            <div className="flex items-center gap-3 bg-green-500/10 p-4 rounded-xl border border-green-500/20">
+                            <div className="flex items-center gap-3 bg-green-50 p-4 rounded-xl border border-green-200">
                                 <CheckCircle2 className="w-8 h-8 text-green-500" />
                                 <div>
-                                    <p className="text-2xl font-bold text-white">{syncedPaso.toLocaleString()}</p>
-                                    <p className="text-xs text-slate-400 uppercase tracking-wider">Sincronizados D1 → KV</p>
+                                    <p className="text-2xl font-bold text-slate-800">{syncedPaso.toLocaleString()}</p>
+                                    <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Sincronizados D1 → KV</p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3 bg-red-500/10 p-4 rounded-xl border border-red-500/20">
+                            <div className="flex items-center gap-3 bg-red-50 p-4 rounded-xl border border-red-200">
                                 <ShieldAlert className="w-8 h-8 text-red-500" />
                                 <div>
-                                    <p className="text-2xl font-bold text-white">{unsyncedPaso.toLocaleString()}</p>
-                                    <p className="text-xs text-slate-400 uppercase tracking-wider">Pendientes de Sync</p>
+                                    <p className="text-2xl font-bold text-slate-800">{unsyncedPaso.toLocaleString()}</p>
+                                    <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Pendientes de Sync</p>
                                 </div>
                             </div>
                         </div>
@@ -135,16 +135,16 @@ function HeartbeatCard({ name, icon: Icon, latency, status, glowColor }: { name:
     const isHealthy = status === 'healthy';
 
     return (
-        <div className="bg-slate-800/40 border border-slate-700/50 p-4 rounded-xl flex items-center justify-between relative overflow-hidden group">
+        <div className="bg-white border border-slate-200 shadow-sm p-4 rounded-xl flex items-center justify-between relative overflow-hidden group">
             <div className="flex items-center gap-3">
                 <div className="relative">
-                    <Icon className={`w-5 h-5 ${isHealthy ? 'text-green-400' : 'text-orange-400'}`} />
-                    <div className={`absolute inset-0 blur-md ${isHealthy ? 'bg-green-400' : 'bg-orange-400'} opacity-30`} />
+                    <Icon className={`w-5 h-5 ${isHealthy ? 'text-green-500' : 'text-orange-500'}`} />
+                    <div className={`absolute inset-0 blur-md ${isHealthy ? 'bg-green-400' : 'bg-orange-400'} opacity-20`} />
                 </div>
                 <div>
-                    <p className="text-white font-medium text-sm">{name}</p>
-                    <p className="text-slate-400 text-xs flex items-center gap-1">
-                        Latencia: <span className="text-slate-300 font-mono">{latency}</span>
+                    <p className="text-slate-800 font-bold text-sm">{name}</p>
+                    <p className="text-slate-500 text-xs flex items-center gap-1">
+                        Latencia: <span className="text-slate-700 font-mono font-medium">{latency}</span>
                     </p>
                 </div>
             </div>

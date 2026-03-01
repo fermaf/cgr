@@ -56,8 +56,8 @@ export function SemanticHeatmap({ data }: { data: SemanticData }) {
             </div>
 
             {/* Treemap de Materias (Top 15) */}
-            <div className="bg-slate-800/40 border border-slate-700/50 p-6 rounded-2xl">
-                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+            <div className="bg-white border border-slate-200 shadow-sm p-6 rounded-2xl">
+                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                     <AlertTriangle className="text-cgr-gold w-5 h-5" />
                     Mapa de Calor Topológico (Materias más frecuentes)
                 </h3>
@@ -66,12 +66,12 @@ export function SemanticHeatmap({ data }: { data: SemanticData }) {
                         <Treemap
                             data={treemapData}
                             dataKey="size"
-                            stroke="#1e293b"
+                            stroke="#ffffff"
                             fill="#8884d8"
                             content={<CustomizedContent />}
                         >
                             <RechartsTooltip
-                                contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', borderColor: '#475569', borderRadius: '0.5rem', color: '#f8fafc' }}
+                                contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', borderColor: '#e2e8f0', borderRadius: '0.5rem', color: '#1e293b' }}
                             />
                         </Treemap>
                     </ResponsiveContainer>
@@ -104,8 +104,10 @@ const CustomizedContent = (props: any) => {
                     y={y + height / 2 + 7}
                     textAnchor="middle"
                     fill="#fff"
-                    fontSize={12}
-                    className="font-medium pointer-events-none drop-shadow-md"
+                    fontSize={13}
+                    fontWeight={600}
+                    className="pointer-events-none"
+                    style={{ textShadow: '0px 1px 3px rgba(0,0,0,0.8)' }}
                 >
                     {name.length > 20 ? name.substring(0, 18) + '...' : name}
                 </text>
