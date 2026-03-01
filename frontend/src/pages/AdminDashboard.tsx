@@ -41,7 +41,7 @@ export function AdminDashboard() {
                     <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-xl p-4 flex items-center gap-4">
                         <span className="text-sm font-semibold text-slate-300 uppercase tracking-wider">Filtro Global</span>
                         <select
-                            className="bg-slate-800 border border-slate-600 text-white text-sm rounded-lg pr-8 focus:ring-cgr-gold focus:border-cgr-gold p-2.5 outline-none"
+                            className="bg-white border border-slate-200 text-slate-800 text-sm rounded-lg pr-8 focus:ring-cgr-gold focus:border-cgr-gold p-2.5 outline-none shadow-sm"
                             value={yearFilter || ""}
                             onChange={(e) => setYearFilter(e.target.value ? parseInt(e.target.value) : undefined)}
                         >
