@@ -91,7 +91,7 @@ export function DictamenDetail() {
                             <BookOpen className="w-4 h-4" /> Registro Oficial
                         </div>
                         <h1 className="text-4xl md:text-5xl lg:text-5xl font-serif font-bold text-cgr-navy leading-tight">
-                            Dictamen N° {meta.numero || "S/N"}
+                            N° {meta.id}
                         </h1>
                     </div>
                     <span className={cn(
