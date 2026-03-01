@@ -148,13 +148,13 @@ npx tsx scripts/backfill-enrichment.ts --limit 100
 #### Monitoreo y Auditoría:
 Para validar que el enriquecimiento se realizó con el prompt correcto y sin truncamientos, se puede consultar D1:
 ```sql
-SELECT id, model_version, prompt_version, LENGTH(analisis) as len 
+SELECT dictamen_id, modelo_llm, fecha_enriquecimiento, LENGTH(analisis) as len 
 FROM enriquecimiento 
-WHERE id = '000007N21';
+WHERE dictamen_id = '000007N21';
 ```
 
 > [!NOTE]
-> Cualquier cambio en el prompt consolidado requiere actualizar el campo `prompt_version` en la lógica de persistencia para mantener la trazabilidad de qué versión generó cada análisis.
+> Cualquier cambio en el prompt consolidado requiere ajustar el campo `modelo_llm` en el entorno o persistir versiones en notas de commit, ya que actualmente no se almacenan variaciones granulares de la versión del prompt en D1, solo del modelo LLM configurado (ej: `mistral-large-2512`).
 
 ---
 

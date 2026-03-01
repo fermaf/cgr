@@ -916,13 +916,14 @@ app.post('/api/v1/analytics/multidimensional', async (c) => {
 });
 
 // --- BARRIDO MASIVO PINECONE (v2 Standards) ---
-const db = c.env.DB;
-const body = await readJsonBody(c);
-const limit = parsePositiveInt(body.limit, 10, 1, 100); // Lotes pequeños para evitar timeouts
+app.post('/api/v1/dictamenes/sync-vector-mass', async (c) => {
+  const db = c.env.DB;
+  const body = await readJsonBody(c);
+  const limit = parsePositiveInt(body.limit, 10, 1, 100); // Lotes pequeños para evitar timeouts
 
-try {
-  // 1. Buscar dictámenes que NO estén en metadata_version 2 (Gold)
-  const pending = await db.prepare(`
+  try {
+    // 1. Buscar dictámenes que NO estén en metadata_version 2 (Gold)
+    const pending = await db.prepare(`
       SELECT d.id 
       FROM dictamenes d
       LEFT JOIN pinecone_sync_status s ON d.id = s.dictamen_id
@@ -931,44 +932,44 @@ try {
       LIMIT ?
     `).bind(limit).all<{ id: string }>();
 
-  const ids = (pending.results ?? []).map(r => r.id);
-  if (ids.length === 0) return c.json({ success: true, message: 'Toda la metadata está en v2' });
+    const ids = (pending.results ?? []).map(r => r.id);
+    if (ids.length === 0) return c.json({ success: true, message: 'Toda la metadata está en v2' });
 
-  let count = 0;
-  for (const id of ids) {
-    // Ejecutar sync individual de cada uno (reutilizando lógica interna o similar)
-    // Por simplicidad en este endpoint, recuperamos la data y hacemos upsert
-    const enrichment = await getLatestEnrichment(db, id);
-    const rawRef = await getLatestRawRef(db, id);
-    if (!enrichment || !rawRef) continue;
+    let count = 0;
+    for (const id of ids) {
+      // Ejecutar sync individual de cada uno (reutilizando lógica interna o similar)
+      // Por simplicidad en este endpoint, recuperamos la data y hacemos upsert
+      const enrichment = await getLatestEnrichment(db, id);
+      const rawRef = await getLatestRawRef(db, id);
+      if (!enrichment || !rawRef) continue;
 
-    let rawJson: any = await c.env.DICTAMENES_SOURCE.get(rawRef.raw_key, 'json').catch(() => null);
-    if (!rawJson && !rawRef.raw_key.startsWith('dictamen:')) {
-      rawJson = await c.env.DICTAMENES_SOURCE.get(`dictamen:${id}`, 'json').catch(() => null);
-    }
-    if (!rawJson) continue;
+      let rawJson: any = await c.env.DICTAMENES_SOURCE.get(rawRef.raw_key, 'json').catch(() => null);
+      if (!rawJson && !rawRef.raw_key.startsWith('dictamen:')) {
+        rawJson = await c.env.DICTAMENES_SOURCE.get(`dictamen:${id}`, 'json').catch(() => null);
+      }
+      if (!rawJson) continue;
 
-    const sourceContent = rawJson?._source ?? rawJson?.source ?? rawJson?.raw_data ?? rawJson;
-    const textToEmbed = `
+      const sourceContent = rawJson?._source ?? rawJson?.source ?? rawJson?.raw_data ?? rawJson;
+      const textToEmbed = `
             Título: ${enrichment.titulo}
             Resumen: ${enrichment.resumen}
             Análisis: ${enrichment.analisis}
         `.trim();
 
-    await upsertRecord(c.env, {
-      id: id,
-      text: textToEmbed,
-      metadata: {
-        ...enrichment,
-        analisis: enrichment.analisis || "",
-        materia: sourceContent?.materia,
-        descriptores_originales: sourceContent?.descriptores ? String(sourceContent.descriptores).split(/[,;\n]/).map((s: string) => s.trim()).filter((s: string) => s.length > 2) : [],
-        fecha: String(sourceContent?.fecha_documento || ''),
-        model: enrichment.modelo_llm || c.env.MISTRAL_MODEL
-      } as any
-    });
+      await upsertRecord(c.env, {
+        id: id,
+        text: textToEmbed,
+        metadata: {
+          ...enrichment,
+          analisis: enrichment.analisis || "",
+          materia: sourceContent?.materia,
+          descriptores_originales: sourceContent?.descriptores ? String(sourceContent.descriptores).split(/[,;\n]/).map((s: string) => s.trim()).filter((s: string) => s.length > 2) : [],
+          fecha: String(sourceContent?.fecha_documento || ''),
+          model: enrichment.modelo_llm || c.env.MISTRAL_MODEL
+        } as any
+      });
 
-    await db.prepare(`
+      await db.prepare(`
             INSERT INTO pinecone_sync_status (dictamen_id, metadata_version, last_synced_at)
             VALUES (?, 2, CURRENT_TIMESTAMP)
             ON CONFLICT(dictamen_id) DO UPDATE SET 
@@ -976,13 +977,13 @@ try {
                last_synced_at = CURRENT_TIMESTAMP,
                sync_error = NULL
         `).bind(id).run();
-    count++;
-  }
+      count++;
+    }
 
-  return c.json({ success: true, processed: count, total_pending: ids.length });
-} catch (e: any) {
-  return c.json({ error: errorMessage(e) }, 500);
-}
+    return c.json({ success: true, processed: count, total_pending: ids.length });
+  } catch (e: any) {
+    return c.json({ error: errorMessage(e) }, 500);
+  }
 });
 
 // --- TRIGGER MANUAL ---
