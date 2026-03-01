@@ -136,7 +136,7 @@ async function queryTopicTrendsLive(
 
 async function putAnalyticsCache(c: Context<{ Bindings: Env }>, key: string, value: unknown) {
   const ttlSeconds = parsePositiveInt(c.env.ANALYTICS_CACHE_TTL_SECONDS, 900, 30, 86400);
-  await c.env.DICTAMENES_PASO.put(key, JSON.stringify(value), { expirationTtl: ttlSeconds }).catch(() => {});
+  await c.env.DICTAMENES_PASO.put(key, JSON.stringify(value), { expirationTtl: ttlSeconds }).catch(() => { });
 }
 
 async function refreshAnalyticsSnapshots(
@@ -810,6 +810,37 @@ app.post('/api/v1/dictamenes/:id/re-process', async (c) => {
     ).bind(id).run();
 
     await updateDictamenStatus(db, id, 'vectorized');
+
+    // ENSAMBLAJE PARA DICTAMENES_PASO
+    const pasoJson = {
+      id: id,
+      source: sourceContent,
+      arreglo_booleanos: enrichment.booleanos,
+      detalle_fuentes: enrichment.fuentes_legales,
+      extrae_jurisprudencia: enrichment.extrae_jurisprudencia,
+      modelo_llm: c.env.MISTRAL_MODEL,
+      descriptores: sourceContent.descriptores ? String(sourceContent.descriptores).split(/[,;\n]/).map((s: string) => s.trim()).filter((s: string) => s.length > 2) : [],
+      referencias: [],
+      creado_en: new Date().toISOString(),
+      procesado: true
+    };
+    const now = new Date().toISOString();
+    try {
+      await c.env.DICTAMENES_PASO.put(id, JSON.stringify(pasoJson));
+      await db.prepare(
+        `INSERT INTO kv_sync_status (dictamen_id, en_paso, paso_written_at)
+         VALUES (?, 1, ?)
+         ON CONFLICT(dictamen_id) DO UPDATE SET en_paso = 1, paso_written_at = excluded.paso_written_at, updated_at = excluded.paso_written_at`
+      ).bind(id, now).run();
+    } catch (err: any) {
+      await db.prepare(
+        `INSERT INTO kv_sync_status (dictamen_id, en_paso, paso_error)
+         VALUES (?, 0, ?)
+         ON CONFLICT(dictamen_id) DO UPDATE SET paso_error = excluded.paso_error, updated_at = ?`
+      ).bind(id, err.message, now).run();
+      console.error(`[Re-process][ERROR] No se pudo escribir en DICTAMENES_PASO para ${id}:`, err);
+    }
+
     return c.json({ success: true, message: 'Reproceso integral completado con éxito' });
   } catch (e: any) {
     return c.json({ error: errorMessage(e) }, 500);
@@ -817,14 +848,81 @@ app.post('/api/v1/dictamenes/:id/re-process', async (c) => {
 });
 
 // --- BARRIDO MASIVO PINECONE (v2 Standards) ---
-app.post('/api/v1/dictamenes/sync-vector-mass', async (c) => {
+app.get('/api/v1/dictamenes/:id/history', async (c) => {
+  const id = c.req.param('id');
+  const db = c.env.DB;
+  try {
+    const dictamen = await db.prepare("SELECT id, estado, created_at, updated_at FROM dictamenes WHERE id = ?").bind(id).first<any>();
+    if (!dictamen) return c.json({ error: 'Documento no encontrado' }, 404);
+
+    const history = await db.prepare("SELECT * FROM historial_cambios WHERE dictamen_id = ? ORDER BY fecha_cambio ASC").bind(id).all<any>();
+
+    return c.json({
+      dictamen,
+      history: history.results || []
+    });
+  } catch (e: any) {
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+app.post('/api/v1/analytics/multidimensional', async (c) => {
   const db = c.env.DB;
   const body = await readJsonBody(c);
-  const limit = parsePositiveInt(body.limit, 10, 1, 100); // Lotes pequeños para evitar timeouts
+  const yearFrom = parseOptionalInt(body.yearFrom);
+  const yearTo = parseOptionalInt(body.yearTo);
 
   try {
-    // 1. Buscar dictámenes que NO estén en metadata_version 2 (Gold)
-    const pending = await db.prepare(`
+    let baseWhere = "WHERE 1=1";
+    let binds: any[] = [];
+    if (yearFrom !== null) { baseWhere += " AND anio >= ?"; binds.push(yearFrom); }
+    if (yearTo !== null) { baseWhere += " AND anio <= ?"; binds.push(yearTo); }
+
+    // 1. Volumetría
+    const volRes = await db.prepare(`SELECT anio, estado, COUNT(*) as count FROM dictamenes ${baseWhere} AND anio IS NOT NULL GROUP BY anio, estado ORDER BY anio ASC`).bind(...binds).all<any>();
+
+    // 2. Transaccionalidad
+    const statusRes = await db.prepare(`SELECT estado, COUNT(*) as count FROM dictamenes ${baseWhere} GROUP BY estado`).bind(...binds).all<any>();
+
+    // 3. Operacional
+    const opsRes = await db.prepare(`SELECT en_paso, en_source, COUNT(*) as count FROM kv_sync_status GROUP BY en_paso, en_source`).all<any>();
+
+    // 4. Semántica
+    const semRes = await db.prepare(`SELECT materia, COUNT(*) as count FROM dictamenes ${baseWhere} AND materia IS NOT NULL AND TRIM(materia) != '' GROUP BY materia ORDER BY count DESC LIMIT 15`).bind(...binds).all<any>();
+
+    const relRes = await db.prepare(`
+      SELECT 
+        SUM(COALESCE(a.es_relevante, 0)) as relevantes, 
+        SUM(COALESCE(a.recurso_proteccion, 0)) as recursos, 
+        SUM(COALESCE(e.genera_jurisprudencia, 0)) as genera_juris 
+      FROM atributos_juridicos a 
+      LEFT JOIN enriquecimiento e ON a.dictamen_id = e.dictamen_id
+      INNER JOIN dictamenes d ON a.dictamen_id = d.id
+      ${baseWhere}
+    `).bind(...binds).first<any>();
+
+    return c.json({
+      volumetria: volRes.results || [],
+      transaccional: statusRes.results || [],
+      operacional: opsRes.results || [],
+      semantica: {
+        topMaterias: semRes.results || [],
+        impacto: relRes || {}
+      }
+    });
+  } catch (e: any) {
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+// --- BARRIDO MASIVO PINECONE (v2 Standards) ---
+const db = c.env.DB;
+const body = await readJsonBody(c);
+const limit = parsePositiveInt(body.limit, 10, 1, 100); // Lotes pequeños para evitar timeouts
+
+try {
+  // 1. Buscar dictámenes que NO estén en metadata_version 2 (Gold)
+  const pending = await db.prepare(`
       SELECT d.id 
       FROM dictamenes d
       LEFT JOIN pinecone_sync_status s ON d.id = s.dictamen_id
@@ -833,44 +931,44 @@ app.post('/api/v1/dictamenes/sync-vector-mass', async (c) => {
       LIMIT ?
     `).bind(limit).all<{ id: string }>();
 
-    const ids = (pending.results ?? []).map(r => r.id);
-    if (ids.length === 0) return c.json({ success: true, message: 'Toda la metadata está en v2' });
+  const ids = (pending.results ?? []).map(r => r.id);
+  if (ids.length === 0) return c.json({ success: true, message: 'Toda la metadata está en v2' });
 
-    let count = 0;
-    for (const id of ids) {
-      // Ejecutar sync individual de cada uno (reutilizando lógica interna o similar)
-      // Por simplicidad en este endpoint, recuperamos la data y hacemos upsert
-      const enrichment = await getLatestEnrichment(db, id);
-      const rawRef = await getLatestRawRef(db, id);
-      if (!enrichment || !rawRef) continue;
+  let count = 0;
+  for (const id of ids) {
+    // Ejecutar sync individual de cada uno (reutilizando lógica interna o similar)
+    // Por simplicidad en este endpoint, recuperamos la data y hacemos upsert
+    const enrichment = await getLatestEnrichment(db, id);
+    const rawRef = await getLatestRawRef(db, id);
+    if (!enrichment || !rawRef) continue;
 
-      let rawJson: any = await c.env.DICTAMENES_SOURCE.get(rawRef.raw_key, 'json').catch(() => null);
-      if (!rawJson && !rawRef.raw_key.startsWith('dictamen:')) {
-        rawJson = await c.env.DICTAMENES_SOURCE.get(`dictamen:${id}`, 'json').catch(() => null);
-      }
-      if (!rawJson) continue;
+    let rawJson: any = await c.env.DICTAMENES_SOURCE.get(rawRef.raw_key, 'json').catch(() => null);
+    if (!rawJson && !rawRef.raw_key.startsWith('dictamen:')) {
+      rawJson = await c.env.DICTAMENES_SOURCE.get(`dictamen:${id}`, 'json').catch(() => null);
+    }
+    if (!rawJson) continue;
 
-      const sourceContent = rawJson?._source ?? rawJson?.source ?? rawJson?.raw_data ?? rawJson;
-      const textToEmbed = `
+    const sourceContent = rawJson?._source ?? rawJson?.source ?? rawJson?.raw_data ?? rawJson;
+    const textToEmbed = `
             Título: ${enrichment.titulo}
             Resumen: ${enrichment.resumen}
             Análisis: ${enrichment.analisis}
         `.trim();
 
-      await upsertRecord(c.env, {
-        id: id,
-        text: textToEmbed,
-        metadata: {
-          ...enrichment,
-          analisis: enrichment.analisis || "",
-          materia: sourceContent?.materia,
-          descriptores_originales: sourceContent?.descriptores ? String(sourceContent.descriptores).split(/[,;\n]/).map((s: string) => s.trim()).filter((s: string) => s.length > 2) : [],
-          fecha: String(sourceContent?.fecha_documento || ''),
-          model: enrichment.modelo_llm || c.env.MISTRAL_MODEL
-        } as any
-      });
+    await upsertRecord(c.env, {
+      id: id,
+      text: textToEmbed,
+      metadata: {
+        ...enrichment,
+        analisis: enrichment.analisis || "",
+        materia: sourceContent?.materia,
+        descriptores_originales: sourceContent?.descriptores ? String(sourceContent.descriptores).split(/[,;\n]/).map((s: string) => s.trim()).filter((s: string) => s.length > 2) : [],
+        fecha: String(sourceContent?.fecha_documento || ''),
+        model: enrichment.modelo_llm || c.env.MISTRAL_MODEL
+      } as any
+    });
 
-      await db.prepare(`
+    await db.prepare(`
             INSERT INTO pinecone_sync_status (dictamen_id, metadata_version, last_synced_at)
             VALUES (?, 2, CURRENT_TIMESTAMP)
             ON CONFLICT(dictamen_id) DO UPDATE SET 
@@ -878,13 +976,13 @@ app.post('/api/v1/dictamenes/sync-vector-mass', async (c) => {
                last_synced_at = CURRENT_TIMESTAMP,
                sync_error = NULL
         `).bind(id).run();
-      count++;
-    }
-
-    return c.json({ success: true, processed: count, total_pending: ids.length });
-  } catch (e: any) {
-    return c.json({ error: errorMessage(e) }, 500);
+    count++;
   }
+
+  return c.json({ success: true, processed: count, total_pending: ids.length });
+} catch (e: any) {
+  return c.json({ error: errorMessage(e) }, 500);
+}
 });
 
 // --- TRIGGER MANUAL ---

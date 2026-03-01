@@ -62,3 +62,28 @@ export interface StatsResponse {
     last_updated: string;
     by_year: { anio: number; count: number }[];
 }
+
+export interface MultidimensionalResponse {
+    volumetria: { anio: number; estado: string; count: number }[];
+    transaccional: { estado: string; count: number }[];
+    operacional: { en_paso: number; en_source: number; count: number }[];
+    semantica: {
+        topMaterias: { materia: string; count: number }[];
+        impacto: { relevantes: number; recursos: number; genera_juris: number };
+    };
+}
+
+export interface DictamenHistoryRow {
+    id: number;
+    dictamen_id: string;
+    campo_modificado: string;
+    valor_anterior: string | null;
+    valor_nuevo: string | null;
+    fecha_cambio: string;
+    origen: string;
+}
+
+export interface DictamenHistoryResponse {
+    dictamen: { id: string; estado: string; created_at: string; updated_at: string };
+    history: DictamenHistoryRow[];
+}
