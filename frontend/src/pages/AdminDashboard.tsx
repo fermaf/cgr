@@ -18,7 +18,7 @@ export function AdminDashboard() {
     });
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-700 w-full max-w-7xl mx-auto text-white">
+        <div className="space-y-8 animate-in fade-in duration-700 w-full max-w-7xl mx-auto text-slate-900">
             {/* Header WOW */}
             <div className="relative w-full rounded-2xl overflow-hidden bg-cgr-navy shadow-2xl p-8 border border-cgr-navy/20">
                 <div className="absolute inset-0 z-0 bg-official opacity-20 pointer-events-none" />
@@ -30,10 +30,10 @@ export function AdminDashboard() {
                             <span className="w-2 h-2 rounded-full bg-cgr-gold animate-pulse" />
                             Control Total Multidimensional
                         </div>
-                        <h1 className="text-4xl lg:text-5xl font-serif font-bold tracking-tight drop-shadow-md">
+                        <h1 className="text-4xl lg:text-5xl font-serif font-bold tracking-tight drop-shadow-md text-white">
                             Centro de <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-cgr-gold">Comando</span>
                         </h1>
-                        <p className="text-blue-200 mt-2 font-light max-w-xl">
+                        <p className="text-blue-100 mt-2 font-light max-w-xl">
                             Visualización analítica y topológica de la salud operacional, transaccionalidad y semántica de la plataforma.
                         </p>
                     </div>
@@ -171,8 +171,8 @@ function TabButton({ icon: Icon, label, active, onClick }: { icon: any, label: s
         <button
             onClick={onClick}
             className={`flex items-center gap-2 px-5 py-3 rounded-t-xl font-medium transition-all duration-300 border-b-2 whitespace-nowrap ${active
-                ? "bg-cgr-navy/20 border-cgr-gold text-white drop-shadow-md"
-                : "border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                    ? "bg-slate-200/50 border-cgr-navy text-cgr-navy drop-shadow-sm font-bold"
+                    : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100"
                 }`}
         >
             <Icon className={`w-4 h-4 ${active ? "text-cgr-gold" : ""}`} />

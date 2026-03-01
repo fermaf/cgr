@@ -4,13 +4,13 @@ import { Network, Bot, ShieldCheck, Cpu } from 'lucide-react';
 export function SkillgenHub() {
     return (
         <div className="space-y-8">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-100 flex items-center gap-3">
+                    <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
                         <Bot className="w-8 h-8 text-cgr-gold" />
                         Gobernanza de Agentes: Skillgen
                     </h2>
-                    <p className="text-slate-400 mt-1">
+                    <p className="text-slate-500 mt-1">
                         Arquitectura y estado del orquestador autónomo de análisis jurídico.
                     </p>
                 </div>
@@ -22,9 +22,9 @@ export function SkillgenHub() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Etapa 1 Status */}
-                <div className="lg:col-span-1 bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50 p-6 rounded-2xl relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/5 blur-3xl rounded-full" />
-                    <h3 className="text-lg font-bold text-white mb-4">Etapa 1: Enrutamiento Determinista</h3>
+                <div className="lg:col-span-1 bg-white border border-slate-200 shadow-sm p-6 rounded-2xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/10 blur-3xl rounded-full" />
+                    <h3 className="text-lg font-bold text-slate-800 mb-4">Etapa 1: Enrutamiento Determinista</h3>
                     <ul className="space-y-3">
                         <StatusItem label="Normalización de Incidentes" done />
                         <StatusItem label="Persistencia en D1" done />
@@ -36,9 +36,9 @@ export function SkillgenHub() {
                 </div>
 
                 {/* Blueprint Visualizer */}
-                <div className="lg:col-span-2 bg-slate-800/40 border border-slate-700/50 p-6 rounded-2xl flex flex-col items-center justify-center relative min-h-[300px]">
-                    <h3 className="text-lg font-bold text-white absolute top-6 left-6 flex items-center gap-2">
-                        <Network className="text-blue-400 w-5 h-5" />
+                <div className="lg:col-span-2 bg-slate-50 border border-slate-200 p-6 rounded-2xl flex flex-col items-center justify-center relative min-h-[300px] shadow-inner">
+                    <h3 className="text-lg font-bold text-slate-700 absolute top-6 left-6 flex items-center gap-2">
+                        <Network className="text-blue-500 w-5 h-5" />
                         Blueprint Conceptual (Etapa 2 - Iteración 1)
                     </h3>
 
@@ -61,10 +61,10 @@ export function SkillgenHub() {
                                 initial={{ y: 20, opacity: 0 }}
                                 animate={{ y: 0, opacity: 1 }}
                                 transition={{ delay: 0.2 }}
-                                className="bg-slate-800 border border-blue-500/50 p-3 rounded-lg text-center"
+                                className="bg-white border border-blue-500/50 p-3 rounded-lg text-center shadow-sm"
                             >
                                 <div className="w-2 h-2 bg-blue-500 rounded-full mx-auto mb-2 animate-pulse" />
-                                <span className="text-sm text-slate-300">Catálogo de Skills API</span>
+                                <span className="text-sm text-slate-700 font-medium">Catálogo de Skills API</span>
                             </motion.div>
 
                             {/* Skill 2 */}
@@ -72,10 +72,10 @@ export function SkillgenHub() {
                                 initial={{ y: 20, opacity: 0 }}
                                 animate={{ y: 0, opacity: 1 }}
                                 transition={{ delay: 0.4 }}
-                                className="bg-slate-800 border border-purple-500/50 p-3 rounded-lg text-center"
+                                className="bg-white border border-purple-500/50 p-3 rounded-lg text-center shadow-sm"
                             >
                                 <div className="w-2 h-2 bg-purple-500 rounded-full mx-auto mb-2 animate-pulse" />
-                                <span className="text-sm text-slate-300">Fallback/Rollback Mecanismo</span>
+                                <span className="text-sm text-slate-700 font-medium">Fallback/Rollback</span>
                             </motion.div>
                         </div>
                     </div>
@@ -88,10 +88,10 @@ export function SkillgenHub() {
 function StatusItem({ label, done }: { label: string, done: boolean }) {
     return (
         <li className="flex items-center gap-3 text-sm">
-            <div className={`flex items-center justify-center w-5 h-5 rounded-full ${done ? 'bg-green-500/20 text-green-500' : 'bg-slate-700 text-slate-500'}`}>
+            <div className={`flex items-center justify-center w-5 h-5 rounded-full ${done ? 'bg-green-100 text-green-600' : 'bg-slate-200 text-slate-500'}`}>
                 {done ? '✓' : '○'}
             </div>
-            <span className={done ? 'text-slate-300' : 'text-slate-500'}>{label}</span>
+            <span className={done ? 'text-slate-700 font-medium' : 'text-slate-500'}>{label}</span>
         </li>
     );
 }
