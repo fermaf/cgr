@@ -97,7 +97,7 @@ export function Stats() {
                         ))}
                     </div>
 
-                    {stats.by_year.map((item) => {
+                    {[...stats.by_year].sort((a, b) => a.anio - b.anio).map((item) => {
                         const heightPercent = (item.count / maxCount) * 100;
                         return (
                             <div key={item.anio} className="flex-1 min-w-[40px] flex flex-col items-center group relative z-10 h-full justify-end">

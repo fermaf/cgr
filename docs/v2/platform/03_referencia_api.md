@@ -51,13 +51,21 @@ curl -X GET "https://cgr-platform.abogado.workers.dev/api/v1/dictamenes/012345N2
 ---
 
 ### 1.3 Estadísticas de Salud (Stats)
-Resumen del estado actual del almacén de datos.
+Resumen del estado actual del almacén de datos, incluyendo conteos totales y distribución temporal.
 
 - **Endpoint**: `/api/v1/stats`
+- **Método**: `GET`
+- **Respuesta JSON**:
+  - `total` (number): Cantidad total de dictámenes en la base de datos `D1`.
+  - `last_updated` (string, ISO8601): Fecha de la última modificación detectada en la tabla de dictámenes.
+  - `by_year` (array): Lista de objetos `{ anio: number, count: number }`.
+    - > [!NOTE]
+    - > El array `by_year` se entrega ordenado por **año descendente** (`anio DESC`) por defecto desde el backend para priorizar la visualización de datos recientes en tablas, aunque componentes visuales (gráficos) pueden invertirlo para flujo cronológico.
 
-#### Ejemplo
+#### Ejemplo de Consulta
 ```bash
-curl -X GET "https://cgr-platform.abogado.workers.dev/api/v1/stats"
+curl -X GET "https://cgr-platform.abogado.workers.dev/api/v1/stats" \
+  -H "Accept: application/json"
 ```
 
 ---
@@ -300,9 +308,23 @@ curl -X POST "https://cgr-platform.abogado.workers.dev/api/v1/debug/cgr" \
 
 ---
 
-## 🔍 Resumen de Respuestas HTTP
-- **200 OK**: Operación exitosa.
-- **202 Accepted**: Workflow iniciado (revisar `workflowId`).
-- **401/403**: Token inválido o faltante.
-- **404**: Dictamen o recurso no encontrado.
-- **500**: Error interno (revisar Logs/Skills).
+---
+
+## 4. Catálogo de Incidentes Skillgen (v2)
+Inventario de códigos de incidentes normalizados y el ruteo de sus diagnósticos automáticos.
+
+| Código | Familia | Sistema | Skill Sugerida | Descripción |
+| :--- | :--- | :--- | :--- | :--- |
+| `D1_NO_SUCH_TABLE` | `db` | `d1` | `d1_missing_table_triage` | Tabla faltante en base de datos local o remota. |
+| `NETWORK_DNS_LOOKUP_FAILED` | `network` | `http` | `cgr_network_baseurl_verify` | Fallo en la resolución DNS del portal de la CGR. |
+| `AI_GATEWAY_TIMEOUT` | `ai` | `mistral` | `mistral_timeout_triage` | Tiempo de espera agotado en el AI Gateway. |
+| `AI_MISTRAL_FAILED` | `ai` | `mistral` | `mistral_timeout_triage` | Fallo general en el enriquecimiento de Mistral (Backfill). |
+| `WORKFLOW_RPC_EXCEPTION` | `workflow` | `workflows` | `workflow_rpc_this_capture_guard` | Error de captura de `this` en pasos de workflow. |
+| `UNKNOWN` | `unknown` | `worker` | `__UNMATCHED__` | Incidente no clasificado, requiere revisión humana. |
+
+> [!TIP]
+> Puedes consultar estos incidentes en tiempo real en `/api/v1/admin/migration/info`.
+
+---
+
+[Referencia: 00 - Guía de Estándares para Agentes LLM](file:///home/fermaf/github/cgr/docs/v2/platform/00_guia_estandares_agentes_llm.md)
