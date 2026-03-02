@@ -16,6 +16,8 @@ type DictamenUpsertParams = {
   criterio?: string | null;
   destinatarios?: string | null;
   origenImportacion?: string | null;
+  oldUrl?: string | null;
+  divisionId?: number | null;
 };
 
 function nowIso() {
@@ -72,6 +74,8 @@ async function upsertDictamen(db: D1Database, params: DictamenUpsertParams): Pro
            criterio = COALESCE(?, criterio),
            destinatarios = COALESCE(?, destinatarios),
            origen_importacion = COALESCE(?, origen_importacion),
+           old_url = COALESCE(?, old_url),
+           division_id = COALESCE(?, division_id),
            estado = ?,
            updated_at = ?
        WHERE id = ?`
@@ -84,6 +88,8 @@ async function upsertDictamen(db: D1Database, params: DictamenUpsertParams): Pro
       params.criterio ?? null,
       params.destinatarios ?? null,
       params.origenImportacion ?? null,
+      params.oldUrl ?? null,
+      params.divisionId ?? null,
       params.status,
       now,
       params.id
@@ -92,8 +98,8 @@ async function upsertDictamen(db: D1Database, params: DictamenUpsertParams): Pro
     await db.prepare(
       `INSERT INTO dictamenes
        (id, numero, anio, fecha_documento, fecha_indexacion, materia, criterio, destinatarios,
-        origen_importacion, estado, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        origen_importacion, old_url, division_id, estado, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
       params.id,
       params.numero ?? null,
@@ -104,10 +110,39 @@ async function upsertDictamen(db: D1Database, params: DictamenUpsertParams): Pro
       params.criterio ?? null,
       params.destinatarios ?? null,
       params.origenImportacion ?? 'crawl_contraloria',
+      params.oldUrl ?? null,
+      params.divisionId ?? null,
       params.status,
       now,
       now
     ).run();
+  }
+}
+
+async function getOrInsertDivisionId(db: D1Database, origenes: unknown): Promise<number | null> {
+  if (!origenes || typeof origenes !== 'string') return null;
+  const sigla = origenes.split(',')[0]?.trim().toUpperCase();
+  if (!sigla) return null;
+
+  // Mapeo seguro y conocido por defecto
+  const knownMap: Record<string, number> = {
+    'DIFE': 1, 'DJA': 2, 'DAEE': 3, 'DGOREMUN': 4, 'CGR': 5, 'DPP': 6
+  };
+  if (knownMap[sigla]) return knownMap[sigla];
+
+  // Consultar a la base de datos si la división ya fue ingresada dinámicamente
+  const row = await db.prepare('SELECT id FROM cat_divisiones WHERE codigo = ?').bind(sigla).first<{ id: number }>();
+  if (row) return row.id;
+
+  // Autogenerar dinámicamente y devolver ID
+  try {
+    const insertRes = await db.prepare(
+      'INSERT INTO cat_divisiones (codigo, nombre_completo) VALUES (?, ?) RETURNING id'
+    ).bind(sigla, `Nueva División Autogenerada: ${sigla}`).first<{ id: number }>();
+    return insertRes?.id ?? null;
+  } catch (err) {
+    console.warn(`[D1] No se pudo autogenerar división para sigla ${sigla}:`, err);
+    return null;
   }
 }
 
@@ -153,6 +188,19 @@ async function listDictamenIdsByStatus(
 ): Promise<string[]> {
   const rows = await listDictamenByStatus(db, statuses, limit, 'DESC');
   return rows.map((row) => row.id);
+}
+
+async function listDictamenIdsParaProcesar(db: D1Database, limit = 50): Promise<string[]> {
+  const result = await db.prepare(
+    `SELECT d.id
+     FROM dictamenes d
+     LEFT JOIN enriquecimiento e ON d.id = e.dictamen_id
+     WHERE d.estado IN ('ingested', 'error')
+        OR (d.estado IN ('enriched', 'vectorized') AND (e.modelo_llm IS NULL OR e.modelo_llm != 'mistral-large-2512'))
+     ORDER BY d.fecha_documento DESC, d.numero DESC
+     LIMIT ?`
+  ).bind(limit).all<{ id: string }>();
+  return result.results?.map((row) => row.id) ?? [];
 }
 
 async function listDictamenes(
@@ -304,15 +352,16 @@ async function insertDictamenBooleanosLLM(db: D1Database, dictamenId: string, bo
     `INSERT OR REPLACE INTO atributos_juridicos
      (dictamen_id, es_nuevo, es_relevante, en_boletin, recurso_proteccion,
       aclarado, alterado, aplicado, complementado, confirmado,
-      reactivado, reconsiderado, reconsiderado_parcialmente)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      reactivado, reconsiderado, reconsiderado_parcialmente, caracter)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(
     dictamenId,
     booleanos.nuevo ? 1 : 0, booleanos.relevante ? 1 : 0, booleanos.boletin ? 1 : 0,
     booleanos.recurso_proteccion ? 1 : 0, booleanos.aclarado ? 1 : 0, booleanos.alterado ? 1 : 0,
     booleanos.aplicado ? 1 : 0, booleanos.complementado ? 1 : 0, booleanos.confirmado ? 1 : 0,
     booleanos.reactivado ? 1 : 0, booleanos.reconsiderado ? 1 : 0,
-    booleanos.reconsiderado_parcialmente ? 1 : 0
+    booleanos.reconsiderado_parcialmente ? 1 : 0,
+    booleanos.caracter ?? null
   ).run();
 }
 
@@ -406,6 +455,70 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+async function getMigrationStats(db: D1Database): Promise<Record<string, number>> {
+  const stats = await db.prepare(`
+    SELECT 
+      COUNT(*) as total,
+      SUM(CASE WHEN e.modelo_llm = 'mistral-large-2512' THEN 1 ELSE 0 END) as migrated,
+      SUM(CASE WHEN e.modelo_llm = 'mistral-large-2411' THEN 1 ELSE 0 END) as legacy,
+      SUM(CASE WHEN d.estado = 'error' THEN 1 ELSE 0 END) as errors,
+      SUM(CASE WHEN d.estado IN ('ingested') THEN 1 ELSE 0 END) as pending
+    FROM dictamenes d
+    LEFT JOIN enriquecimiento e ON d.id = e.dictamen_id
+  `).first<Record<string, number>>();
+  return stats ?? { total: 0, migrated: 0, legacy: 0, errors: 0, pending: 0 };
+}
+
+async function getMigrationEvolution(db: D1Database): Promise<Array<{ date: string; count: number; model: string }>> {
+  const res = await db.prepare(`
+    SELECT 
+      strftime('%Y-%m-%d', fecha_enriquecimiento) as date,
+      modelo_llm as model,
+      COUNT(*) as count
+    FROM enriquecimiento
+    WHERE fecha_enriquecimiento >= datetime('now', '-30 days')
+    GROUP BY date, model
+    ORDER BY date ASC
+  `).all<{ date: string; count: number; model: string }>();
+  return res.results ?? [];
+}
+
+async function getRecentMigrationEvents(db: D1Database): Promise<Array<any>> {
+  // Combinar eventos de skill_events y cambios relevantes en historial_cambios
+  const skills = await db.prepare(`
+    SELECT 
+      ts as timestamp,
+      'skill_event' as type,
+      service,
+      workflow,
+      code,
+      message,
+      matched
+    FROM skill_events
+    WHERE ts >= datetime('now', '-7 days')
+    ORDER BY ts DESC
+    LIMIT 20
+  `).all<any>();
+
+  const changes = await db.prepare(`
+    SELECT 
+      fecha_cambio as timestamp,
+      'data_change' as type,
+      dictamen_id as code,
+      campo_modificado as message,
+      valor_nuevo as extra
+    FROM historial_cambios
+    WHERE fecha_cambio >= datetime('now', '-7 days')
+      AND origen LIKE '%backfill%'
+    ORDER BY fecha_cambio DESC
+    LIMIT 20
+  `).all<any>();
+
+  return [...(skills.results ?? []), ...(changes.results ?? [])].sort((a, b) =>
+    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  ).slice(0, 30);
+}
+
 // ─── Exports ─────────────────────────────────────────────────────────
 
 export {
@@ -418,10 +531,14 @@ export {
   getLatestEnrichment,
   getStats,
   getDashboardStats,
+  getMigrationStats,
+  getMigrationEvolution,
+  getRecentMigrationEvents,
   listDictamenes,
   getDictamenById,
   listDictamenByStatus,
   listDictamenIdsByStatus,
+  listDictamenIdsParaProcesar,
   listDictamenIdsWithEmptyEnrichment,
   listDictamenIdsWithEmptyFuentes,
   updateEnrichmentFuentes,
@@ -429,5 +546,6 @@ export {
   insertDictamenBooleanosLLM,
   insertDictamenReferencia,
   insertDictamenEtiquetaLLM,
-  insertDictamenFuenteLegal
+  insertDictamenFuenteLegal,
+  getOrInsertDivisionId
 };

@@ -2,7 +2,19 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { D1Database } from '@cloudflare/workers-types';
 import { queryRecords, upsertRecord } from './clients/pinecone';
-import { getLatestEnrichment, getLatestRawRef, updateDictamenStatus, insertEnrichment, insertDictamenBooleanosLLM, insertDictamenEtiquetaLLM, insertDictamenFuenteLegal } from './storage/d1';
+import {
+  getLatestEnrichment,
+  getLatestRawRef,
+  updateDictamenStatus,
+  insertEnrichment,
+  insertDictamenBooleanosLLM,
+  insertDictamenEtiquetaLLM,
+  insertDictamenFuenteLegal,
+  getOrInsertDivisionId,
+  getMigrationStats,
+  getMigrationEvolution,
+  getRecentMigrationEvents
+} from './storage/d1';
 import type { Env, DictamenRaw } from './types';
 import { IngestWorkflow } from './workflows/ingestWorkflow';
 import { BackfillWorkflow } from './workflows/backfillWorkflow';
@@ -647,6 +659,98 @@ app.get('/search', async (c) => {
 });
 
 // --- ENDPOINTS ADMINISTRATIVOS ---
+app.get('/api/v1/admin/migration/info', async (c) => {
+  const db = c.env.DB;
+  try {
+    const stats = await getMigrationStats(db);
+    const evolution = await getMigrationEvolution(db);
+    const events = await getRecentMigrationEvents(db);
+
+    return c.json({
+      stats,
+      evolution,
+      events,
+      modelTarget: c.env.MISTRAL_MODEL
+    });
+  } catch (e: any) {
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+app.post('/api/v1/jobs/repair-nulls', async (c) => {
+  const db = c.env.DB;
+  const kv = c.env.DICTAMENES_SOURCE;
+  const limitNum = Number(c.req.query('limit')) || 500;
+
+  const targetId = c.req.query('id');
+
+  try {
+    let ids: string[] = [];
+    if (targetId) {
+      ids = [targetId.trim()];
+    } else {
+      const rows = await db.prepare(
+        "SELECT id FROM dictamenes WHERE (old_url IS NULL OR division_id IS NULL) AND origen_importacion != 'manual' LIMIT ?"
+      ).bind(limitNum).all<{ id: string }>();
+      ids = rows.results?.map(r => r.id) || [];
+    }
+
+    if (ids.length === 0) {
+      return c.json({ status: 'ok', msg: 'No pending null records to repair.', count: 0 });
+    }
+
+    let repairedCount = 0;
+    let errors = 0;
+    let errorDetails: string[] = [];
+
+    for (const id of ids) {
+      try {
+        const kvKey = id.trim();
+        let rawJsonString = await kv.get(kvKey, { type: 'text' });
+
+        // Carga condicional pre-refactor por si acaso
+        if (!rawJsonString) {
+          rawJsonString = await kv.get(`dictamen:${kvKey}`, { type: 'text' });
+        }
+
+        if (!rawJsonString) {
+          errors++;
+          errorDetails.push(`${id}: KV returnado null para key "${kvKey}" y "dictamen:${kvKey}"`);
+          continue;
+        }
+
+        const rawJson = JSON.parse(rawJsonString);
+        const source = rawJson._source ?? rawJson.source ?? (rawJson as any).raw_data ?? rawJson;
+
+        const oldUrl = typeof source.old_url === 'string' ? source.old_url.trim() || null : null;
+        let caracter = typeof source.carácter === 'string' ? source.carácter.trim() || null : null;
+        if (!caracter) caracter = typeof source.caracter === 'string' ? source.caracter.trim() || null : null;
+
+        const divisionId = await getOrInsertDivisionId(db, source.origenes ?? '');
+
+        // Use COALESCE in updates below to only overwrite if not present, and also do simple REPLACE if not.
+        // But since we are repairing, it is safer to just SET them.
+        await db.prepare(
+          `UPDATE dictamenes SET old_url = COALESCE(old_url, ?), division_id = COALESCE(division_id, ?) WHERE id = ?`
+        ).bind(oldUrl, divisionId, id).run();
+
+        await db.prepare(
+          `UPDATE atributos_juridicos SET caracter = COALESCE(caracter, ?) WHERE dictamen_id = ?`
+        ).bind(caracter, id).run();
+
+        repairedCount++;
+      } catch (err: any) {
+        console.error(`Repair failed for ${id}`, err);
+        errors++;
+        errorDetails.push(`${id}: ${err.message}`);
+      }
+    }
+
+    return c.json({ status: 'ok', repairedCount, errors, errorDetails, processedIds: ids });
+  } catch (err: any) {
+    return c.json({ error: errorMessage(err) }, 500);
+  }
+});
 
 app.post('/api/v1/dictamenes/crawl/range', async (c) => {
   const body = await readJsonBody(c);

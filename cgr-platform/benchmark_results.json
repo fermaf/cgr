@@ -1,0 +1,150 @@
+{
+  "v1": {
+    "extrae_jurisprudencia": {
+      "titulo": "Imponibilidad de la asignación de especialidad al grado efectivo en Carabineros de Chile: Exclusión de los dos últimos años o cuatro últimos semestres de estudios profesionales",
+      "resumen": "El dictamen analiza la solicitud de una exfuncionaria de Carabineros de Chile para incluir los dos últimos años o cuatro últimos semestres de estudios profesionales en la base imponible de la asignación de especialidad al grado efectivo, con el fin de incrementar el monto de su pensión de retiro. La Contraloría General de la República reafirma su jurisprudencia administrativa, estableciendo que dichos períodos no pueden ser considerados para efectos de hacer imponible la asignación, ya que no constituyen servicios efectivos cubiertos con imposiciones en la respectiva Caja de Previsión. Se exige un mínimo de 20 años de servicios efectivos afectos a la Caja de Previsión de la Defensa Nacional o de la Dirección de Previsión de Carabineros para que la asignación adquiera el carácter de imponible.",
+      "analisis": "El dictamen aborda un tema central en el Derecho Previsional Administrativo chileno: la interpretación de los requisitos para la imponibilidad de la asignación de especialidad al grado efectivo en Carabineros. La Contraloría reitera que, conforme al artículo 8° de la ley N° 18.870, la asignación solo adquiere carácter imponible tras 20 años de servicios efectivos afectos a la respectiva Caja de Previsión. Este requisito excluye expresamente los dos últimos años o cuatro últimos semestres de estudios profesionales, regulados en el artículo 61, inciso tercero, de la ley N° 18.961, ya que dichos períodos no implican imposiciones efectivas en la Caja, sino que son de cargo del interesado y tienen carácter voluntario. La jurisprudencia citada refuerza esta interpretación, destacando que las imposiciones realizadas durante estos períodos solo buscan alcanzar el tiempo mínimo para acceder a una pensión de retiro, sin constituir servicios efectivos cubiertos. El dictamen consolida un criterio restrictivo en la materia, alineado con la normativa previsional y la jurisprudencia administrativa previa.",
+      "etiquetas": [
+        "Derecho Administrativo",
+        "Derecho Previsional",
+        "Carabineros de Chile",
+        "Asignación de especialidad al grado efectivo",
+        "Servicios efectivos",
+        "Imponibilidad",
+        "Jurisprudencia administrativa",
+        "Ley N° 18.870",
+        "Ley N° 18.961",
+        "Decreto con fuerza de ley N° 2 de 1968"
+      ]
+    },
+    "genera_jurisprudencia": true,
+    "booleanos": {
+      "nuevo": true,
+      "aclarado": false,
+      "relevante": false,
+      "confirmado": false,
+      "boletin": false,
+      "alterado": false,
+      "complementado": false,
+      "reconsiderado_parcialmente": false,
+      "reconsiderado": false,
+      "aplicado": true,
+      "reactivado": false,
+      "recurso_proteccion": false
+    },
+    "fuentes_legales": [
+      {
+        "nombre": "Decreto con fuerza de ley N° 2",
+        "numero": "2",
+        "year": "1968",
+        "sector": "Interior",
+        "articulo": "46, letra r)",
+        "extra": "Establece la asignación de especialidad al grado efectivo y su imponibilidad."
+      },
+      {
+        "nombre": "Decreto con fuerza de ley N° 2",
+        "numero": "2",
+        "year": "1968",
+        "sector": "Interior",
+        "articulo": "83",
+        "extra": "Define servicios efectivos en Carabineros."
+      },
+      {
+        "nombre": "Ley N° 18.870",
+        "numero": "18.870",
+        "year": null,
+        "sector": null,
+        "articulo": "8",
+        "extra": "Regula la imponibilidad de la asignación de especialidad al grado efectivo."
+      },
+      {
+        "nombre": "Ley N° 18.961",
+        "numero": "18.961",
+        "year": null,
+        "sector": null,
+        "articulo": "61, inciso tercero",
+        "extra": "Considera servicios efectivos los dos últimos años o cuatro últimos semestres de estudios profesionales."
+      },
+      {
+        "nombre": "Decreto ley N° 3.551",
+        "numero": "3.551",
+        "year": "1980",
+        "sector": null,
+        "articulo": null,
+        "extra": "Mencionado en relación a la fijación del monto de la asignación de especialidad."
+      }
+    ]
+  },
+  "v4_strict": {
+    "extrae_jurisprudencia": {
+      "titulo": "Imponibilidad asignación especialidad en pensión retiro",
+      "resumen": "Se reafirma que los dos últimos años o cuatro semestres de estudios profesionales no son computables para hacer imponible la asignación de especialidad al grado efectivo en pensiones de retiro, al no constituir servicios efectivos cubiertos con imposiciones.",
+      "analisis": "Se aborda una consulta presentada por una exfuncionaria de Carabineros, quien solicita la inclusión de los dos últimos años o cuatro semestres de estudios profesionales en la base de cálculo de su pensión de retiro, específicamente para efectos de hacer imponible la asignación de especialidad al grado efectivo. La resolución administrativa que concedió la pensión de retiro a la recurrente no consideró dicha asignación, basándose en 18 años, 8 meses y 22 días de tiempo efectivo para el retiro, más dos años de universidad y tres años de abono según lo dispuesto en normas especiales. Se establece que el artículo 46, letra r), del decreto con fuerza de ley Nº 2, de 1968, regula la asignación de especialidad al grado efectivo, señalando que esta tendrá carácter imponible a partir de los veinte años de servicios efectivos, momento en el cual el personal gozará de una bonificación compensatoria no imponible del 13,5% de dicha asignación, conforme a la ley Nº 18.870. Esta última norma, en su artículo 8°, reitera que la asignación de especialidad al grado efectivo será imponible tras veinte años de servicios efectivos afectos a la respectiva Caja de Previsión. La jurisprudencia administrativa ha sido consistente en precisar que el requisito de veinte años de servicios efectivos implica que dichos períodos deben estar cubiertos efectivamente con imposiciones, lo que excluye aquellos períodos que, aunque considerados como servicios efectivos para otros fines, no generan cotizaciones previsionales. En este contexto, el artículo 61, inciso tercero, de la ley Nº 18.961, establece que se considerarán servicios efectivos los dos últimos años o cuatro últimos semestres de estudios profesionales de ciertos oficiales, con imposiciones de cargo del interesado calculadas sobre el sueldo base del grado 14. Sin embargo, estas imposiciones son voluntarias y no representan una cobertura de servicios efectivos en el sentido exigido para la imponibilidad de la asignación de especialidad. El artículo 83 del decreto con fuerza de ley Nº 2, de 1968, define los servicios efectivos en Carabineros como aquellos prestados en instituciones de la Defensa Nacional, afectos a la Dirección de Previsión de Carabineros o Caja de Previsión de la Defensa Nacional, o en comisiones confiadas por el Presidente de la República. No obstante, la jurisprudencia ha sido clara en señalar que los períodos de estudios profesionales, aunque útiles para el retiro, no cumplen con el requisito de estar cubiertos con imposiciones para efectos de la imponibilidad de la asignación de especialidad. Dictámenes anteriores, como los Nos 24.832 de 1990, 20.416 de 1992, 3.706 de 1992, 3.571 y 6.201 de 1993, 5.459 de 1997, 39.022 de 1999 y 28.730 de 2001, han reafirmado que los dos últimos años o cuatro últimos semestres de estudios profesionales no pueden ser computados para hacer imponible la asignación de especialidad, ya que no generan imposiciones en la respectiva institución previsional. En consecuencia, se concluye que la recurrente no tiene derecho a incluir dichos períodos de estudios profesionales para efectos de hacer imponible la asignación de especialidad al grado efectivo en su pensión de retiro, lo que determina que el monto de su pensión se encuentra correctamente calculado según la normativa vigente.",
+      "etiquetas": [
+        "asignación de especialidad",
+        "pensión de retiro",
+        "servicios efectivos",
+        "imponibilidad",
+        "Carabineros",
+        "estudios profesionales"
+      ]
+    },
+    "genera_jurisprudencia": true,
+    "booleanos": {
+      "nuevo": true,
+      "aclarado": false,
+      "relevante": false,
+      "confirmado": false,
+      "boletin": false,
+      "alterado": false,
+      "complementado": false,
+      "reconsiderado_parcialmente": false,
+      "reconsiderado": false,
+      "aplicado": true,
+      "reactivado": false,
+      "recurso_proteccion": false
+    },
+    "fuentes_legales": [
+      {
+        "nombre": "DFL",
+        "numero": "2",
+        "year": 1968,
+        "sector": "Interior",
+        "articulo": "46",
+        "extra": "letra r"
+      },
+      {
+        "nombre": "DFL",
+        "numero": "2",
+        "year": 1968,
+        "sector": "Interior",
+        "articulo": "83",
+        "extra": null
+      },
+      {
+        "nombre": "Ley",
+        "numero": "18870",
+        "year": null,
+        "sector": null,
+        "articulo": "8",
+        "extra": null
+      },
+      {
+        "nombre": "Ley",
+        "numero": "18961",
+        "year": null,
+        "sector": null,
+        "articulo": "61",
+        "extra": "inciso tercero"
+      },
+      {
+        "nombre": "DL",
+        "numero": "3551",
+        "year": 1980,
+        "sector": null,
+        "articulo": null,
+        "extra": null
+      }
+    ]
+  }
+}

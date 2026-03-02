@@ -87,3 +87,28 @@ export interface DictamenHistoryResponse {
     dictamen: { id: string; estado: string; created_at: string; updated_at: string };
     history: DictamenHistoryRow[];
 }
+export interface MigrationStats {
+    total: number;
+    migrated: number;
+    legacy: number;
+    errors: number;
+    pending: number;
+}
+
+export interface MigrationEvent {
+    timestamp: string;
+    type: 'skill_event' | 'data_change';
+    service?: string;
+    workflow?: string;
+    code: string;
+    message: string;
+    matched?: number;
+    extra?: string;
+}
+
+export interface MigrationInfoResponse {
+    stats: MigrationStats;
+    evolution: { date: string; count: number; model: string }[];
+    events: MigrationEvent[];
+    modelTarget: string;
+}

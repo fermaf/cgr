@@ -15,6 +15,7 @@ import { runCheckRouterConsistency } from '../skills/check_router_consistency';
 import { runCgrNetworkBaseurlVerify } from '../skills/cgr_network_baseurl_verify';
 import { runD1RemoteSchemaVerify } from '../skills/d1_remote_schema_verify';
 import { runMistralTimeoutTriage } from '../skills/mistral_timeout_triage';
+import { persistIncident } from '../storage/incident_d1';
 
 interface IngestParams {
   search?: string;
@@ -37,129 +38,6 @@ function toIncidentEnv(envValue?: string): 'local' | 'prod' | 'unknown' {
 export class IngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> {
   async run(event: WorkflowEvent<IngestParams>, step: WorkflowStep) {
     const env = this.env; // Referencia local para evitar capturas de 'this'
-    const persistIncident = async (
-      rawError: unknown,
-      extraContext: Record<string, unknown>
-    ): Promise<void> => {
-      const incident = normalizeIncident({
-        error: rawError,
-        env: toIncidentEnv(env.ENVIRONMENT),
-        service: 'ingest',
-        workflow: 'IngestWorkflow',
-        context: {
-          instanceId: event.instanceId ?? 'n/a',
-          environment: env.ENVIRONMENT ?? 'unknown',
-          ...extraContext
-        }
-      });
-
-      const decision = routeIncident(incident);
-      console.log('[INCIDENT]', JSON.stringify(incident));
-      console.log('[SKILL_DECISION]', JSON.stringify(decision));
-      console.log(`Skill sugerido: ${decision.skill}`);
-
-      const skillExecutionEnabled = env.SKILL_EXECUTION_ENABLED === '1';
-      try {
-        await recordSkillEvent(env.DB, incident, decision, env.DICTAMENES_PASO);
-      } catch (insertError) {
-        logWarn('SKILL_EVENT_INSERT_WARN', { reason: 'failed_to_insert_skill_event', error: insertError });
-      }
-
-      if (skillExecutionEnabled) {
-        const skillExecutions: Array<{ name: string; run: () => Promise<SkillExecution> }> = [
-          {
-            name: 'check_env_sanity',
-            run: async () => {
-              const result = await runCheckEnvSanity(env, incident);
-              return {
-                skill: 'check_env_sanity',
-                mode: 'diagnostic',
-                status: result.status,
-                reason: result.status === 'success' ? 'diagnostic_ok' : 'diagnostic_failed',
-                output: { ...result.metadata, error: result.error ?? null }
-              };
-            }
-          },
-          {
-            name: 'check_d1_schema',
-            run: async () => {
-              const result = await runCheckD1Schema(env, incident);
-              return {
-                skill: 'check_d1_schema',
-                mode: 'diagnostic',
-                status: result.status,
-                reason: result.status === 'success' ? 'diagnostic_ok' : 'diagnostic_failed',
-                output: { ...result.metadata, error: result.error ?? null }
-              };
-            }
-          },
-          {
-            name: 'check_router_consistency',
-            run: async () => {
-              const result = await runCheckRouterConsistency(incident, decision);
-              return {
-                skill: 'check_router_consistency',
-                mode: 'diagnostic',
-                status: result.status,
-                reason: result.status === 'success' ? 'diagnostic_ok' : 'diagnostic_failed',
-                output: { ...result.metadata, error: result.error ?? null }
-              };
-            }
-          },
-          {
-            name: 'cgr_network_baseurl_verify',
-            run: async () => {
-              const result = await runCgrNetworkBaseurlVerify(env, incident);
-              return {
-                skill: 'cgr_network_baseurl_verify',
-                mode: 'diagnostic',
-                status: result.status,
-                reason: result.status === 'success' ? 'diagnostic_ok' : 'diagnostic_failed',
-                output: { ...result.metadata, error: result.error ?? null }
-              };
-            }
-          },
-          {
-            name: 'd1_remote_schema_verify',
-            run: async () => {
-              const result = await runD1RemoteSchemaVerify(env, incident);
-              return {
-                skill: 'd1_remote_schema_verify',
-                mode: 'diagnostic',
-                status: result.status,
-                reason: result.status === 'success' ? 'diagnostic_ok' : 'diagnostic_failed',
-                output: { ...result.metadata, error: result.error ?? null }
-              };
-            }
-          },
-          {
-            name: 'mistral_timeout_triage',
-            run: async () => {
-              const result = await runMistralTimeoutTriage(env, incident);
-              return {
-                skill: 'mistral_timeout_triage',
-                mode: 'diagnostic',
-                status: result.status,
-                reason: result.status === 'success' ? 'diagnostic_ok' : 'diagnostic_failed',
-                output: { ...result.metadata, error: result.error ?? null }
-              };
-            }
-          }
-        ];
-
-        for (const skill of skillExecutions) {
-          try {
-            const execution = await skill.run();
-            await recordSkillRun(env.DB, incident, { ...decision, skill: skill.name }, execution);
-          } catch (skillError) {
-            logWarn('SKILL_RUN_WARN', { reason: 'failed_to_execute_skill', error: skillError });
-          }
-        }
-      } else if (decision.matched) {
-        logInfo('SKILL_EXECUTION_SKIPPED', { skill: decision.skill, reason: 'disabled' });
-      }
-    };
-
     try {
       const params = event.payload ?? {};
       const baseUrl = env.CGR_BASE_URL;
@@ -271,11 +149,18 @@ export class IngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> {
             };
           } catch (error) {
             logError('INGEST_PAGE_ERROR', error, { instanceId: event.instanceId ?? 'n/a', page: currentPage });
-            await persistIncident(error, {
-              stage: 'process-page',
-              page: currentPage,
-              cgrBaseUrl: baseUrl
-            });
+            await persistIncident(
+              env,
+              error,
+              'ingest',
+              'IngestWorkflow',
+              event.instanceId ?? 'n/a',
+              {
+                stage: 'process-page',
+                page: currentPage,
+                cgrBaseUrl: baseUrl
+              }
+            );
             throw error;
           }
         });
@@ -307,6 +192,17 @@ export class IngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> {
         maxPages
       });
 
+      // Lógica de encadenamiento automático:
+      // Si insertamos nuevos dictámenes exitosamente, disparamos su enriquecimiento.
+      let backfillInstanceId = null;
+      if (totalIngested > 0 && env.BACKFILL_WORKFLOW) {
+        logInfo('INGEST_TRIGGERING_BACKFILL', { count: totalIngested });
+        const bfInstance = await env.BACKFILL_WORKFLOW.create({
+          params: { batchSize: totalIngested } // Le decimos al backfill que trabaje el lote recién ingresado
+        });
+        backfillInstanceId = bfInstance.id;
+      }
+
       return {
         ok: true,
         totalFetched,
@@ -314,6 +210,7 @@ export class IngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> {
         totalSkippedExisting,
         pagesProcessed,
         maxPages,
+        backfillInstanceId,
         reason:
           totalFetched === 0
             ? 'no-results-in-window'
@@ -327,7 +224,7 @@ export class IngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> {
       // Forzar un error sintético SOLO para probar el clasificador/router nuevo
       const errorForIncident =
         this.env?.SKILL_TEST_ERROR === '1' ? new Error('SKILL_TEST_ERROR_FORCED') : error;
-      await persistIncident(errorForIncident, { stage: 'run-root' });
+      await persistIncident(env, errorForIncident, 'ingest', 'IngestWorkflow', event.instanceId ?? 'n/a', { stage: 'run-root' });
 
       throw error;
     }

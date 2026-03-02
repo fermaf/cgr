@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { MultidimensionalResponse, DictamenHistoryResponse } from '../types';
+import type { MultidimensionalResponse, DictamenHistoryResponse, MigrationInfoResponse } from '../types';
 
 export function useAdminDashboard(filters: { yearFrom?: number; yearTo?: number } = {}) {
     const [data, setData] = useState<MultidimensionalResponse | null>(null);
@@ -70,4 +70,37 @@ export function useDictamenHistory(dictamenId: string) {
     }, [dictamenId]);
 
     return { history, loading, error };
+}
+
+export function useMigrationInfo() {
+    const [data, setData] = useState<MigrationInfoResponse | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let isMounted = true;
+        setLoading(true);
+
+        fetch('/api/v1/admin/migration/info')
+            .then(res => {
+                if (!res.ok) throw new Error('Error al obtener información de migración');
+                return res.json();
+            })
+            .then((json: MigrationInfoResponse) => {
+                if (isMounted) {
+                    setData(json);
+                    setError(null);
+                }
+            })
+            .catch(err => {
+                if (isMounted) setError(err.message);
+            })
+            .finally(() => {
+                if (isMounted) setLoading(false);
+            });
+
+        return () => { isMounted = false; };
+    }, []);
+
+    return { data, loading, error };
 }

@@ -10,6 +10,7 @@ import {
   upsertDictamen,
   getKvKey,
   insertDictamenBooleanosLLM,
+  getOrInsertDivisionId,
 } from '../storage/d1';
 
 function getSource(raw: DictamenRaw): DictamenSource {
@@ -179,6 +180,7 @@ async function ingestDictamen(
   const generaJurisprudencia = extractGeneraJurisprudencia(raw);
   const status = options?.status ?? 'ingested';
   const origenImport = options?.origenImportacion ?? 'crawl_contraloria';
+  const divisionId = await getOrInsertDivisionId(env.DB, source.origenes);
 
   // 1. Upsert en D1 (tabla dictamenes)
   await upsertDictamen(env.DB, {
@@ -193,6 +195,8 @@ async function ingestDictamen(
     criterio: normalizeText(source.criterio),
     destinatarios: normalizeText(source.destinatarios),
     origenImportacion: origenImport,
+    oldUrl: normalizeText(source.old_url),
+    divisionId: divisionId,
   });
 
   // 1.5. Mapear booleanos desde raw_data
@@ -209,6 +213,7 @@ async function ingestDictamen(
     aplicado: normalizeFlag(source.aplicado) === 1,
     reactivado: normalizeFlag(source.reactivado) === 1,
     recurso_proteccion: normalizeFlag(source.recurso_proteccion) === 1,
+    caracter: normalizeText(source.carácter) ?? normalizeText(source.caracter) ?? null,
   };
 
   await insertDictamenBooleanosLLM(env.DB, dictamenId, rawBooleanos);

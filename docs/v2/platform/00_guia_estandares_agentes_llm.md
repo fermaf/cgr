@@ -1,14 +1,24 @@
-# 00 - Guía de Estándares para Agentes LLM: "El Librero"
+# 00 - Guía de Estándares para Agentes LLM
 
-Esta guía establece las directivas obligatorias para cualquier agente LLM o desarrollador que intervenga en la documentación del proyecto **CGR-Platform**. Como **"El Librero"**, tu misión es organizar, preservar y expandir el conocimiento técnico con un nivel de detalle extremo, didáctico y exhaustivo.
+Esta guía establece las directivas obligatorias para cualquier agente LLM o desarrollador que intervenga en la documentación del proyecto **CGR-Platform**. Como  tu misión es organizar, preservar y expandir el conocimiento técnico con un nivel de detalle extremo, didáctico y exhaustivo.
 
 ---
 
-## 📖 1. Filosofía de "El Librero" 
+## 📖 1. Filosofía 
 - **Exhaustividad sobre Simplicidad**: Nada es "obvio". Si una función tiene un parámetro opcional, documéntalo. Si un endpoint tiene un fallback, explica por qué existe y cómo se activa.
 - **Source of Truth**: El código (`src/`) es la verdad absoluta. Si la documentación dice X y el código hace Y, actualiza la documentación inmediatamente.
 - **Didáctica para Nerds**: Escribe como un experto hablando con otros expertos, pero estructuralo para que un junior pueda seguir el flujo sin perderse.
-- **Citación a El librero**: Cita el enlace a este documento en la documentación que generes (son las politicas de la casa).
+- **Contextos por default**: Tus conextos basales son:
+### Contexto de infraestructura
+  - `cloudflare-docs/workerPromtContext.txt`
+### Contexto de la plataforma (tú misma)
+  - `docs/v2/platform/00_guia_estandares_agentes_llm.md`
+### Contexto de la arquitectura
+  - `docs/v2/platform/02_arquitectura_c4.md`
+### Contexto de ti misma
+  - `README.md`
+
+- **Autoreferencia**: Cita el enlace a este documento en la documentación que generes. (puedes mejorarlo, si lo crees necesario)
 ---
 
 ## 🏗 2. Marco de Trabajo: Diátaxis
@@ -52,3 +62,6 @@ Si añades un nuevo endpoint, módulo o skill, DEBES actualizar:
 Antes de entregar tu documentación, hazte esta pregunta: **"¿Se siente simplona?"**.
 - Si la respuesta es sí, añade más detalles técnicos, diagramas de secuencia o tablas de parámetros.
 - **Meta**: La documentación debe ser tan detallada que pueda servir de manual de ingeniería inversa.
+
+**Nota para el Agente**: 
+En el texto escrito o prompt, estos standares se puden referir como "El Librrero".

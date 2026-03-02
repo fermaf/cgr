@@ -3,7 +3,7 @@ import type { Env, DictamenRaw } from '../types';
 import { analyzeDictamen } from '../clients/mistral';
 import { upsertRecord } from '../clients/pinecone';
 import {
-    listDictamenIdsByStatus,
+    listDictamenIdsParaProcesar,
     getLatestRawRef,
     insertEnrichment,
     updateDictamenStatus,
@@ -12,6 +12,8 @@ import {
     insertDictamenFuenteLegal
 } from '../storage/d1';
 import { logInfo, logError, setLogLevel } from '../lib/log';
+import { normalizeIncident } from '../lib/incident';
+import { persistIncident } from '../storage/incident_d1';
 
 interface BackfillParams {
     batchSize?: number;
@@ -34,15 +36,15 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
             const delayMs = params.delayMs ?? 500;
             logInfo('BACKFILL_RUN_START', { instanceId: event.instanceId, batchSize, delayMs });
 
-            // 1. Obtener dictámenes en estado 'ingested'
-            const dictamenIds = await step.do('fetch-ingested-ids', async () => {
-                const ids = await listDictamenIdsByStatus(db, ['ingested'], batchSize);
-                console.log(`[Backfill] Encontrados ${ids.length} dictámenes pendientes.`);
+            // 1. Obtener dictámenes pendientes (nuevos o desactualizados)
+            const dictamenIds = await step.do('fetch-pending-ids', async () => {
+                const ids = await listDictamenIdsParaProcesar(db, batchSize);
+                console.log(`[Backfill] Lote actual: ${ids.length} dictámenes pendientes.`);
                 return ids;
             });
 
             if (dictamenIds.length === 0) {
-                console.log("[Backfill] Sin dictámenes pendientes. Pipeline al día.");
+                console.log("[Backfill] Sin dictámenes pendientes. Lote e historial al día.");
                 return { ok: 0, error: 0, total: 0, mensaje: "Sin pendientes" };
             }
 
@@ -172,7 +174,15 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
                         return { ok: true };
                     } else {
                         await updateDictamenStatus(db, id, 'error');
-                        console.error(`[Backfill][ERROR] Mistral falló para ${id}`);
+                        console.error(`[Backfill][ERROR] Mistral devolvió falso para ${id}`);
+                        await persistIncident(
+                            env,
+                            new Error(`Mistral devolvió un objeto inválido o falso para el dictamen ${id}`),
+                            'cgr-platform',
+                            'backfillWorkflow',
+                            event.instanceId ?? 'n/a',
+                            { id }
+                        );
                         return { ok: false };
                     }
                 });
@@ -180,17 +190,43 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
                 if (resultado.ok) ok++; else errores++;
             }
 
+            // 3. Evaluar si siguen quedando pendientes en la base para re-invocación automática
+            const remainingCount = await step.do('check-remaining', async () => {
+                const testIds = await listDictamenIdsParaProcesar(db, 1);
+                return testIds.length > 0;
+            });
+
             const resumen = {
                 total: dictamenIds.length,
                 ok,
                 error: errores,
-                mensaje: `Backfill completado: ${ok} vectorizados, ${errores} errores de ${dictamenIds.length} procesados.`
+                mensaje: `Lote completado: ${ok} vectorizados, ${errores} errores de ${dictamenIds.length}. Quedan más: ${remainingCount}.`
             };
             logInfo('BACKFILL_RUN_DONE', { instanceId: event.instanceId, ...resumen });
-            console.log(`[Backfill][FIN] ${resumen.mensaje}`);
+            console.log(`[Backfill] ${resumen.mensaje}`);
+
+            // 4. Delega al siguiente ciclo si quedaron tareas (modo iterativo / 80k runner)
+            if (false /* remainingCount activado en modo auto-batch, FALSE para validación */) {
+                await step.sleep('wait-between-batches', '15 seconds');
+                await step.do('trigger-next-batch', async () => {
+                    await env.BACKFILL_WORKFLOW.create({
+                        params: { batchSize, delayMs }
+                    });
+                    console.log(`[Backfill] Se ha encolado recursivamente una nueva instancia para seguir procesando.`);
+                });
+            }
+
             return resumen;
         } catch (error) {
             logError('BACKFILL_RUN_ERROR', error, { instanceId: event.instanceId });
+            // Skillgen Incident Persistence at Workflow Level
+            await persistIncident(
+                this.env,
+                error,
+                'cgr-platform',
+                'backfillWorkflow',
+                event.instanceId ?? 'n/a'
+            );
             throw error;
         }
     }

@@ -118,6 +118,25 @@ Retorna un subgrafo local de relaciones entrantes/salientes basadas en `dictamen
 curl -X GET "https://cgr-platform.abogado.workers.dev/api/v1/dictamenes/012345N24/lineage" \
   -H "Accept: application/json"
 ```
+---
+
+### 1.7 Monitor de Migración LLM
+Retorna estadísticas, evolución y eventos recientes del proceso de migración de modelos (2411 -> 2512).
+
+- **Endpoint**: `/api/v1/admin/migration/info`
+- **Descripción**:
+  - `stats`: conteo por estado y modelo.
+  - `evolution`: serie temporal de enriquecimientos.
+  - `events`: feed de `skill_events` e `historial_cambios`.
+  - `modelTarget`: modelo configurado actualmente como objetivo.
+
+#### Ejemplo
+```bash
+curl -X GET "https://cgr-platform.abogado.workers.dev/api/v1/admin/migration/info" \
+  -H "Accept: application/json"
+```
+
+---
 
 ---
 

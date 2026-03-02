@@ -7,6 +7,7 @@ import { DictamenHistory } from "../components/admin/DictamenHistory";
 import { OperacionalStats } from "../components/admin/OperacionalStats";
 import { SemanticHeatmap } from "../components/admin/SemanticHeatmap";
 import { SkillgenHub } from "../components/admin/SkillgenHub";
+import { MigrationDashboard } from "../components/admin/MigrationDashboard";
 
 export function AdminDashboard() {
     const [activeTab, setActiveTab] = useState("volumetria");
@@ -86,6 +87,12 @@ export function AdminDashboard() {
                     active={activeTab === "skillgen"}
                     onClick={() => setActiveTab("skillgen")}
                 />
+                <TabButton
+                    icon={BrainCircuit}
+                    label="Migración LLM"
+                    active={activeTab === "migracion"}
+                    onClick={() => setActiveTab("migracion")}
+                />
             </div>
 
             {/* Contenido Dinámico */}
@@ -159,6 +166,17 @@ export function AdminDashboard() {
                         className="mt-6"
                     >
                         <SkillgenHub />
+                    </motion.div>
+                )}
+
+                {activeTab === "migracion" && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4 }}
+                        className="mt-6"
+                    >
+                        <MigrationDashboard />
                     </motion.div>
                 )}
             </div>
