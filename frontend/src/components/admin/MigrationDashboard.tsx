@@ -6,6 +6,7 @@ import {
     Clock,
     History,
     Database,
+    ArrowRight,
     Zap
 } from 'lucide-react';
 import {
