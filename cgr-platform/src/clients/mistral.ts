@@ -1,7 +1,7 @@
 // Cliente Mistral: genera analisis y parsea fuentes legales.
 import OpenAI from 'openai';
 import type { Env, DictamenRaw, DictamenSource } from '../types';
-import { logError, setLogLevel } from '../lib/log';
+import { logError, logWarn, setLogLevel } from '../lib/log';
 
 function getMistralClient(env: Env) {
   setLogLevel(env.LOG_LEVEL);
@@ -166,47 +166,64 @@ function extractJsonArrayPayload(content: string) {
   return content.slice(start, end + 1).trim();
 }
 
-async function analyzeDictamen(env: Env, raw: DictamenRaw) {
+async function analyzeDictamen(env: Env, raw: DictamenRaw): Promise<{ result: any | null; error?: string }> {
   const client = getMistralClient(env);
+  let attempts = 0;
+  const maxAttempts = 5;
+  let delay = 10000;
 
-  try {
-    const response = await client.chat.completions.create({
-      model: env.MISTRAL_MODEL,
-      messages: [{ role: "user", content: buildPromptConsolidado(raw) }],
-      temperature: 0.1,
-      response_format: { type: "json_object" }
-    });
+  while (attempts < maxAttempts) {
+    try {
+      const response = await client.chat.completions.create({
+        model: env.MISTRAL_MODEL,
+        messages: [{ role: "user", content: buildPromptConsolidado(raw) }],
+        temperature: 0.1,
+        response_format: { type: "json_object" }
+      });
 
-    const contentRaw = response.choices?.[0]?.message?.content;
-    const content = typeof contentRaw === 'string' ? contentRaw : undefined;
-    if (!content) return null;
+      const contentRaw = response.choices?.[0]?.message?.content;
+      const content = typeof contentRaw === 'string' ? contentRaw : undefined;
+      if (!content) return { result: null, error: 'Empty response from Mistral' };
 
-    // SDK returns string, we try to parse it
-    // Using string extractor just in case the model returns markdown wrapped json
-    const jsonPayload = typeof content === 'string' ? (extractJsonPayload(content) || content) : JSON.stringify(content);
-    const parsed = JSON.parse(jsonPayload as string) as any;
+      const jsonPayload = typeof content === 'string' ? (extractJsonPayload(content) || content) : JSON.stringify(content);
+      const parsed = JSON.parse(jsonPayload as string) as any;
 
-    const extrae = parsed.extrae_jurisprudencia ?? parsed;
-    const extrae_jurisprudencia = {
-      titulo: typeof extrae.titulo === "string" ? extrae.titulo : "",
-      resumen: typeof extrae.resumen === "string" ? extrae.resumen : "",
-      analisis: typeof extrae.analisis === "string" ? extrae.analisis : "",
-      etiquetas: Array.isArray(extrae.etiquetas) ? extrae.etiquetas : []
-    };
+      const extrae = parsed.extrae_jurisprudencia ?? parsed;
+      const extrae_jurisprudencia = {
+        titulo: typeof extrae.titulo === "string" ? extrae.titulo : "",
+        resumen: typeof extrae.resumen === "string" ? extrae.resumen : "",
+        analisis: typeof extrae.analisis === "string" ? extrae.analisis : "",
+        etiquetas: Array.isArray(extrae.etiquetas) ? extrae.etiquetas : []
+      };
 
-    const booleanos = normalizeBooleanos(parsed.booleanos ?? {});
-    const fuentes = normalizeFuentesLegales(parsed.fuentes_legales as any[]);
+      const booleanos = normalizeBooleanos(parsed.booleanos ?? {});
+      const fuentes = normalizeFuentesLegales(parsed.fuentes_legales as any[]);
 
-    return {
-      extrae_jurisprudencia,
-      genera_jurisprudencia: typeof parsed.genera_jurisprudencia === "boolean" ? parsed.genera_jurisprudencia : parsed.genera_jurisprudencia === void 0 ? void 0 : normalizeBoolean(parsed.genera_jurisprudencia),
-      booleanos,
-      fuentes_legales: fuentes ?? []
-    };
-  } catch (error: any) {
-    logError('MISTRAL_ANALYZE_DICTAMEN_ERROR', error, { model: env.MISTRAL_MODEL });
-    return null;
+      return {
+        result: {
+          extrae_jurisprudencia,
+          genera_jurisprudencia: typeof parsed.genera_jurisprudencia === "boolean" ? parsed.genera_jurisprudencia : parsed.genera_jurisprudencia === void 0 ? void 0 : normalizeBoolean(parsed.genera_jurisprudencia),
+          booleanos,
+          fuentes_legales: fuentes ?? []
+        }
+      };
+    } catch (error: any) {
+      attempts++;
+      const isRateLimit = error.status === 429 || String(error).includes('429');
+
+      if (isRateLimit && attempts < maxAttempts) {
+        logWarn('MISTRAL_RATE_LIMIT_RETRY', { attempt: attempts, nextDelay: delay, id: raw.id });
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay *= 2;
+        continue;
+      }
+
+      const msg = error.message || String(error);
+      logError('MISTRAL_ANALYZE_DICTAMEN_ERROR', error, { model: env.MISTRAL_MODEL, attempts });
+      return { result: null, error: msg };
+    }
   }
+  return { result: null, error: 'Max retry attempts reached' };
 }
 
 

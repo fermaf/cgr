@@ -195,8 +195,10 @@ async function listDictamenIdsParaProcesar(db: D1Database, limit = 50): Promise<
     `SELECT d.id
      FROM dictamenes d
      LEFT JOIN enriquecimiento e ON d.id = e.dictamen_id
-     WHERE d.estado IN ('ingested', 'error')
-        OR (d.estado IN ('enriched', 'vectorized') AND (e.modelo_llm IS NULL OR e.modelo_llm != 'mistral-large-2512'))
+     WHERE (d.estado IN ('ingested', 'error'))
+       AND d.old_url IS NOT NULL 
+       AND d.division_id IS NOT NULL
+       AND (e.modelo_llm IS NULL OR e.modelo_llm != 'mistral-large-2512')
      ORDER BY d.fecha_documento DESC, d.numero DESC
      LIMIT ?`
   ).bind(limit).all<{ id: string }>();
@@ -243,6 +245,22 @@ async function getLatestRawRef(_db: D1Database, dictamenId: string): Promise<{ r
 }
 
 // ─── Enriquecimiento ─────────────────────────────────────────────────
+
+async function getEnrichment(db: D1Database, dictamenId: string, model: string): Promise<any | null> {
+  const row = await db.prepare("SELECT * FROM enriquecimiento WHERE dictamen_id = ? AND modelo_llm = ?").bind(dictamenId, model).first();
+  if (!row) return null;
+  return {
+    extrae_jurisprudencia: {
+      titulo: row.titulo,
+      resumen: row.resumen,
+      analisis: row.analisis,
+      etiquetas: JSON.parse(String(row.etiquetas_json || '[]'))
+    },
+    genera_jurisprudencia: row.genera_jurisprudencia === 1,
+    booleanos: JSON.parse(String(row.booleanos_json || '{}')),
+    fuentes_legales: JSON.parse(String(row.fuentes_legales_json || '[]'))
+  };
+}
 
 async function insertEnrichment(
   db: D1Database,
@@ -460,7 +478,7 @@ async function getMigrationStats(db: D1Database): Promise<Record<string, number>
     SELECT 
       COUNT(*) as total,
       SUM(CASE WHEN e.modelo_llm = 'mistral-large-2512' THEN 1 ELSE 0 END) as migrated,
-      SUM(CASE WHEN e.modelo_llm = 'mistral-large-2411' THEN 1 ELSE 0 END) as legacy,
+      SUM(CASE WHEN e.modelo_llm IN ('mistral-large-2411', 'mistralLarge2411') THEN 1 ELSE 0 END) as legacy,
       SUM(CASE WHEN d.estado = 'error' THEN 1 ELSE 0 END) as errors,
       SUM(CASE WHEN d.estado IN ('ingested') THEN 1 ELSE 0 END) as pending
     FROM dictamenes d
@@ -473,7 +491,10 @@ async function getMigrationEvolution(db: D1Database): Promise<Array<{ date: stri
   const res = await db.prepare(`
     SELECT 
       strftime('%Y-%m-%d', fecha_enriquecimiento) as date,
-      modelo_llm as model,
+      CASE 
+        WHEN modelo_llm IN ('mistral-large-2411', 'mistralLarge2411') THEN 'mistral-large-2411'
+        ELSE modelo_llm 
+      END as model,
       COUNT(*) as count
     FROM enriquecimiento
     WHERE fecha_enriquecimiento >= datetime('now', '-30 days')
@@ -528,6 +549,7 @@ export {
   getKvKey,
   getLatestRawRef, // compatibilidad — computa clave KV sin DB
   insertEnrichment,
+  getEnrichment,
   getLatestEnrichment,
   getStats,
   getDashboardStats,

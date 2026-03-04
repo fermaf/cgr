@@ -535,9 +535,6 @@ app.get('/api/v1/dictamenes/:id', async (c) => {
     let raw = {};
     if (rawRef) {
       let rawJson = await c.env.DICTAMENES_SOURCE.get(rawRef.raw_key, 'json').catch(() => null);
-      if (!rawJson && !rawRef.raw_key.startsWith('dictamen:')) {
-        rawJson = await c.env.DICTAMENES_SOURCE.get(`dictamen:${id}`, 'json').catch(() => null);
-      }
       raw = rawJson || {};
     }
 
@@ -690,7 +687,7 @@ app.post('/api/v1/jobs/repair-nulls', async (c) => {
       ids = [targetId.trim()];
     } else {
       const rows = await db.prepare(
-        "SELECT id FROM dictamenes WHERE (old_url IS NULL OR division_id IS NULL) AND origen_importacion != 'manual' LIMIT ?"
+        "SELECT id FROM dictamenes WHERE (old_url IS NULL OR division_id IS NULL) AND origen_importacion NOT IN ('manual', 'missing_kv', 'repaired_incomplete') AND estado != 'sin_kv' LIMIT ?"
       ).bind(limitNum).all<{ id: string }>();
       ids = rows.results?.map(r => r.id) || [];
     }
@@ -699,54 +696,20 @@ app.post('/api/v1/jobs/repair-nulls', async (c) => {
       return c.json({ status: 'ok', msg: 'No pending null records to repair.', count: 0 });
     }
 
-    let repairedCount = 0;
-    let errors = 0;
-    let errorDetails: string[] = [];
+    // Send to Queue instead of processing synchronously
+    const chunkSize = 100;
+    let queuedCount = 0;
 
-    for (const id of ids) {
-      try {
-        const kvKey = id.trim();
-        let rawJsonString = await kv.get(kvKey, { type: 'text' });
-
-        // Carga condicional pre-refactor por si acaso
-        if (!rawJsonString) {
-          rawJsonString = await kv.get(`dictamen:${kvKey}`, { type: 'text' });
-        }
-
-        if (!rawJsonString) {
-          errors++;
-          errorDetails.push(`${id}: KV returnado null para key "${kvKey}" y "dictamen:${kvKey}"`);
-          continue;
-        }
-
-        const rawJson = JSON.parse(rawJsonString);
-        const source = rawJson._source ?? rawJson.source ?? (rawJson as any).raw_data ?? rawJson;
-
-        const oldUrl = typeof source.old_url === 'string' ? source.old_url.trim() || null : null;
-        let caracter = typeof source.carácter === 'string' ? source.carácter.trim() || null : null;
-        if (!caracter) caracter = typeof source.caracter === 'string' ? source.caracter.trim() || null : null;
-
-        const divisionId = await getOrInsertDivisionId(db, source.origenes ?? '');
-
-        // Use COALESCE in updates below to only overwrite if not present, and also do simple REPLACE if not.
-        // But since we are repairing, it is safer to just SET them.
-        await db.prepare(
-          `UPDATE dictamenes SET old_url = COALESCE(old_url, ?), division_id = COALESCE(division_id, ?) WHERE id = ?`
-        ).bind(oldUrl, divisionId, id).run();
-
-        await db.prepare(
-          `UPDATE atributos_juridicos SET caracter = COALESCE(caracter, ?) WHERE dictamen_id = ?`
-        ).bind(caracter, id).run();
-
-        repairedCount++;
-      } catch (err: any) {
-        console.error(`Repair failed for ${id}`, err);
-        errors++;
-        errorDetails.push(`${id}: ${err.message}`);
+    if (c.env.REPAIR_QUEUE) {
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        const chunkIds = ids.slice(i, i + chunkSize);
+        await c.env.REPAIR_QUEUE.sendBatch(chunkIds.map(id => ({ body: id })));
+        queuedCount += chunkIds.length;
       }
+      return c.json({ status: 'ok', queuedCount, msg: 'IDs sent to repair-nulls queue.' });
+    } else {
+      return c.json({ status: 'error', msg: 'REPAIR_QUEUE binding no está configurado.' }, 500);
     }
-
-    return c.json({ status: 'ok', repairedCount, errors, errorDetails, processedIds: ids });
   } catch (err: any) {
     return c.json({ error: errorMessage(err) }, 500);
   }
@@ -771,8 +734,14 @@ app.post('/api/v1/dictamenes/crawl/range', async (c) => {
 });
 
 app.post('/api/v1/dictamenes/batch-enrich', async (c) => {
+  if (c.env.ENVIRONMENT === 'prod') {
+    const token = c.req.header('x-admin-token');
+    if (!token || token !== c.env.INGEST_TRIGGER_TOKEN) {
+      return c.json({ error: 'Unauthorized' }, 403);
+    }
+  }
   const body = await readJsonBody(c);
-  const defaultBatch = parsePositiveInt(c.env.BACKFILL_BATCH_SIZE, 50, 1, 500);
+  const defaultBatch = parsePositiveInt(c.env.BACKFILL_BATCH_SIZE, 100, 1, 500);
   const defaultDelay = parsePositiveInt(c.env.BACKFILL_DELAY_MS, 500, 0, 60000);
   const batchSize = parsePositiveInt(body.batchSize, defaultBatch, 1, 500);
   const delayMs = parsePositiveInt(body.delayMs, defaultDelay, 0, 60000);
@@ -802,10 +771,7 @@ app.post('/api/v1/dictamenes/:id/sync-vector', async (c) => {
     const rawRef = await getLatestRawRef(db, id);
     let rawJson: any = {};
     if (rawRef) {
-      rawJson = await c.env.DICTAMENES_SOURCE.get(rawRef.raw_key, 'json');
-      if (!rawJson && !rawRef.raw_key.startsWith('dictamen:')) {
-        rawJson = await c.env.DICTAMENES_SOURCE.get(`dictamen:${id}`, 'json').catch(() => null);
-      }
+      rawJson = await c.env.DICTAMENES_SOURCE.get(rawRef.raw_key, 'json').catch(() => null);
     }
     const sourceContent = rawJson?._source ?? rawJson?.source ?? rawJson?.raw_data ?? rawJson;
 
@@ -847,9 +813,6 @@ app.post('/api/v1/dictamenes/:id/re-process', async (c) => {
   if (!rawRef) return c.json({ error: 'No se encontró referencia KV para este dictamen' }, 404);
 
   let rawJson = await c.env.DICTAMENES_SOURCE.get(rawRef.raw_key, 'json') as DictamenRaw | null;
-  if (!rawJson && !rawRef.raw_key.startsWith('dictamen:')) {
-    rawJson = await c.env.DICTAMENES_SOURCE.get(`dictamen:${id}`, 'json') as DictamenRaw | null;
-  }
   if (!rawJson) return c.json({ error: 'No se encontró JSON en KV' }, 404);
 
   try {
@@ -857,8 +820,9 @@ app.post('/api/v1/dictamenes/:id/re-process', async (c) => {
     await ingestDictamen(c.env, rawJson, { status: 'ingested' });
 
     // 2. ENRIQUECIMIENTO: AI Mistral
-    const enrichment = await analyzeDictamen(c.env, rawJson);
-    if (!enrichment) throw new Error("Fallo en AI Mistral");
+    const enrichmentPayload = await analyzeDictamen(c.env, rawJson);
+    const enrichment = enrichmentPayload.result;
+    if (!enrichment) throw new Error(enrichmentPayload.error || "Fallo en AI Mistral");
 
     await insertEnrichment(db, {
       dictamen_id: id,
@@ -1048,9 +1012,6 @@ app.post('/api/v1/dictamenes/sync-vector-mass', async (c) => {
       if (!enrichment || !rawRef) continue;
 
       let rawJson: any = await c.env.DICTAMENES_SOURCE.get(rawRef.raw_key, 'json').catch(() => null);
-      if (!rawJson && !rawRef.raw_key.startsWith('dictamen:')) {
-        rawJson = await c.env.DICTAMENES_SOURCE.get(`dictamen:${id}`, 'json').catch(() => null);
-      }
       if (!rawJson) continue;
 
       const sourceContent = rawJson?._source ?? rawJson?.source ?? rawJson?.raw_data ?? rawJson;
@@ -1143,7 +1104,7 @@ app.post('/api/v1/debug/cgr', async (c) => {
     dir: 'gt'
   }];
   try {
-    const res = await fetchDictamenesSearchPage(c.env.CGR_BASE_URL, 0, options, undefined, '', c.env.CGR_API_TOKEN);
+    const res = await fetchDictamenesSearchPage(c.env.CGR_BASE_URL, 0, options, undefined, '');
     return c.json({ success: true, count: res.items.length, first: res.items[0] ? extractDictamenId(res.items[0]) : null });
   } catch (e: any) {
     return c.json({ success: false, error: errorMessage(e) }, 500);
@@ -1152,6 +1113,59 @@ app.post('/api/v1/debug/cgr', async (c) => {
 
 export default {
   fetch: app.fetch,
+
+  async queue(batch: MessageBatch<any>, env: Env, ctx: ExecutionContext) {
+    const db = env.DB;
+    const kv = env.DICTAMENES_SOURCE;
+    const maxConcurrency = 15;
+
+    // Process messages in the batch with limited concurrency
+    for (let i = 0; i < batch.messages.length; i += maxConcurrency) {
+      const chunk = batch.messages.slice(i, i + maxConcurrency);
+
+      await Promise.all(chunk.map(async (msg) => {
+        const id = msg.body as string;
+        try {
+          const kvKey = id.trim();
+          let rawJsonString = await kv.get(kvKey, { type: 'text' }).catch(() => null);
+
+          if (!rawJsonString) {
+            console.error(`${id}: KV returnado null para key. Marcando como sin_kv.`);
+            await db.prepare("UPDATE dictamenes SET origen_importacion = 'missing_kv', estado = 'sin_kv' WHERE id = ?").bind(id).run();
+            msg.ack(); // Missing, no use in retrying
+            return;
+          }
+
+          const rawJson = JSON.parse(rawJsonString);
+          const source = rawJson._source ?? rawJson.source ?? (rawJson as any).raw_data ?? rawJson;
+
+          const oldUrl = typeof source.old_url === 'string' ? source.old_url.trim() || null : null;
+          let caracter = typeof source.carácter === 'string' ? source.carácter.trim() || null : null;
+          if (!caracter) caracter = typeof source.caracter === 'string' ? source.caracter.trim() || null : null;
+
+          const divisionId = await getOrInsertDivisionId(db, source.origenes ?? '');
+
+          if (!oldUrl && !divisionId) {
+            await db.prepare("UPDATE dictamenes SET origen_importacion = 'repaired_incomplete' WHERE id = ?").bind(id).run();
+          } else {
+            await db.prepare(
+              `UPDATE dictamenes SET old_url = COALESCE(old_url, ?), division_id = COALESCE(division_id, ?) WHERE id = ?`
+            ).bind(oldUrl, divisionId, id).run();
+          }
+
+          await db.prepare(
+            `UPDATE atributos_juridicos SET caracter = COALESCE(caracter, ?) WHERE dictamen_id = ?`
+          ).bind(caracter, id).run();
+
+          msg.ack();
+        } catch (err: any) {
+          console.error(`Queue repair failed for ${id}`, err);
+          msg.retry();
+        }
+      }));
+    }
+  },
+
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     try {
       setLogLevel(env.LOG_LEVEL);

@@ -77,6 +77,15 @@ Si notas que los filtros por "materia" o "abogado" no funcionan en el frontend p
     -d '{"limit": 100}' -H "x-admin-token: ..."
   ```
 
+### Problema: Atributos Nulos (old_url, division_id) que trancan Migration RAG
+- **Causa**: Registros insertados antiguamente o en migraciones previas que no portaron identificadores para el front o catálogo.
+- **Acción**: Ejecutar el script batch en local que hace solicitudes de parche asíncronas de manera segura (con límite reducido para evitar timeouts 502 de Cloudflare):
+  ```bash
+  # En el directorio cgr-platform:
+  node scripts/repair_nulls.js
+  ```
+  El script consume internamente el endpoint `/api/v1/jobs/repair-nulls`.
+
 ---
 
 ## 📈 Monitoreo de Costos y Rendimiento

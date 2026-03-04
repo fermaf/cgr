@@ -41,6 +41,9 @@ Escenarios reales detallados:
 - Enriquecimiento Semántico (Mistral AI).
 - Búsqueda Híbrida (Vectorial + SQL Fallback).
 
+### [10. Guía de Integración con Skillgen](10_guia_integracion_skillgen.md)
+**Nivel Desarrollador.** Instrucciones técnicas sobre cómo conectar nuevos servicios al motor de gobernanza e incidentes. Provee patrones de código y flujos de normalización.
+
 ---
 
 ## 🔄 Estado de Ejecución del Roadmap (Corte: 2026-02-27)

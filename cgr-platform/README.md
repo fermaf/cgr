@@ -96,7 +96,7 @@ Definidas en `wrangler.jsonc`:
 
 Secrets:
 
-- `CGR_API_TOKEN` (obligatorio en `ENVIRONMENT=prod`)
+
 - `MISTRAL_API_KEY`
 - `PINECONE_API_KEY`
 - `CF_AIG_AUTHORIZATION` (si aplica por gateway)

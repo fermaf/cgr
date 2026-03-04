@@ -228,7 +228,23 @@ curl -X POST "https://cgr-platform.abogado.workers.dev/api/v1/dictamenes/sync-ve
 
 ---
 
-### 2.6 Materialización de Snapshots Analíticos
+### 2.6 Reparación Masiva de Atributos (old_url, division_id)
+Endpoint asíncrono para rehidratar columnas clave en D1 (`old_url`, `division_id`) leyendo la fuente de verdad en KV. Utilizado por el script `scripts/repair_nulls.js`.
+
+- **Endpoint**: `/api/v1/jobs/repair-nulls`
+- **Método**: `POST`
+- **Parámetros Query**:
+  - `limit` (number, opcional): Número de registros a procesar por lote (recomendado: 10-50).
+  - `id` (string, opcional): Si se indica, procesa un único dictamen.
+
+#### Ejemplo: Lote pequeño
+```bash
+curl -X POST "https://cgr-platform.abogado.workers.dev/api/v1/jobs/repair-nulls?limit=10"
+```
+
+---
+
+### 2.7 Materialización de Snapshots Analíticos
 Refresca tablas de snapshot en D1 para acelerar endpoints de analítica.
 
 - **Endpoint**: `/api/v1/analytics/refresh`

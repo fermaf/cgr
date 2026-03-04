@@ -100,6 +100,7 @@ export interface Env {
   DB: D1Database;
   DICTAMENES_SOURCE: KVNamespace;
   DICTAMENES_PASO: KVNamespace;
+  REPAIR_QUEUE: Queue;
 
   // Vars
   ENVIRONMENT?: string;
@@ -125,7 +126,7 @@ export interface Env {
   // Secrets
   PINECONE_API_KEY: string;
   MISTRAL_API_KEY: string;
-  CGR_API_TOKEN?: string;
+
   INGEST_TRIGGER_TOKEN?: string;
   CF_AIG_AUTHORIZATION?: string;
 }

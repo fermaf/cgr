@@ -45,9 +45,6 @@ export class IngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> {
       logInfo('INGEST_RUN_START', { instanceId: event.instanceId ?? 'n/a', payloadKeys: Object.keys(params) });
 
       const incidentEnv = toIncidentEnv(env.ENVIRONMENT);
-      if (incidentEnv === 'prod' && !env.CGR_API_TOKEN) {
-        throw new Error('CGR_API_TOKEN_MISSING');
-      }
 
       if (env.SKILL_TEST_ERROR === '1') {
         throw new Error('SKILL_TEST_ERROR_FORCED');
@@ -107,8 +104,7 @@ export class IngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> {
               currentPage,
               config.options,
               undefined,
-              searchStr,
-              env.CGR_API_TOKEN
+              searchStr
             );
             const items = (result.items ?? []) as any[];
             const db = env.DB;

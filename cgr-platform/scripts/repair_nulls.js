@@ -1,6 +1,6 @@
 import https from 'https';
 
-const API_URL = 'https://cgr-platform.abogado.workers.dev/api/v1/jobs/repair-nulls?limit=300';
+const API_URL = 'https://cgr-platform.abogado.workers.dev/api/v1/jobs/repair-nulls?limit=10';
 let totalRepaired = 0;
 let totalErrors = 0;
 let batchCount = 0;

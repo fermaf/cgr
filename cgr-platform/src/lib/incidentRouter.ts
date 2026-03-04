@@ -56,6 +56,10 @@ const RULES: Record<IncidentCode, { skill: string; reason: string }> = {
     skill: 'mistral_timeout_triage',
     reason: 'AI_GATEWAY_TIMEOUT'
   },
+  AI_MISTRAL_FAILED: {
+    skill: 'mistral_timeout_triage',
+    reason: 'AI_MISTRAL_FAILED'
+  },
   UNKNOWN: {
     skill: '__UNMATCHED__',
     reason: 'UNKNOWN'

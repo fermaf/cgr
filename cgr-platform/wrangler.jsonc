@@ -44,6 +44,22 @@
       "database_name": "cgr-dictamenes"
     }
   ],
+  "queues": {
+    "producers": [
+      {
+        "queue": "repair-nulls-queue",
+        "binding": "REPAIR_QUEUE"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "repair-nulls-queue",
+        "max_batch_size": 100,
+        "max_batch_timeout": 10,
+        "max_retries": 1
+      }
+    ]
+  },
   "vars": {
     "ENVIRONMENT": "local",
     "APP_TIMEZONE": "America/Santiago",
@@ -56,7 +72,8 @@
     "CRAWL_DAYS_LOOKBACK": "3",
     "BACKFILL_BATCH_SIZE": "50",
     "BACKFILL_DELAY_MS": "500",
-    "ANALYTICS_CACHE_TTL_SECONDS": "900"
+    "ANALYTICS_CACHE_TTL_SECONDS": "900",
+    "INGEST_TRIGGER_TOKEN": "paz_mundial"
   },
   "env": {
     "staging": {
@@ -125,6 +142,22 @@
         "BACKFILL_BATCH_SIZE": "50",
         "BACKFILL_DELAY_MS": "500",
         "ANALYTICS_CACHE_TTL_SECONDS": "900"
+      },
+      "queues": {
+        "producers": [
+          {
+            "queue": "repair-nulls-queue",
+            "binding": "REPAIR_QUEUE"
+          }
+        ],
+        "consumers": [
+          {
+            "queue": "repair-nulls-queue",
+            "max_batch_size": 100,
+            "max_batch_timeout": 10,
+            "max_retries": 1
+          }
+        ]
       },
       "kv_namespaces": [
         {

@@ -38,6 +38,9 @@ export type IncidentCode =
   | 'HTTP_5XX'
   // AI
   | 'AI_GATEWAY_TIMEOUT'
+  | 'AI_ENRICHMENT_FAILED'
+  // KV
+  | 'KV_MISSING_VALUE'
   // Fallback
   | 'UNKNOWN';
 
@@ -266,6 +269,16 @@ export function normalizeIncident(params: {
     });
   }
 
+  if (/sin json en kv/i.test(normalizedMessage)) {
+    return withFingerprint({
+      ...baseIncident,
+      kind: 'kv',
+      system: 'kv',
+      code: 'KV_MISSING_VALUE',
+      context: sanitizedContext
+    });
+  }
+
   if (/gateway_timeout/i.test(normalizedMessage)) {
     return withFingerprint({
       ...baseIncident,
@@ -273,6 +286,22 @@ export function normalizeIncident(params: {
       system: 'mistral',
       code: 'AI_GATEWAY_TIMEOUT',
       context: sanitizedContext
+    });
+  }
+
+  if (/mistral fail/i.test(normalizedMessage)) {
+    const mistralIdMatch = message.match(/mistral fail:\s*([a-zA-Z0-9]+)/i);
+    const mergedContext = sanitizeContext({
+      ...(sanitizedContext ?? {}),
+      mistral_doc_id: mistralIdMatch ? mistralIdMatch[1] : undefined
+    });
+
+    return withFingerprint({
+      ...baseIncident,
+      kind: 'ai',
+      system: 'mistral',
+      code: 'AI_ENRICHMENT_FAILED',
+      context: mergedContext
     });
   }
 
