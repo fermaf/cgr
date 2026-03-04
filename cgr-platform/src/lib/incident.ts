@@ -39,6 +39,7 @@ export type IncidentCode =
   // AI
   | 'AI_GATEWAY_TIMEOUT'
   | 'AI_ENRICHMENT_FAILED'
+  | 'AI_MISTRAL_FAILED'
   // KV
   | 'KV_MISSING_VALUE'
   // Fallback

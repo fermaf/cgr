@@ -60,6 +60,14 @@ const RULES: Record<IncidentCode, { skill: string; reason: string }> = {
     skill: 'mistral_timeout_triage',
     reason: 'AI_MISTRAL_FAILED'
   },
+  AI_ENRICHMENT_FAILED: {
+    skill: 'mistral_timeout_triage',
+    reason: 'AI_ENRICHMENT_FAILED'
+  },
+  KV_MISSING_VALUE: {
+    skill: '__UNMATCHED__',
+    reason: 'KV_MISSING_VALUE'
+  },
   UNKNOWN: {
     skill: '__UNMATCHED__',
     reason: 'UNKNOWN'

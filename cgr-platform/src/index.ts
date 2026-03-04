@@ -798,7 +798,10 @@ app.post('/api/v1/dictamenes/:id/sync-vector', async (c) => {
           sync_error = NULL`
     ).bind(id).run();
 
-    await db.prepare("UPDATE dictamenes SET estado = 'vectorized', updated_at = ? WHERE id = ?").bind(new Date().toISOString(), id).run();
+    await updateDictamenStatus(db, id, 'vectorized', 'PINECONE_SYNC_SUCCESS', {
+      source: 'API_MANUAL_SYNC',
+      metadata_version: 2
+    });
     return c.json({ success: true, message: 'Vector sync done (Standard v2).' });
   } catch (e: any) {
     return c.json({ error: errorMessage(e) }, 500);
@@ -845,7 +848,10 @@ app.post('/api/v1/dictamenes/:id/re-process', async (c) => {
       await insertDictamenFuenteLegal(db, id, source);
     }
 
-    await updateDictamenStatus(db, id, 'enriched');
+    await updateDictamenStatus(db, id, 'enriched', 'MANUAL_UPDATE', {
+      detail: 'Re-proceso integral (Ingest + Mistral) desde API',
+      model: c.env.MISTRAL_MODEL
+    });
 
     const textToEmbed = `
         Título: ${enrichment.extrae_jurisprudencia.titulo}
@@ -877,7 +883,10 @@ app.post('/api/v1/dictamenes/:id/re-process', async (c) => {
           sync_error = NULL`
     ).bind(id).run();
 
-    await updateDictamenStatus(db, id, 'vectorized');
+    await updateDictamenStatus(db, id, 'vectorized', 'PINECONE_SYNC_SUCCESS', {
+      source: 'API_MANUAL_REPROCESS',
+      metadata_version: 2
+    });
 
     // ENSAMBLAJE PARA DICTAMENES_PASO
     const pasoJson = {
@@ -923,7 +932,7 @@ app.get('/api/v1/dictamenes/:id/history', async (c) => {
     const dictamen = await db.prepare("SELECT id, estado, created_at, updated_at FROM dictamenes WHERE id = ?").bind(id).first<any>();
     if (!dictamen) return c.json({ error: 'Documento no encontrado' }, 404);
 
-    const history = await db.prepare("SELECT * FROM historial_cambios WHERE dictamen_id = ? ORDER BY fecha_cambio ASC").bind(id).all<any>();
+    const history = await db.prepare("SELECT event_type as campo_modificado, status_to as valor_nuevo, status_from as valor_anterior, 'event_log' as origen, created_at as fecha_cambio, metadata FROM dictamen_events WHERE dictamen_id = ? ORDER BY created_at ASC").bind(id).all<any>();
 
     return c.json({
       dictamen,

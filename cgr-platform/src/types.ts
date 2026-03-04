@@ -2,7 +2,7 @@ import type { Workflow, D1Database, KVNamespace } from '@cloudflare/workers-type
 
 // Estados del pipeline de procesamiento de dictámenes.
 // Ver tabla cat_estado_pipeline en D1.
-export type DictamenStatus = 'ingested' | 'enriched' | 'vectorized' | 'error';
+export type DictamenStatus = 'ingested' | 'processing' | 'enriched' | 'vectorized' | 'error';
 
 export type OrigenImportacion = 'mongoDb' | 'worker_cron_crawl' | 'worker_batch_ai' | 'worker_manual' | 'crawl_contraloria';
 
@@ -78,7 +78,7 @@ export interface EnrichmentRow {
   fecha_enriquecimiento: string | null;
 }
 
-// Fila de la tabla historial_cambios.
+// Fila de la tabla historial_cambios (Mantenida por compatibilidad temporal).
 export interface HistorialCambiosRow {
   id: number;
   dictamen_id: string;
@@ -87,6 +87,29 @@ export interface HistorialCambiosRow {
   valor_nuevo: string | null;
   origen: string;
   fecha_cambio: string;
+}
+
+// Tipos de Eventos para la trazabilidad transaccional.
+export type DictamenEventType =
+  | 'INGESTION_COMPLETED'
+  | 'BACKFILL_LOTE_CHECKOUT'
+  | 'AI_INFERENCE_START'
+  | 'AI_INFERENCE_SUCCESS'
+  | 'AI_INFERENCE_ERROR'
+  | 'KV_SYNC_PASO_SUCCESS'
+  | 'PINECONE_SYNC_SUCCESS'
+  | 'MANUAL_UPDATE'
+  | 'SYSTEM_ERROR';
+
+// Fila de la nueva tabla dictamen_events.
+export interface DictamenEventRow {
+  id: number;
+  dictamen_id: string;
+  event_type: DictamenEventType;
+  status_from: string | null;
+  status_to: string | null;
+  metadata: string | null; // JSON string
+  created_at: string;
 }
 
 

@@ -3,6 +3,7 @@ import type { Env, DictamenRaw } from '../types';
 import { analyzeDictamen } from '../clients/mistral';
 import { upsertRecord } from '../clients/pinecone';
 import {
+    checkoutDictamenesParaProcesar,
     listDictamenIdsParaProcesar,
     getLatestRawRef,
     getEnrichment,
@@ -36,10 +37,10 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
             const delayMs = params.delayMs ?? 500;
             logInfo('BACKFILL_RUN_START', { instanceId: event.instanceId, batchSize, delayMs });
 
-            // 1. Obtener dictámenes pendientes
-            const dictamenIds = await step.do('fetch-pending-ids', async () => {
-                const ids = await listDictamenIdsParaProcesar(db, batchSize);
-                console.log(`[Backfill] Lote actual: ${ids.length} dictámenes pendientes.`);
+            // 1. Obtener dictámenes pendientes Y marcarlos atómicamente como processing (Checkout)
+            const dictamenIds = await step.do('fetch-active-ids', async () => {
+                const ids = await checkoutDictamenesParaProcesar(db, batchSize);
+                console.log(`[Backfill] Lote actual: ${ids.length} dictámenes checkout-eados para procesamiento.`);
                 return ids;
             });
 
@@ -64,7 +65,7 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
                             // Obtener clave KV
                             const rawRef = await getLatestRawRef(db, id);
                             if (!rawRef) {
-                                await updateDictamenStatus(db, id, 'error');
+                                await updateDictamenStatus(db, id, 'error', 'SYSTEM_ERROR', { detail: 'Sin referencia KV' });
                                 console.error(`[Backfill][ERROR] Sin referencia KV para ${id}`);
                                 chunkResults.push({ id, ok: false });
                                 continue;
@@ -77,12 +78,14 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
                             }
 
                             if (!rawJson) {
-                                await updateDictamenStatus(db, id, 'error');
+                                await updateDictamenStatus(db, id, 'error', 'SYSTEM_ERROR', { detail: 'Sin JSON en KV' });
                                 await persistIncident(env, new Error(`Sin JSON en KV para ${id}`), 'cgr-platform', 'backfillWorkflow', event.instanceId ?? 'n/a', { dictamenId: id });
                                 console.error(`[Backfill][ERROR] Sin JSON en KV para ${id}`);
                                 chunkResults.push({ id, ok: false });
                                 continue;
                             }
+
+                            // Ya está marcado como `processing` gracias a checkoutDictamenesParaProcesar
 
                             // Recuperar enriquecimiento existente si hay falla parcial previa
                             let enrichment = await getEnrichment(db, id, mistralModel);
@@ -93,6 +96,32 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
                                 enrichment = newEnrichment;
 
                                 if (enrichment) {
+                                    // 2.2 GUARDADO PRIORITARIO EN KV (DICTAMENES_PASO)
+                                    // Esto asegura que si D1 falla después, ya tenemos el consumo de tokens respaldado.
+                                    const now = new Date().toISOString();
+                                    const sourceContent = rawJson._source ?? rawJson.source ?? (rawJson as any).raw_data ?? rawJson;
+                                    const pasoJson = {
+                                        id: id,
+                                        source: sourceContent,
+                                        arreglo_booleanos: enrichment.booleanos,
+                                        detalle_fuentes: enrichment.fuentes_legales,
+                                        extrae_jurisprudencia: enrichment.extrae_jurisprudencia,
+                                        modelo_llm: mistralModel,
+                                        creado_en: now,
+                                        procesado: true
+                                    };
+
+                                    await pasoKv.put(id, JSON.stringify(pasoJson));
+                                    await db.prepare(
+                                        `INSERT INTO kv_sync_status (dictamen_id, en_paso, paso_written_at)
+                                     VALUES (?, 1, ?)
+                                     ON CONFLICT(dictamen_id) DO UPDATE SET en_paso = 1, paso_written_at = excluded.paso_written_at, updated_at = excluded.paso_written_at`
+                                    ).bind(id, now).run();
+
+                                    await updateDictamenStatus(db, id, 'enriched', 'KV_SYNC_PASO_SUCCESS', {
+                                        modelo: mistralModel
+                                    });
+
                                     // Guardar en tablas D1
                                     await insertEnrichment(db, {
                                         dictamen_id: id,
@@ -119,10 +148,7 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
                             }
 
                             if (enrichment) {
-
-                                await updateDictamenStatus(db, id, 'enriched');
-
-                                // Vectorización (Pinecone)
+                                // 2.3 Vectorización (Pinecone)
                                 const textToEmbed = `
                                 Título: ${enrichment.extrae_jurisprudencia.titulo}
                                 Resumen: ${enrichment.extrae_jurisprudencia.resumen}
@@ -154,31 +180,15 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
                                     sync_error = NULL`
                                 ).bind(id).run();
 
-                                await updateDictamenStatus(db, id, 'vectorized');
-
-                                // DICTAMENES_PASO
-                                const now = new Date().toISOString();
-                                const pasoJson = {
-                                    id: id,
-                                    source: sourceContent,
-                                    arreglo_booleanos: enrichment.booleanos,
-                                    detalle_fuentes: enrichment.fuentes_legales,
-                                    extrae_jurisprudencia: enrichment.extrae_jurisprudencia,
-                                    modelo_llm: mistralModel,
-                                    creado_en: now,
-                                    procesado: true
-                                };
-
-                                await pasoKv.put(id, JSON.stringify(pasoJson));
-                                await db.prepare(
-                                    `INSERT INTO kv_sync_status (dictamen_id, en_paso, paso_written_at)
-                                 VALUES (?, 1, ?)
-                                 ON CONFLICT(dictamen_id) DO UPDATE SET en_paso = 1, paso_written_at = excluded.paso_written_at, updated_at = excluded.paso_written_at`
-                                ).bind(id, now).run();
+                                await updateDictamenStatus(db, id, 'vectorized', 'PINECONE_SYNC_SUCCESS', {
+                                    metadata_version: 2
+                                });
 
                                 chunkResults.push({ id, ok: true });
                             } else {
-                                await updateDictamenStatus(db, id, 'error');
+                                await updateDictamenStatus(db, id, 'error', 'AI_INFERENCE_ERROR', {
+                                    detail: 'Mistral falló con enrichment null'
+                                });
                                 await persistIncident(env, new Error(`Mistral fail: ${id}`), 'cgr-platform', 'backfillWorkflow', event.instanceId ?? 'n/a', { dictamenId: id });
                                 chunkResults.push({ id, ok: false });
                             }

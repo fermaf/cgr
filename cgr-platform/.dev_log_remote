@@ -1,0 +1,47 @@
+
+ ⛅️ wrangler 4.66.0 (update available 4.70.0)
+─────────────────────────────────────────────
+Support for remote bindings in `wrangler dev` is now available as a replacement for `wrangler dev --remote`. Try it out now by running `wrangler dev` with the `remote` option enabled on your resources and let us know how it goes!
+This gives you access to remote resources in development while retaining all the usual benefits of local dev: fast iteration speed, breakpoint debugging, and more.
+
+Refer to https://developers.cloudflare.com/workers/development-testing/#remote-bindings for more information.
+Using vars defined in .dev.vars
+Your Worker has access to the following bindings:
+Binding                                                                           Resource                  
+env.WORKFLOW (IngestWorkflow)                                                     Workflow                  
+env.BACKFILL_WORKFLOW (BackfillWorkflow)                                          Workflow                  
+env.KV_SYNC_WORKFLOW (KVSyncWorkflow)                                             Workflow                  
+env.DICTAMENES_SOURCE (ac84374936a84e578928929243687a0b)                          KV Namespace              
+env.DICTAMENES_PASO (4673b680cd704508a4fbc87789acb153)                            KV Namespace              
+env.REPAIR_QUEUE (repair-nulls-queue)                                             Queue                     
+env.DB (cgr-dictamenes)                                                           D1 Database               
+env.ENVIRONMENT ("local")                                                         Environment Variable      
+env.APP_TIMEZONE ("America/Santiago")                                             Environment Variable      
+env.CGR_BASE_URL ("https://www.contraloria.cl")                                   Environment Variable      
+env.MISTRAL_API_URL ("https://gateway.ai.cloudflare.com/v1/...")                  Environment Variable      
+env.MISTRAL_MODEL ("mistral-large-2512")                                          Environment Variable      
+env.PINECONE_INDEX_HOST ("https://cgr-8aea039.svc.aped-4627-b74...")              Environment Variable      
+env.PINECONE_NAMESPACE ("mistralLarge2512")                                       Environment Variable      
+env.LOG_LEVEL ("debug")                                                           Environment Variable      
+env.CRAWL_DAYS_LOOKBACK ("3")                                                     Environment Variable      
+env.BACKFILL_BATCH_SIZE ("50")                                                    Environment Variable      
+env.BACKFILL_DELAY_MS ("500")                                                     Environment Variable      
+env.ANALYTICS_CACHE_TTL_SECONDS ("900")                                           Environment Variable      
+env.INGEST_TRIGGER_TOKEN ("paz_mundial")                                          Environment Variable      
+env.CGR_API_TOKEN ("(hidden)")                                                    Environment Variable      
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mQueues are not yet supported in wrangler dev remote mode.[0m
+
+
+❓ Your types might be out of date. Re-run `wrangler types` to ensure your types are correct.
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mScheduled Workers are not automatically triggered during local development.[0m
+
+  To manually trigger a scheduled event, run:
+    curl "http://localhost:9005/cdn-cgi/handler/scheduled"
+  For more details, see [4mhttps://developers.cloudflare.com/workers/configuration/cron-triggers/#test-cron-triggers-locally[0m
+
+
+⎔ Starting remote preview...
+Total Upload: 463.36 KiB / gzip: 97.02 KiB
+[wrangler:info] Ready on http://localhost:9005
+[wrangler:info] POST /api/v1/dictamenes/E496720N24/re-process 503 Service Temporarily Unavailable (644ms)

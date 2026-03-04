@@ -11,6 +11,7 @@ import {
   getKvKey,
   insertDictamenBooleanosLLM,
   getOrInsertDivisionId,
+  logDictamenEvent,
 } from '../storage/d1';
 
 function getSource(raw: DictamenRaw): DictamenSource {
@@ -273,6 +274,14 @@ async function ingestDictamen(
 
     throw error;
   }
+
+  await logDictamenEvent(env.DB, {
+    dictamen_id: dictamenId,
+    event_type: 'INGESTION_COMPLETED',
+    status_to: status,
+    metadata: { source: origenImport }
+  });
+
   return { dictamenId, kvKey };
 }
 

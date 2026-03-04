@@ -1,7 +1,7 @@
 // Acceso a D1 (base: cgr-dictamenes c391c767).
 // Tablas principales: dictamenes, enriquecimiento, registro_ejecucion.
 // Tablas principales: dictamenes, enriquecimiento
-import type { DictamenStatus, EnrichmentRow } from '../types';
+import type { DictamenStatus, EnrichmentRow, DictamenEventType } from '../types';
 
 // Parámetros de upsert para la tabla dictamenes.
 type DictamenUpsertParams = {
@@ -25,13 +25,36 @@ function nowIso() {
 }
 
 
-// ─── Historial de Cambios ────────────────────────────────────────────
+// ─── Historial de Cambios y Event Sourcing ──────────────────────────────
 
 async function logChange(db: D1Database, dictamenId: string, campo: string, vOld: any, vNew: any, origen: string) {
   await db.prepare(
     `INSERT INTO historial_cambios (dictamen_id, campo_modificado, valor_anterior, valor_nuevo, origen, fecha_cambio)
      VALUES (?, ?, ?, ?, ?, ?)`
   ).bind(dictamenId, campo, String(vOld ?? ""), String(vNew ?? ""), origen, nowIso()).run();
+}
+
+async function logDictamenEvent(
+  db: D1Database,
+  params: {
+    dictamen_id: string;
+    event_type: DictamenEventType;
+    status_from?: string | null;
+    status_to?: string | null;
+    metadata?: Record<string, any>;
+  }
+): Promise<void> {
+  await db.prepare(
+    `INSERT INTO dictamen_events (dictamen_id, event_type, status_from, status_to, metadata, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).bind(
+    params.dictamen_id,
+    params.event_type,
+    params.status_from ?? null,
+    params.status_to ?? null,
+    params.metadata ? JSON.stringify(params.metadata) : null,
+    nowIso()
+  ).run();
 }
 
 // ─── Dictámenes ──────────────────────────────────────────────────────
@@ -146,8 +169,23 @@ async function getOrInsertDivisionId(db: D1Database, origenes: unknown): Promise
   }
 }
 
-async function updateDictamenStatus(db: D1Database, id: string, status: DictamenStatus): Promise<void> {
+async function updateDictamenStatus(
+  db: D1Database,
+  id: string,
+  status: DictamenStatus,
+  eventType: DictamenEventType,
+  metadata?: Record<string, any>
+): Promise<void> {
+  const existing = await getDictamenById(db, id);
   await db.prepare("UPDATE dictamenes SET estado = ?, updated_at = ? WHERE id = ?").bind(status, nowIso(), id).run();
+
+  await logDictamenEvent(db, {
+    dictamen_id: id,
+    event_type: eventType,
+    status_from: existing.estado,
+    status_to: status,
+    metadata
+  });
 }
 
 async function getExistingDictamenIds(db: D1Database, ids: string[]): Promise<Set<string>> {
@@ -195,7 +233,7 @@ async function listDictamenIdsParaProcesar(db: D1Database, limit = 50): Promise<
     `SELECT d.id
      FROM dictamenes d
      LEFT JOIN enriquecimiento e ON d.id = e.dictamen_id
-     WHERE (d.estado IN ('ingested', 'error'))
+     WHERE d.estado = 'ingested'
        AND d.old_url IS NOT NULL 
        AND d.division_id IS NOT NULL
        AND (e.modelo_llm IS NULL OR e.modelo_llm != 'mistral-large-2512')
@@ -203,6 +241,37 @@ async function listDictamenIdsParaProcesar(db: D1Database, limit = 50): Promise<
      LIMIT ?`
   ).bind(limit).all<{ id: string }>();
   return result.results?.map((row) => row.id) ?? [];
+}
+
+async function checkoutDictamenesParaProcesar(db: D1Database, limit = 50): Promise<string[]> {
+  const result = await db.prepare(
+    `UPDATE dictamenes 
+     SET estado = 'processing', updated_at = ?
+     WHERE id IN (
+         SELECT d.id
+         FROM dictamenes d
+         LEFT JOIN enriquecimiento e ON d.id = e.dictamen_id
+         WHERE d.estado = 'ingested'
+           AND d.old_url IS NOT NULL 
+           AND d.division_id IS NOT NULL
+           AND (e.modelo_llm IS NULL OR e.modelo_llm != 'mistral-large-2512')
+         ORDER BY d.fecha_documento DESC, d.numero DESC
+         LIMIT ?
+     ) RETURNING id;`
+  ).bind(nowIso(), limit).all<{ id: string }>();
+
+  const ids = result.results?.map((row) => row.id) ?? [];
+
+  for (const id of ids) {
+    await logDictamenEvent(db, {
+      dictamen_id: id,
+      event_type: 'BACKFILL_LOTE_CHECKOUT',
+      status_from: 'ingested',
+      status_to: 'processing'
+    });
+  }
+
+  return ids;
 }
 
 async function listDictamenes(
@@ -561,6 +630,8 @@ export {
   listDictamenByStatus,
   listDictamenIdsByStatus,
   listDictamenIdsParaProcesar,
+  checkoutDictamenesParaProcesar,
+  logDictamenEvent,
   listDictamenIdsWithEmptyEnrichment,
   listDictamenIdsWithEmptyFuentes,
   updateEnrichmentFuentes,

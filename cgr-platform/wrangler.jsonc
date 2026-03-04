@@ -90,7 +90,8 @@
         "CRAWL_DAYS_LOOKBACK": "3",
         "BACKFILL_BATCH_SIZE": "50",
         "BACKFILL_DELAY_MS": "500",
-        "ANALYTICS_CACHE_TTL_SECONDS": "900"
+        "ANALYTICS_CACHE_TTL_SECONDS": "900",
+        "INGEST_TRIGGER_TOKEN": "paz_mundial"
       },
       "kv_namespaces": [
         {
@@ -141,7 +142,8 @@
         "CRAWL_DAYS_LOOKBACK": "3",
         "BACKFILL_BATCH_SIZE": "50",
         "BACKFILL_DELAY_MS": "500",
-        "ANALYTICS_CACHE_TTL_SECONDS": "900"
+        "ANALYTICS_CACHE_TTL_SECONDS": "900",
+        "INGEST_TRIGGER_TOKEN": "paz_mundial"
       },
       "queues": {
         "producers": [
