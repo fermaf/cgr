@@ -24,9 +24,24 @@ function getRawSource(raw: DictamenRaw): DictamenSource {
 
 function buildPromptConsolidado(raw: DictamenRaw) {
   const source = getRawSource(raw);
+
+  // Selección selectiva de propiedades efectivas (14 en total) para optimizar tokens y reducir ruido
   const inputData = JSON.stringify({
-    ...source,
-    documento_completo: source.documento_completo
+    documento_completo: source.documento_completo,
+    fuentes_legales: source.fuentes_legales,
+    // Atributos booleanos para clasificación
+    nuevo: source.nuevo,
+    aclarado: source.aclarado,
+    relevante: source.relevante,
+    confirmado: source.confirmado,
+    boletin: source.boletin,
+    alterado: source.alterado,
+    complementado: source.complementado,
+    reconsiderado_parcialmente: source.reconsiderado_parcialmente,
+    reconsiderado: source.reconsiderado,
+    aplicado: source.aplicado,
+    reactivado: source.reactivado,
+    recurso_proteccion: source.recurso_proteccion
   }, null, 2);
 
   return [
