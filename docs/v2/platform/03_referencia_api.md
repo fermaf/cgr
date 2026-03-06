@@ -187,8 +187,14 @@ curl -X POST "https://cgr-platform.abogado.workers.dev/api/v1/dictamenes/batch-e
 
 ---
 
-### 2.3 Reproceso Integral (Atomic Repair)
-Reinicia el ciclo completo para un dictamen específico (Re-parse -> Re-AI -> Re-Vector).
+### 2.3 Reproceso Integral Interno (Atomic Repair)
+Reinicia el ciclo completo para un dictamen específico **de forma interna** (Re-parse -> Re-AI -> Re-Vector). 
+
+> [!WARNING]
+> Este endpoint asume que el JSON original (crudo) ya existe en la base de datos `KV` (`DICTAMENES_SOURCE`). Si el dictamen es verdaderamente "missing" en KV (falla 404), este endpoint fracasará. Para hacer un rescrapeo real desde cero contra el portal CGR, utiliza `/ingest/trigger`.
+
+> [!IMPORTANT]
+> **Comportamiento Forzado**: A partir de la versión v2.1, este endpoint utiliza el flag `force: true`. Esto permite sobrescribir dictámenes que ya se encuentran en un estado final (ej: `vectorized_1`) para facilitar la re-evaluación con nuevos prompts o modelos sin saltar el registro.
 
 - **Endpoint**: `/api/v1/dictamenes/:id/re-process`
 
@@ -277,18 +283,21 @@ curl -X POST "https://cgr-platform.abogado.workers.dev/api/v1/analytics/refresh"
 
 ## 3. Triggers Proactivos y Debugging
 
-### 3.1 Trigger Manual de Ingesta
-Dispara el workflow con parámetros de búsqueda libre.
+### 3.1 Trigger Manual de Ingesta (Web Scraper Activo)
+Forza una búsqueda en vivo contra el buscador de la CGR y procesa (o rescrapea) los resultados. Este es el endpoint adecuado para recuperar dictámenes "Truly Missing" que no existen en KV.
+
+> [!IMPORTANT]
+> **Cascada Automática**: Cualquier dictamen nuevo o actualizado por este endpoint iniciará un `IngestWorkflow`, el cual a su vez dispara de forma recursiva un `BackfillWorkflow` que procesará en cadena **todos** los dictámenes en estado `ingested` de la base de datos hasta quedar al día. Para más detalles, ver [Comportamiento de Workflows de Ingesta](./11_comportamiento_workflows_ingesta.md).
 
 - **Endpoint**: `/ingest/trigger`
 
-#### Ejemplo: Búsqueda por Término en Portal CGR
+#### Ejemplo: Recuperación de un Dictamen Específico ("Truly Missing")
 ```bash
 curl -X POST "https://cgr-platform.abogado.workers.dev/ingest/trigger" \
   -H "Content-Type: application/json" \
   -H "x-admin-token: YOUR_TOKEN_HERE" \
   -d '{
-    "search": "recurso de proteccion",
+    "search": "E121949N25",
     "limit": 10
   }'
 ```
@@ -335,6 +344,7 @@ Inventario de códigos de incidentes normalizados y el ruteo de sus diagnóstico
 | `NETWORK_DNS_LOOKUP_FAILED` | `network` | `http` | `cgr_network_baseurl_verify` | Fallo en la resolución DNS del portal de la CGR. |
 | `AI_GATEWAY_TIMEOUT` | `ai` | `mistral` | `mistral_timeout_triage` | Tiempo de espera agotado en el AI Gateway. |
 | `AI_MISTRAL_FAILED` | `ai` | `mistral` | `mistral_timeout_triage` | Fallo general en el enriquecimiento de Mistral (Backfill). |
+| `AI_LENGTH_EXCEEDED` | `ai` | `limites` | `n/a` | El texto excede el límite de tokens permitido para Mistral o Pinecone. |
 | `WORKFLOW_RPC_EXCEPTION` | `workflow` | `workflows` | `workflow_rpc_this_capture_guard` | Error de captura de `this` en pasos de workflow. |
 | `UNKNOWN` | `unknown` | `worker` | `__UNMATCHED__` | Incidente no clasificado, requiere revisión humana. |
 
