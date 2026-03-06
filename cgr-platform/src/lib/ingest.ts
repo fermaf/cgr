@@ -174,6 +174,7 @@ async function ingestDictamen(
   options?: {
     status?: DictamenStatus;
     origenImportacion?: string | null;
+    force?: boolean;
   }
 ): Promise<{ dictamenId: string; kvKey: string }> {
   const source = getSource(raw) as any;
@@ -198,6 +199,7 @@ async function ingestDictamen(
     origenImportacion: origenImport,
     oldUrl: normalizeText(source.old_url),
     divisionId: divisionId,
+    force: options?.force,
   });
 
   // 1.5. Mapear booleanos desde raw_data

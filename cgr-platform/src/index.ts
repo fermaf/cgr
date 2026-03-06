@@ -777,15 +777,15 @@ app.post('/api/v1/dictamenes/:id/sync-vector', async (c) => {
 
     await upsertRecord(c.env, {
       id: id,
-      text: textToEmbed,
       metadata: {
         ...enrichment,
-        analisis: enrichment.analisis || "", // Cast null to string
-        materia: sourceContent?.materia,
+        descriptores_AI: enrichment.etiquetas_json ? JSON.parse(enrichment.etiquetas_json) : [],
+        materia: sourceContent?.materia || "",
         descriptores_originales: sourceContent?.descriptores ? String(sourceContent.descriptores).split(/[,;\n]/).map((s: string) => s.trim()).filter((s: string) => s.length > 2) : [],
         fecha: String(sourceContent?.fecha_documento || ''),
-        model: enrichment.modelo_llm || c.env.MISTRAL_MODEL
-      } as any // Use any temporarily if needed due to complex Partial mismatch
+        model: enrichment.modelo_llm || c.env.MISTRAL_MODEL,
+        analisis: enrichment.analisis || "" // El cliente concatenará esto con Título y Resumen
+      } as any
     });
 
     // Registrar éxito de sincronización en D1 (v2)
@@ -820,7 +820,7 @@ app.post('/api/v1/dictamenes/:id/re-process', async (c) => {
 
   try {
     // 1. RE-INGESTA: Regenerar catálogos y relaciones (Abogados, Descriptores) con el parser actual
-    await ingestDictamen(c.env, rawJson, { status: 'ingested' });
+    await ingestDictamen(c.env, rawJson, { status: 'ingested', force: true });
 
     // 2. ENRIQUECIMIENTO: AI Mistral
     const enrichmentPayload = await analyzeDictamen(c.env, rawJson);
@@ -862,14 +862,15 @@ app.post('/api/v1/dictamenes/:id/re-process', async (c) => {
     const sourceContent = rawJson._source ?? rawJson.source ?? (rawJson as any).raw_data ?? rawJson;
     await upsertRecord(c.env, {
       id: id,
-      text: textToEmbed,
       metadata: {
         ...enrichment.extrae_jurisprudencia,
+        descriptores_AI: enrichment.extrae_jurisprudencia.etiquetas,
         ...enrichment.booleanos,
-        materia: sourceContent.materia,
+        materia: sourceContent.materia || "",
         descriptores_originales: sourceContent.descriptores ? String(sourceContent.descriptores).split(/[,;\n]/).map((s: string) => s.trim()).filter((s: string) => s.length > 2) : [],
         fecha: String(sourceContent.fecha_documento || ''),
         model: c.env.MISTRAL_MODEL
+        // El cliente construirá el análisis enriquecido usando titulo, resumen y analisis
       }
     });
 
@@ -1032,14 +1033,14 @@ app.post('/api/v1/dictamenes/sync-vector-mass', async (c) => {
 
       await upsertRecord(c.env, {
         id: id,
-        text: textToEmbed,
         metadata: {
           ...enrichment,
-          analisis: enrichment.analisis || "",
-          materia: sourceContent?.materia,
+          descriptores_AI: enrichment.etiquetas_json ? JSON.parse(enrichment.etiquetas_json) : [],
+          materia: sourceContent?.materia || "",
           descriptores_originales: sourceContent?.descriptores ? String(sourceContent.descriptores).split(/[,;\n]/).map((s: string) => s.trim()).filter((s: string) => s.length > 2) : [],
           fecha: String(sourceContent?.fecha_documento || ''),
-          model: enrichment.modelo_llm || c.env.MISTRAL_MODEL
+          model: enrichment.modelo_llm || c.env.MISTRAL_MODEL,
+          analisis: enrichment.analisis || ""
         } as any
       });
 
@@ -1117,6 +1118,37 @@ app.post('/api/v1/debug/cgr', async (c) => {
     return c.json({ success: true, count: res.items.length, first: res.items[0] ? extractDictamenId(res.items[0]) : null });
   } catch (e: any) {
     return c.json({ success: false, error: errorMessage(e) }, 500);
+  }
+});
+
+app.post('/api/v1/test/pinecone', async (c) => {
+  const testId = "UNIT_TEST_METADATA_V2";
+  const testData = {
+    titulo: "Prueba Unitaria de Metadatos V2",
+    resumen: "Verificación de descriptores_AI mediante endpoint de prueba",
+    descriptores_AI: ["test_etiqueta_1", "test_etiqueta_2", "auditoria"],
+    descriptores_originales: ["original_test"],
+    u_time: Math.floor(Date.now() / 1000),
+    fecha: new Date().toISOString().split('T')[0]
+  };
+
+  try {
+    await upsertRecord(c.env, {
+      id: testId,
+      metadata: {
+        ...testData,
+        analisis: testData.resumen // El cliente concatenará esto
+      }
+    });
+
+    return c.json({
+      success: true,
+      message: "Test record sent to Pinecone.",
+      id: testId,
+      sent_metadata: testData
+    });
+  } catch (e: any) {
+    return c.json({ error: errorMessage(e) }, 500);
   }
 });
 

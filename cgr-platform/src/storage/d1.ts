@@ -18,6 +18,7 @@ type DictamenUpsertParams = {
   origenImportacion?: string | null;
   oldUrl?: string | null;
   divisionId?: number | null;
+  force?: boolean;
 };
 
 function nowIso() {
@@ -65,7 +66,8 @@ async function upsertDictamen(db: D1Database, params: DictamenUpsertParams): Pro
 
   if (existing) {
     // Si ya existe y NO está en error, no hacer nada (deduplicación).
-    if (existing.estado && existing.estado !== 'error') {
+    // Permitir bypass si params.force es true.
+    if (!params.force && existing.estado && existing.estado !== 'error') {
       console.log(`[SKIP] Dictamen ${params.id} ya existe con estado ${existing.estado}. No se actualiza.`);
       return;
     }
