@@ -819,8 +819,9 @@ app.post('/api/v1/dictamenes/:id/re-process', async (c) => {
   if (!rawJson) return c.json({ error: 'No se encontró JSON en KV' }, 404);
 
   try {
+    const force = c.req.query('force') === 'true';
     // 1. RE-INGESTA: Regenerar catálogos y relaciones (Abogados, Descriptores) con el parser actual
-    await ingestDictamen(c.env, rawJson, { status: 'ingested', force: true });
+    await ingestDictamen(c.env, rawJson, { status: 'ingested', force });
 
     // 2. ENRIQUECIMIENTO: AI Mistral
     const enrichmentPayload = await analyzeDictamen(c.env, rawJson);

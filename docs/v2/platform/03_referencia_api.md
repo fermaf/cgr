@@ -194,9 +194,9 @@ Reinicia el ciclo completo para un dictamen específico **de forma interna** (Re
 > Este endpoint asume que el JSON original (crudo) ya existe en la base de datos `KV` (`DICTAMENES_SOURCE`). Si el dictamen es verdaderamente "missing" en KV (falla 404), este endpoint fracasará. Para hacer un rescrapeo real desde cero contra el portal CGR, utiliza `/ingest/trigger`.
 
 > [!IMPORTANT]
-> **Comportamiento Forzado**: A partir de la versión v2.1, este endpoint utiliza el flag `force: true`. Esto permite sobrescribir dictámenes que ya se encuentran en un estado final (ej: `vectorized_1`) para facilitar la re-evaluación con nuevos prompts o modelos sin saltar el registro.
+> **Modo Forzado (Opcional)**: A partir de la versión v2.1, este endpoint soporta el parámetro opcional `?force=true`. Esto permite sobrescribir dictámenes que ya se encuentran en un estado final (ej: `vectorized_1`) para facilitar la re-evaluación con nuevos prompts o modelos sin saltar el registro. Sin este flag, el sistema saltará el dictamen si ya existe para evitar gastos innecesarios de tokens.
 
-- **Endpoint**: `/api/v1/dictamenes/:id/re-process`
+- **Endpoint**: `/api/v1/dictamenes/:id/re-process?force=true`
 
 #### Ejemplo
 ```bash
