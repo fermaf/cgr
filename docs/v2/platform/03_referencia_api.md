@@ -1,6 +1,6 @@
 # 03 - Referencia Exhaustiva de API y Comandos CURL
 
-Este documento provee un inventario completo de los puntos de entrada (endpoints) de la **CGR-Platform**. Se incluyen comandos `curl` listos para ser copiados y pegados, utilizando la URL real de producción y cubriendo todas las variaciones de parámetros.
+Este documento provee un inventario completo de los puntos de entrada (endpoints). Para la explicación detallada de la arquitectura de flujos y el "Deep Dive" técnico, consulte la [00 - Guía Maestra de Procesos (Nivel Experto)](file:///home/bilbao3561/.gemini/antigravity/brain/1a0805fb-b035-49ca-8aa8-880cb666fdac/00_guia_maestra_procesos.md).
 
 > [!NOTE]
 > **Base URL de Producción**: `https://cgr-platform.abogado.workers.dev`
@@ -173,15 +173,20 @@ curl -X POST "https://cgr-platform.abogado.workers.dev/api/v1/dictamenes/crawl/r
 Procesa registros para generar análisis de IA y subirlos a Pinecone.
 
 - **Endpoint**: `/api/v1/dictamenes/batch-enrich`
+- **Parámetros JSON Body**:
+  - `batchSize` (number, opcional): Default `50`.
+  - `delayMs` (number, opcional): Default `500`.
+  - `recursive` (boolean, opcional): Default `true`. Si es `false`, el workflow se detiene tras procesar el lote inicial sin disparar la cadena automática.
 
-#### Ejemplo: Lote Estándar
+#### Ejemplo: Lote Controlado (Sin recursión)
 ```bash
 curl -X POST "https://cgr-platform.abogado.workers.dev/api/v1/dictamenes/batch-enrich" \
   -H "Content-Type: application/json" \
   -H "x-admin-token: YOUR_TOKEN_HERE" \
   -d '{
-    "batchSize": 50,
-    "delayMs": 500
+    "batchSize": 10,
+    "delayMs": 1000,
+    "recursive": false
   }'
 ```
 

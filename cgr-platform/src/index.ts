@@ -745,11 +745,13 @@ app.post('/api/v1/dictamenes/batch-enrich', async (c) => {
   const defaultDelay = parsePositiveInt(c.env.BACKFILL_DELAY_MS, 500, 0, 60000);
   const batchSize = parsePositiveInt(body.batchSize, defaultBatch, 1, 500);
   const delayMs = parsePositiveInt(body.delayMs, defaultDelay, 0, 60000);
+  const recursive = body.recursive !== undefined ? isTruthy(body.recursive) : true;
+
   const instance = await c.env.BACKFILL_WORKFLOW.create({
-    params: { batchSize, delayMs }
+    params: { batchSize, delayMs, recursive }
   });
-  logInfo('BACKFILL_WORKFLOW_CREATED', { workflowId: instance.id, batchSize, delayMs });
-  return c.json({ success: true, workflowId: instance.id, params: { batchSize, delayMs } });
+  logInfo('BACKFILL_WORKFLOW_CREATED', { workflowId: instance.id, batchSize, delayMs, recursive });
+  return c.json({ success: true, workflowId: instance.id, params: { batchSize, delayMs, recursive } });
 });
 
 app.post('/api/v1/dictamenes/:id/sync-vector', async (c) => {

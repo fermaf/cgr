@@ -15,10 +15,12 @@ import {
 } from '../storage/d1';
 import { logInfo, logError, setLogLevel } from '../lib/log';
 import { persistIncident } from '../storage/incident_d1';
+import { countTokens, MAX_MISTRAL_TOKENS, MAX_PINECONE_TOKENS } from '../lib/tokenizer';
 
 interface BackfillParams {
     batchSize?: number;
     delayMs?: number;
+    recursive?: boolean;
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -91,6 +93,22 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
                             let enrichment = await getEnrichment(db, id, mistralModel);
 
                             if (!enrichment) {
+                                // 2.1 Validación de Longitud para Mistral
+                                const sourceContent = rawJson._source ?? rawJson.source ?? (rawJson as any).raw_data ?? rawJson;
+                                const sourceTextSummarized = JSON.stringify(sourceContent);
+                                const mistralTokens = countTokens(sourceTextSummarized);
+
+                                if (mistralTokens > MAX_MISTRAL_TOKENS) {
+                                    console.warn(`[Backfill][WARN] ${id} excede límites de Mistral: ${mistralTokens} tokens.`);
+                                    await updateDictamenStatus(db, id, 'error_longitud', 'AI_LENGTH_EXCEEDED', {
+                                        tokens: mistralTokens,
+                                        limit: MAX_MISTRAL_TOKENS,
+                                        phase: 'enriquecimiento'
+                                    });
+                                    chunkResults.push({ id, ok: false, error: 'Longitud excedida (Mistral)' });
+                                    continue;
+                                }
+
                                 // Enriquecimiento (Mistral AI) - Ahora con Reintentos y Backoff interno
                                 const { result: newEnrichment, error: mistralError } = await analyzeDictamen(env, rawJson);
                                 enrichment = newEnrichment;
@@ -157,16 +175,30 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
 
                                 const sourceContent = rawJson._source ?? rawJson.source ?? (rawJson as any).raw_data ?? rawJson;
 
+                                // 2.3.1 Validación de Longitud para Pinecone
+                                const pineconeTokens = countTokens(textToEmbed);
+                                if (pineconeTokens > MAX_PINECONE_TOKENS) {
+                                    console.warn(`[Backfill][WARN] ${id} excede límites de Pinecone: ${pineconeTokens} tokens.`);
+                                    await updateDictamenStatus(db, id, 'error_longitud', 'AI_LENGTH_EXCEEDED', {
+                                        tokens: pineconeTokens,
+                                        limit: MAX_PINECONE_TOKENS,
+                                        phase: 'vectorizacion'
+                                    });
+                                    chunkResults.push({ id, ok: false, error: 'Longitud excedida (Pinecone)' });
+                                    continue;
+                                }
+
                                 await upsertRecord(env, {
                                     id: id,
-                                    text: textToEmbed,
                                     metadata: {
                                         ...enrichment.extrae_jurisprudencia,
+                                        descriptores_AI: enrichment.extrae_jurisprudencia.etiquetas,
                                         ...enrichment.booleanos,
-                                        materia: sourceContent.materia,
+                                        materia: sourceContent.materia || "",
                                         descriptores_originales: sourceContent.descriptores ? String(sourceContent.descriptores).split(/[,;\n]/).map((s: string) => s.trim()).filter((s: string) => s.length > 2) : [],
                                         fecha: String(sourceContent.fecha_documento || ''),
                                         model: mistralModel
+                                        // El cliente centraliza la concatenación interna
                                     }
                                 });
 
@@ -224,11 +256,12 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
             console.log(`[Backfill] ${resumen.mensaje}`);
 
             // 4. Delega al siguiente ciclo si quedaron tareas
-            if (remainingCount) {
+            const isRecursive = params.recursive ?? true;
+            if (remainingCount && isRecursive) {
                 await step.sleep('wait-between-batches', '10 seconds');
                 await step.do('trigger-next-batch', async () => {
                     await env.BACKFILL_WORKFLOW.create({
-                        params: { batchSize, delayMs }
+                        params: { batchSize, delayMs, recursive: true }
                     });
                     console.log(`[Backfill] Se ha encolado recursivamente una nueva instancia.`);
                 });
