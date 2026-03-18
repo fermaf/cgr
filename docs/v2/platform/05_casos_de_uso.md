@@ -1,6 +1,6 @@
 # 05 - Casos de Uso Avanzados: Escenarios Reales
 
-Este documento presenta escenarios técnicos detallados que demuestran la potencia del motor de **CGR-Platform**. Se incluyen ejemplos de payloads JSON, comandos CURL y descripción de los cambios de estado interno.
+Este documento presenta escenarios técnicos detallados. Los comandos `curl` aquí mostrados son complementarios a la [00 - Guía Maestra de Procesos (Nivel Experto)](file:///home/bilbao3561/.gemini/antigravity/brain/1a0805fb-b035-49ca-8aa8-880cb666fdac/00_guia_maestra_procesos.md).
 
 ---
 
@@ -143,3 +143,24 @@ Este documento presenta escenarios técnicos detallados que demuestran la potenc
 3. **Valor operacional**:
    - Permite detectar rápidamente riesgo de jurisprudencia desactualizada.
    - Sirve como base para la siguiente evolución de grafo navegable (depth > 1).
+---
+
+## Escenario G: Manejo de Exceso de Longitud (Tokens)
+**Contexto**: Un dictamen extremadamente largo (ej: consolidado histórico) excede los límites de Mistral o el resultado del análisis excede los límites de Pinecone.
+
+1. **Validación Previa**: Antes de llamar a la API de IA, el sistema calcula los tokens usando `js-tiktoken`.
+2. **Detección de Exceso**:
+   - Si el input excede los **121,600 tokens** (Mistral).
+   - O si el texto generado para indexar excede los **1,945 tokens** (Pinecone).
+3. **Cambio de Estado Controlado**:
+   - **D1 Entry**: `estado: 'error_longitud'`.
+   - **Registro de Evento**: Se inserta un evento `AI_LENGTH_EXCEEDED` en `dictamen_events`.
+   - **Metadata del Evento**:
+     ```json
+     {
+       "tokens": 125430,
+       "limit": 121600,
+       "phase": "enriquecimiento"
+     }
+     ```
+4. **Resultado**: El dictamen queda marcado explícitamente para revisión humana o fraccionamiento manual, evitando fallos silenciosos de la API o truncamientos no deseados.

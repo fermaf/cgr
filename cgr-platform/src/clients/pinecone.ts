@@ -27,21 +27,18 @@ type PineconeMetadata = {
 
 type PineconeRecord = {
   id: string;
-  text: string;
   metadata: Partial<PineconeMetadata> & Record<string, unknown>
 };
 
 /**
- * Normaliza la metadata según el Estándar de la Arquitectura 28 (CGR).
- * Asegura la presencia de las 22 claves (excluyendo el ID del registro).
- * Limpia campos erróneos como 'eactivado' o 'ectivado'.
+ * Normaliza la metadata según el Estándar de la Arquitectura 14 (v8).
+ * El cliente centraliza la "Comunicación Enriquecida": construye el campo 'analisis'
+ * concatenando Título + Resumen + Análisis para optimizar la búsqueda semántica.
  */
 function normalizePineconeMetadata(env: Env, input: Partial<PineconeMetadata> & Record<string, unknown>): PineconeMetadata {
   const now = new Date();
-  // Formato YYYY-MM-DD HH:mm:ss (Hora Santiago aproximada mediante locale)
   const createdAt = now.toLocaleString("sv-SE", { timeZone: "America/Santiago" }).replace('T', ' ').substring(0, 19);
 
-  // Intentar calcular u_time si no viene o es 0
   let uTime = Number(input.u_time) || 0;
   if (uTime === 0 && input.fecha) {
     const parsedDate = Date.parse(String(input.fecha));
@@ -50,24 +47,33 @@ function normalizePineconeMetadata(env: Env, input: Partial<PineconeMetadata> & 
     }
   }
 
-  // Si u_time sigue siendo 0 y no hay fecha válida, lanzamos error (v5 solicita no usar 0 como default permisivo)
   if (uTime === 0) {
     throw new Error(`Invalid u_time: metadata must have a valid date to calculate timestamp.`);
   }
 
+  // Centralización de la Lógica de Concatenación (v8)
+  const rawTitulo = String(input.titulo || "");
+  const rawResumen = String(input.Resumen || input.resumen || "");
+  const rawAnalisis = String(input.analisis || "");
+
+  const enrichedAnalisis = `
+      Título: ${rawTitulo}
+      Resumen: ${rawResumen}
+      Análisis: ${rawAnalisis}
+  `.trim();
+
   const metadata: PineconeMetadata = {
-    Resumen: String(input.Resumen || input.resumen || ""),
+    Resumen: rawResumen,
     aclarado: !!input.aclarado,
     alterado: !!input.alterado,
-    analisis: String(input.analisis || ""),
+    analisis: enrichedAnalisis, // Campo enriquecido centralizado
     aplicado: !!input.aplicado,
     boletin: !!input.boletin,
     complementado: !!input.complementado,
     confirmado: !!input.confirmado,
     created_at: String(input.created_at || createdAt),
     descriptores_AI: Array.isArray(input.descriptores_AI) ? input.descriptores_AI.map(String) : [],
-    descriptores_originales: Array.isArray(input.descriptores_originales) ? input.descriptores_originales.map(String) :
-      (typeof input.descriptores === 'string' ? input.descriptores.split(',').map(s => s.trim()) : []),
+    descriptores_originales: Array.isArray(input.descriptores_originales) ? input.descriptores_originales.map(String) : [],
     fecha: String(input.fecha || ""),
     materia: String(input.materia || ""),
     model: String(input.model || env.MISTRAL_MODEL || ""),
@@ -77,7 +83,7 @@ function normalizePineconeMetadata(env: Env, input: Partial<PineconeMetadata> & 
     reconsideradoParcialmente: !!(input.reconsideradoParcialmente ?? input.reconsiderado_parcialmente),
     recursoProteccion: !!(input.recursoProteccion ?? input.recurso_proteccion),
     relevante: !!input.relevante,
-    titulo: String(input.titulo || ""),
+    titulo: rawTitulo,
     u_time: uTime,
   };
 
@@ -89,9 +95,8 @@ async function upsertRecord(env: Env, record: PineconeRecord) {
   const baseUrl = env.PINECONE_INDEX_HOST.endsWith('/') ? env.PINECONE_INDEX_HOST.slice(0, -1) : env.PINECONE_INDEX_HOST;
   const url = new URL(`/records/namespaces/${env.PINECONE_NAMESPACE}/upsert`, baseUrl);
 
-  // Aseguramos que el texto a vectorizar esté en la metadata como 'analisis'
-  const metadataToNormalize = { ...record.metadata, analisis: record.text };
-  const normalizedMetadata = normalizePineconeMetadata(env, metadataToNormalize);
+  // El cliente solo normaliza. El contrato (Analisis concatenado y descriptores) se resuelve en el Origen.
+  const normalizedMetadata = normalizePineconeMetadata(env, record.metadata);
 
   // Payload: un solo registro como objeto (no array) según API Pinecone Integrated Inference
   const payload = {

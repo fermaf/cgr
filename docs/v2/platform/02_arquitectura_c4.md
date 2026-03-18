@@ -1,6 +1,6 @@
 # 02 - Arquitectura C4: CGR-Platform (Profundidad Técnica)
 
-Este documento detalla la estructura técnica de **CGR-Platform** utilizando el modelo C4 para representar desde la interacción sistémica hasta la lógica de implementación a nivel de código.
+Este documento detalla la estructura técnica de **CGR-Platform**. Para la guía operativa detallada, diagramas de secuencia de workflows y comandos de ejecución, referirse a la [00 - Guía Maestra de Procesos (Nivel Experto)](file:///home/bilbao3561/.gemini/antigravity/brain/1a0805fb-b035-49ca-8aa8-880cb666fdac/00_guia_maestra_procesos.md).
 
 ---
 
@@ -68,11 +68,23 @@ sequenceDiagram
     loop Cada Dictamen
         W->>KV: Store Raw JSON (Source of Truth)
         W->>D: Upsert Metadata (Status: ingested)
-    W->>M: Analyze(Raw)
-    M-->>W: Enrichment JSON
-    W->>D: Insert Enriquecimiento + Booleanos + Fuentes
-    W->>P: Upsert Vector(Embeddings + Metadata v2)
-    W->>D: Update Status (vectorized)
+    Note over W: Validar Longitud (Max 121.6k tokens)
+    alt Longitud OK
+        W->>M: Analyze(Raw)
+        M-->>W: Enrichment JSON
+        W->>D: Insert Enriquecimiento + Booleanos + Fuentes
+        Note over W: Validar Longitud (Max 1.9k tokens)
+        alt Vectorizable
+            W->>P: Upsert Vector(Embeddings + Metadata v2)
+            W->>D: Update Status (vectorized)
+        else Excede Límites
+            W->>D: Update Status (error_longitud)
+            W->>D: Log Event (AI_LENGTH_EXCEEDED)
+        end
+    else Excede Límites
+        W->>D: Update Status (error_longitud)
+        W->>D: Log Event (AI_LENGTH_EXCEEDED)
+    end
     W->>KV: Store Processed JSON (PASO)
     end
 ```
