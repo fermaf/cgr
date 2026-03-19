@@ -80,7 +80,7 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
                             }
 
                             if (!rawJson) {
-                                await updateDictamenStatus(db, id, 'error', 'SYSTEM_ERROR', { detail: 'Sin JSON en KV' });
+                                await updateDictamenStatus(db, id, 'error_sin_KV_source', 'KV_SOURCE_MISSING', { detail: 'Sin JSON en KV' });
                                 await persistIncident(env, new Error(`Sin JSON en KV para ${id}`), 'cgr-platform', 'backfillWorkflow', event.instanceId ?? 'n/a', { dictamenId: id });
                                 console.error(`[Backfill][ERROR] Sin JSON en KV para ${id}`);
                                 chunkResults.push({ id, ok: false });
@@ -226,6 +226,15 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
                             }
                         } catch (e: any) {
                             console.error(`[Backfill][FATAL] ${id}:`, e);
+                            // Registro de error para evitar que quede en 'processing'
+                            try {
+                                await updateDictamenStatus(db, id, 'error', 'SYSTEM_ERROR', {
+                                    detail: e.message,
+                                    stack: e.stack
+                                });
+                            } catch (dbErr) {
+                                console.error(`[Backfill][CRITICAL] No se pudo actualizar estado de error para ${id}:`, dbErr);
+                            }
                             chunkResults.push({ id, ok: false, error: e.message });
                         }
                     }

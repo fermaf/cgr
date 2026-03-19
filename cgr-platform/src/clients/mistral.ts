@@ -27,7 +27,7 @@ function buildPromptConsolidado(raw: DictamenRaw) {
 
   // Selección selectiva de propiedades efectivas (14 en total) para optimizar tokens y reducir ruido
   const inputData = JSON.stringify({
-    documento_completo: source.documento_completo,
+    documento_completo: source.documento_completo ?? source.materia ?? (source as any).texto ?? (source as any).resumen,
     fuentes_legales: source.fuentes_legales,
     // Atributos booleanos para clasificación
     nuevo: source.nuevo,

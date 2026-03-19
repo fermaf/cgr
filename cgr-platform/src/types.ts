@@ -2,7 +2,7 @@ import type { Workflow, D1Database, KVNamespace } from '@cloudflare/workers-type
 
 // Estados del pipeline de procesamiento de dictámenes.
 // Ver tabla cat_estado_pipeline en D1.
-export type DictamenStatus = 'ingested' | 'processing' | 'enriched' | 'vectorized' | 'error' | 'error_longitud';
+export type DictamenStatus = 'ingested' | 'processing' | 'enriched' | 'vectorized' | 'error' | 'error_longitud' | 'error_sin_KV_source';
 
 export type OrigenImportacion = 'mongoDb' | 'worker_cron_crawl' | 'worker_batch_ai' | 'worker_manual' | 'crawl_contraloria';
 
@@ -100,7 +100,8 @@ export type DictamenEventType =
   | 'PINECONE_SYNC_SUCCESS'
   | 'AI_LENGTH_EXCEEDED'
   | 'MANUAL_UPDATE'
-  | 'SYSTEM_ERROR';
+  | 'SYSTEM_ERROR'
+  | 'KV_SOURCE_MISSING';
 
 // Fila de la nueva tabla dictamen_events.
 export interface DictamenEventRow {
