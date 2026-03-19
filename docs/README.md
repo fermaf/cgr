@@ -8,9 +8,11 @@ Bienvenido al centro de conocimiento de **CGR-Platform**. Esta documentación ha
 
 ## 🗺️ Mapa de Navegación (Diátaxis)
 
-### 🚀 [Tutoriales](tutoriales/)
+### 🚀 [Tutoriales y Contexto Base](tutoriales/)
+- **[00 - Guía de Estándares para Agentes LLM (El Librero)](00_guia_estandares_agentes_llm.md)**: El **CONTEXTO PRINCIPAL Y ÚNICO** de entrada para agentes autónomos. Define las reglas de interacción y arquitectura base.
 - **[01 - Onboarding para Desarrolladores (Local)](tutoriales/01_onboarding_desarrollador_local.md)**: Configura tu Worker localmente con Wrangler y entiende el código fuente.
 - **[02 - Tu Primer Skill (Gobernanza)](tutoriales/02_creando_tu_primer_skill.md)**: Cómo utilizar `Skillgen` para atrapar, normalizar y reportar incidentes en tu nuevo código.
+- **[03 - Guía de Desarrollo Avanzada](tutoriales/03_guia_desarrollo_avanzada.md)**: Patrones críticos de programación para Workflows y archivos de incidentes pasados.
 
 ### 🛠️ [Guías de Tareas](guias_tareas/)
 - **[01 - Operación de Workflows y Backfill](guias_tareas/01_operacion_workflows_y_backfill.md)**: Manejo de la recursividad del backfill y cómo forzar una "re-ingesta" (`/ingest/trigger`).
@@ -23,10 +25,12 @@ Bienvenido al centro de conocimiento de **CGR-Platform**. Esta documentación ha
 - **[02 - Visión Ejecutiva y ROI](explicacion/02_vision_ejecutiva.md)**: Propuesta de valor, objetivos estratégicos y retorno de inversión de CGR.ai.
 - **[03 - Estrategia de Inferencia AI (Mistral)](explicacion/03_analisis_mistral_y_prompts.md)**: Por qué el Mega-Prompt Consolidado V5 triunfa sobre el enfoque secuencial en Edge. Relación con Metadata V2 Pinecone.
 - **[04 - Gobernanza y Estratigrafía de Datos](explicacion/04_gobernanza_y_estrategia.md)**: El modelo de capas (Bronce->Paso), y los algoritmos LIFO y normalización de IDs de CGR.
+- **[05 - Roadmap Estratégico (2026-2027)](explicacion/05_roadmap_estrategico.md)**: Extensión conceptual hacia un "Buscador Analítico" y un Worker Predictivo de Compliance.
 
 ### 📖 [Referencia](referencia/)
 - **[01 - Referencia de API Completa](referencia/01_referencia_api_completa.md)**: Detalle técnico de todos los endpoints, parámetros y comandos CURL didácticos (Base y Avanzados).
 - **[02 - Diccionario de Variables y Entorno](referencia/03_diccionario_variables_entorno.md)**: Configuración total de `wrangler.jsonc` y explicación de todos los secretos administrativos.
+- **[04 - Manual de Usuario Frontend](referencia/04_manual_usuario_frontend.md)**: Explicación para usuarios analistas sobre los badges semánticos, búsqueda literal e Inteligencia Artificial en la interfaz web.
 
 ---
 
