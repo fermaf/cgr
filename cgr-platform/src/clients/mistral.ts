@@ -234,6 +234,11 @@ async function analyzeDictamen(env: Env, raw: DictamenRaw): Promise<{ result: an
       }
 
       const msg = error.message || String(error);
+
+      if ((isRateLimit && attempts >= maxAttempts) || error.status === 401 || msg.toLowerCase().includes('unauthorized') || msg.toLowerCase().includes('quota')) {
+        return { result: null, error: 'QUOTA_EXCEEDED' };
+      }
+
       logError('MISTRAL_ANALYZE_DICTAMEN_ERROR', error, { model: env.MISTRAL_MODEL, attempts });
       return { result: null, error: msg };
     }

@@ -91,6 +91,7 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
 
                             // Recuperar enriquecimiento existente si hay falla parcial previa
                             let enrichment = await getEnrichment(db, id, mistralModel);
+                            let mistralError: string | undefined;
 
                             if (!enrichment) {
                                 // 2.1 Validación de Longitud para Mistral
@@ -110,8 +111,9 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
                                 }
 
                                 // Enriquecimiento (Mistral AI) - Ahora con Reintentos y Backoff interno
-                                const { result: newEnrichment, error: mistralError } = await analyzeDictamen(env, rawJson);
+                                const { result: newEnrichment, error: mError } = await analyzeDictamen(env, rawJson);
                                 enrichment = newEnrichment;
+                                mistralError = mError;
 
                                 if (enrichment) {
                                     // 2.2 GUARDADO PRIORITARIO EN KV (DICTAMENES_PASO)
@@ -218,10 +220,16 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
 
                                 chunkResults.push({ id, ok: true });
                             } else {
-                                await updateDictamenStatus(db, id, 'error', 'AI_INFERENCE_ERROR', {
-                                    detail: 'Mistral falló con enrichment null'
-                                });
-                                await persistIncident(env, new Error(`Mistral fail: ${id}`), 'cgr-platform', 'backfillWorkflow', event.instanceId ?? 'n/a', { dictamenId: id });
+                                if (mistralError === 'QUOTA_EXCEEDED') {
+                                    await updateDictamenStatus(db, id, 'error_quota', 'AI_QUOTA_EXCEEDED', {
+                                        detail: 'Límite de uso de Mistral excedido (Quota o Rate Limit máximo)'
+                                    });
+                                } else {
+                                    await updateDictamenStatus(db, id, 'error', 'AI_INFERENCE_ERROR', {
+                                        detail: `Mistral falló: ${mistralError ?? 'enrichment null'}`
+                                    });
+                                }
+                                await persistIncident(env, new Error(`Mistral fail: ${mistralError ?? id}`), 'cgr-platform', 'backfillWorkflow', event.instanceId ?? 'n/a', { dictamenId: id });
                                 chunkResults.push({ id, ok: false });
                             }
                         } catch (e: any) {
