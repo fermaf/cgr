@@ -75,3 +75,16 @@ Mucha de la ingeniería inversa sobre los fallos de 2017 hacia atrás revelará 
 const sourceContent = rawJson._source ?? rawJson.source ?? (rawJson as any).raw_data ?? rawJson;
 ```
 Esto certifica que la matriz de inferencia para Mistral jamás sea enviada en blanco, rescatando al menos la Metadata estructurada de los años 90.
+
+---
+
+## 🚦 4. Estados de Error Comunes (Observabilidad)
+
+El ciclo de vida del Workflow clasifica las interrupciones en estados semánticos dentro de la tabla `dictamenes` para facilitar la gestión SRE:
+
+| Estado | Significado | Acción Recomendada |
+| :--- | :--- | :--- |
+| `error` | Fallo técnico general (AI_INFERENCE_ERROR, D1, Logging). | Revisar eventos en `dictamen_events` y reintentar si es transitorio. |
+| `error_longitud` | Cantidad de tokens superó los 32k o límites del modelo AI. | Evaluar sustracción manual o acotar texto indexable. |
+| `error_sin_KV_source` | El ID existe en D1 pero falta el Raw JSON original en Storage. | Disparar Scraping Forzado del tramo de fechas. |
+| `error_quota` | **Límite Excedido**: API de Mistral rechazó inferencia por falta de fondos o Rate Limit extremo. | Rotar token en `.dev.vars` / Cloudflare Secrets y hacer UPDATE a `ingested`. |

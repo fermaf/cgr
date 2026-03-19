@@ -6,8 +6,6 @@
 ├────────────────────────────────────┼──────────────────────────────────────────────┼──────────────┼────────────────┤
 │ cgr-jurisprudencia-frontend        │ cgr-jurisprudencia-frontend.pages.dev        │ No           │ 13 minutes ago │
 ├────────────────────────────────────┼──────────────────────────────────────────────┼──────────────┼────────────────┤
-│ cgr-frontend                       │ cgr-frontend.pages.dev                       │ No           │ 1 day ago      │
-├────────────────────────────────────┼──────────────────────────────────────────────┼──────────────┼────────────────┤
 │ jurisprudencia-contraloria-indubia │ jurisprudencia-contraloria-indubia.pages.dev │ No           │ 7 months ago   │
 ├────────────────────────────────────┼──────────────────────────────────────────────┼──────────────┼────────────────┤
 │ indubia-mvp                        │ indubia-mvp.pages.dev                        │ Yes          │ 8 months ago   │

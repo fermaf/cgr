@@ -1,10 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { BarChart2, Calendar, FileText, Activity } from "lucide-react";
 import type { StatsResponse } from "../types";
 
 export function Stats() {
     const [stats, setStats] = useState<StatsResponse | null>(null);
     const [loading, setLoading] = useState(true);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (stats && scrollContainerRef.current) {
+            scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
+        }
+    }, [stats]);
 
     useEffect(() => {
         fetch('/api/v1/stats')
@@ -89,7 +96,10 @@ export function Stats() {
                     Distribución por Año Contable
                 </h2>
 
-                <div className="h-72 flex items-end gap-2 overflow-x-auto pb-6 relative">
+                <div
+                    ref={scrollContainerRef}
+                    className="h-72 flex items-end gap-2 overflow-x-auto pb-6 relative scroll-smooth"
+                >
                     {/* Y-axis background lines (optional, for aesthetics) */}
                     <div className="absolute inset-x-0 top-0 bottom-6 flex flex-col justify-between pointer-events-none">
                         {[1, 2, 3, 4].map((i) => (

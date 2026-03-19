@@ -7,7 +7,7 @@ El sistema opera bajo un modelo de entorno local de desarrollo y una infraestruc
 | :--- | :--- | :--- |
 | **Local** | `localhost:8787` | Desarrollo de nuevas features y pruebas de prompts. |
 | **Prod** | `cgr-platform.abogado.workers.dev` | Ingesta real y API para clientes. |
-| **Frontend** | `cgr-frontend.pages.dev` | Interfaz de búsqueda semántica (Cloudflare Pages). |
+| **Frontend** | `cgr-jurisprudencia-frontend.pages.dev` | Interfaz de búsqueda semántica (Cloudflare Pages). |
 
 ## Variables de Entorno (Wrangler Vars)
 Definidas en `wrangler.jsonc` o `.dev.vars`:

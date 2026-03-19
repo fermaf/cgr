@@ -56,34 +56,34 @@ export function AdminDashboard() {
             </div>
 
             {/* Navegación Semántica (Clusters) */}
-            <div className="flex overflow-x-auto gap-2 pb-2 scrollbar-hide border-b border-slate-700/50">
+            <div className="flex flex-wrap justify-start gap-2 pb-2 border-b border-slate-700/50">
                 <TabButton
                     icon={Database}
-                    label="Volumetría (Cluster C)"
+                    label="Volumetría"
                     active={activeTab === "volumetria"}
                     onClick={() => setActiveTab("volumetria")}
                 />
                 <TabButton
                     icon={Clock}
-                    label="Transaccionalidad (Cluster B)"
+                    label="Transaccionalidad"
                     active={activeTab === "transacciones"}
                     onClick={() => setActiveTab("transacciones")}
                 />
                 <TabButton
                     icon={Activity}
-                    label="Salud Operacional (Cluster A)"
+                    label="Salud Operacional"
                     active={activeTab === "operacional"}
                     onClick={() => setActiveTab("operacional")}
                 />
                 <TabButton
                     icon={BrainCircuit}
-                    label="Semántica (Cluster D)"
+                    label="Semántica"
                     active={activeTab === "semantica"}
                     onClick={() => setActiveTab("semantica")}
                 />
                 <TabButton
                     icon={Bot}
-                    label="Agente Skillgen (Cluster E)"
+                    label="Agente Skillgen"
                     active={activeTab === "skillgen"}
                     onClick={() => setActiveTab("skillgen")}
                 />

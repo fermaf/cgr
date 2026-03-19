@@ -548,10 +548,10 @@ async function getMigrationStats(db: D1Database): Promise<Record<string, number>
   const stats = await db.prepare(`
     SELECT 
       COUNT(*) as total,
-      SUM(CASE WHEN e.modelo_llm = 'mistral-large-2512' THEN 1 ELSE 0 END) as migrated,
-      SUM(CASE WHEN e.modelo_llm IN ('mistral-large-2411', 'mistralLarge2411') THEN 1 ELSE 0 END) as legacy,
       SUM(CASE WHEN d.estado = 'error' THEN 1 ELSE 0 END) as errors,
-      SUM(CASE WHEN d.estado IN ('ingested') THEN 1 ELSE 0 END) as pending
+      SUM(CASE WHEN d.estado IN ('ingested', 'processing') THEN 1 ELSE 0 END) as pending,
+      SUM(CASE WHEN d.estado NOT IN ('error', 'ingested', 'processing') AND e.modelo_llm = 'mistral-large-2512' THEN 1 ELSE 0 END) as migrated,
+      SUM(CASE WHEN d.estado NOT IN ('error', 'ingested', 'processing') AND e.modelo_llm IN ('mistral-large-2411', 'mistralLarge2411') THEN 1 ELSE 0 END) as legacy
     FROM dictamenes d
     LEFT JOIN enriquecimiento e ON d.id = e.dictamen_id
   `).first<Record<string, number>>();

@@ -82,8 +82,8 @@ sequenceDiagram
             alt Sincronización Vectorial
                 W->>P: Upsert Vector (Metadata v2)
                 W->>D: Update Status (vectorized)
-            else Fallo AI/Longitud
-                W->>D: Update Status (error_longitud / error_ai)
+            else Fallo AI/Longitud/Quota
+                W->>D: Update Status (error_longitud / error_ai / error_quota)
             end
         end
         W->>KV: Store Processed JSON (PASO)
