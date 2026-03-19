@@ -1,46 +1,36 @@
-# 📚 Documentación CGR.ai
+# 📚 El Librero: Índice Maestro de Documentación (v2.0)
 
-Bienvenido al repositorio central de inteligencia de **CGR-Platform**. Este sistema está documentado bajo la metodología **"El Librero"**: detallada, experta y didáctica.
+Bienvenido al centro de conocimiento de **CGR-Platform**. Esta documentación ha sido diseñada bajo el estándar de **El Librero**: técnica, exhaustiva, experta y siempre alineada con el código fuente.
 
 ---
 
-## 🚀 Documentación Vigente (Oficial)
+## 🗺️ Mapa de Navegación (Diátaxis)
 
-Toda la documentación operativa, técnica y de negocio actual se encuentra en el directorio **`docs/v2/platform/`**.
+### 🚀 [Tutoriales](tutoriales/)
+- **[01 - Onboarding y Estándares de Agente](v2/platform/00_guia_estandares_agentes_llm.md)**: El punto de partida obligatorio para cualquier colaborador. Directivas de redacción y primeros pasos.
 
-> [!IMPORTANT]
-> **Punto de Entrada Maestro**: [**v2/platform/index.md**](v2/platform/index.md)
-> 
-> Si eres un desarrollador, agente LLM o auditor, este es el único índice que debes seguir para entender la arquitectura actual del sistema.
+### 🛠️ [Guías de Tareas](guias_tareas/)
+- *[En construcción]*: Próximamente guías detalladas sobre operación de workflows y recuperación de incidentes.
 
-### Estructura de Navegación v2
-1. **[Estrategia y Negocio](v2/platform/01_vision_ejecutiva.md)**: ¿Por qué existe CGR.ai?
-2. **[Arquitectura C4](v2/platform/02_arquitectura_c4.md)**: Diagramas de flujo e ingeniería inversa de CGR.
-3. **[Referencia API](v2/platform/03_referencia_api.md)**: Especificación técnica total de los 14 endpoints.
-4. **[Operaciones y Mantenimiento](v2/platform/04_operaciones_y_mantenimiento.md)**: Guía de Skills y Troubleshooting.
-5. **[Casos de Uso](v2/platform/05_casos_de_uso.md)**: Trazas JSON y ejemplos reales.
-6. **[Gestión de Entornos](v2/platform/06_entornos_y_despliegue.md)**: Auditoría de riesgos Prod vs Staging.
-7. **[Gobernanza de Datos](v2/platform/07_gobernanza_y_estratigrafia_datos.md)**: Alquimia de IDs y capas de datos.
-8. **[Roadmap y Monetización](v2/platform/08_roadmap.md)**: Plan ejecutivo de explotación de grafos normativos.
+### 🧠 [Explicación](explicacion/)
+- **[01 - Arquitectura C4 y Flujos](explicacion/01_arquitectura_c4_y_flujos.md)**: Diagramas técnicos de contenedores, componentes y ciclos de vida de los datos.
+- **[02 - Visión Ejecutiva y ROI](explicacion/02_vision_ejecutiva.md)**: Propuesta de valor, objetivos estratégicos y retorno de inversión de la plataforma.
+
+### 📖 [Referencia](referencia/)
+- **[01 - Referencia de API Completa](referencia/01_referencia_api_completa.md)**: Detalle técnico de todos los endpoints, parámetros y ejemplos CURL.
+- **[02 - Diccionario de Variables y Entorno](referencia/03_diccionario_variables_entorno.md)**: Configuración de `wrangler.jsonc` y secretos.
+
+---
+
+## 🕰️ [Histórico y Legado](historico/)
+Documentación de etapas previas conservada para fines de auditoría y trazabilidad.
+- **[Legacy v1](historico/legacy_v1/)**: Documentación de la fase inicial del proyecto.
+- **[Skillgen](historico/skillgen/)**: Evolución del motor de gobernanza.
+- **[Etapa 1: Insumos AI](historico/etapa1_insumos_ai/)**: Prompts y outputs de modelos previos.
+
+---
 
 > [!TIP]
-> **Estado de ejecución actual del roadmap**:
-> - Fase 1 implementada (analytics + snapshots + cache).
-> - Fase 2 bootstrap implementada (`/api/v1/dictamenes/:id/lineage`).
-> - Fase 3 pendiente.
+> **Source of Truth**: Si encuentras discrepancias entre esta documentación y el código en `src/`, el código prevalece. Por favor, actualiza la documentación inmediatamente siguiendo los estándares de [El Librero](v2/platform/00_guia_estandares_agentes_llm.md).
 
----
-
-## 🛠 Módulos Especializados
-- **Skillgen**: [Guía de Gobernanza Determinista](skillgen/README.md)
-    - Documentación sobre el diseño de Skills y orquestación de incidentes.
-
----
-
-## 📂 Archivo Histórico (Legacy)
-Los materiales antiguos (versiones 2024-2025) han sido depurados y movidos a:
-- [**docs/historico/legacy_v1/**](historico/legacy_v1/): Documentos originales de la fase de prototipado.
-
----
-**Fecha de última revisión mayor**: 2026-02-27
-**Estándar de Calidad**: El Librero v2 (Expert Audit Ready)
+**Última Gran Reestructuración**: 2026-03-18 (Refactorización Diátaxis Integral)
