@@ -36,10 +36,22 @@ El resultado de cada dictamen porta diferentes etiquetas visuales:
 
 ---
 
-## ❓ 3. Preguntas Frecuentes
+## 📊 4. Estadísticas y Línea de Tiempo
 
-**¿Por qué un dictamen no tiene análisis IA?**
-Puede haber sido escroleado esta misma madrugada y se encuentra en estado `ingested` en la base D1, a la espera que el `BackfillWorkflow` lo engulla. El texto nativo completo seguirá disponible en el panel izquierdo.
+La página de `/stats` ofrece una visión histórica de la jurisprudencia. 
 
-**¿Puedo confiar "a ciegas" en el resumen IA?**
-La IA es **asistencial**. El Modelo está entrenado con _prompts_ restrictivos que prohíben la alucinación (exigiendo citas textuales o interpretaciones fieles), pero la responsabilidad final reside en el operador de cruzar el fallo leyendo el bloque del "Documento Original".
+- **Scroll Automático**: Por diseño, la gráfica de barras carga posicionada en el extremo derecho (años más recientes). Esto permite ver de inmediato la actividad actual sin necesidad de desplazarse manualmente desde 1960.
+- **Interactividad**: Puedes filtrar u observar las tendencias de "Corte" y "Aumento" de jurisprudencia pasando el ratón sobre los nodos de la gráfica de líneas.
+
+---
+
+## 🛡️ 5. Centro de Comando (Admin)
+
+Reservado para operadores con token de administración. Se divide en clústers semánticos:
+
+- **Volumetría**: Conteo real de dictámenes en D1 por año y estado.
+- **Transaccionalidad**: Flujo de ingesta y estados de integración.
+- **Salud Operacional**: Integridad entre los motores de búsqueda (D1 vs KV).
+- **Semántica**: Análisis de las materias más recurrentes detectadas por IA.
+- **Agente Skillgen**: Bitácora técnica en tiempo real. Muestra cada paso que el orquestador autónomo realiza (Enriquecimiento, Fallbacks, Validaciones).
+- **Migración LLM**: Estado del proceso de modernización. Las métricas aquí son **mutuamente excluyentes**: un dictamen es *Migrado* (V2 completo), *Legacy* (V1 antiguo) o *Pendiente*. La suma de estas categorías siempre representará el 100% de tu base de datos sin duplicados.

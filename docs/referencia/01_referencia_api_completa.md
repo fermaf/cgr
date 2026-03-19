@@ -37,6 +37,21 @@ Las consultas de agregación masiva (`COUNT`, `GROUP BY`) bloquean la base de da
 curl "https://cgr-platform.abogado.workers.dev/api/v1/analytics/statutes/heatmap?yearFrom=2020&yearTo=2025&limit=10&live=true"
 ```
 
+### `POST /api/v1/analytics/multidimensional`
+Endpoint maestro del **Centro de Comando**. Realiza un barrido transversal de todas las dimensiones operativas.
+
+#### Argumentación de Diseño
+En lugar de disparar 6 peticiones HTTP por separado desde el Dashboard (Volumetría, Semántica, etc.), este endpoint único centraliza la computación en el Worker para reducir la latencia de red y entregar un objeto JSON unificado.
+
+#### Cuerpo de Petición (JSON)
+- `{}` (Cuerpo vacío para resultados generales).
+
+#### Ejemplo CURL
+```bash
+curl -X POST "https://cgr-platform.abogado.workers.dev/api/v1/analytics/multidimensional" \
+     -H "x-admin-token: <<TU_TOKEN>>"
+```
+
 ---
 
 ## 🔍 2. Búsqueda Híbrida Inteligente
