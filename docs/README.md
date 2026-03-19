@@ -43,6 +43,6 @@ Documentación de etapas previas conservada para fines de auditoría y trazabili
 ---
 
 > [!TIP]
-> **Source of Truth**: Si encuentras discrepancias entre esta documentación y el código en `src/`, el código prevalece. Por favor, actualiza la documentación inmediatamente siguiendo los estándares de [El Librero](v2/platform/00_guia_estandares_agentes_llm.md).
+> **Source of Truth**: Si encuentras discrepancias entre esta documentación y el código en `src/`, el código prevalece. Por favor, actualiza la documentación inmediatamente siguiendo los estándares de [El Librero](00_guia_estandares_agentes_llm.md).
 
 **Última Gran Reestructuración**: 2026-03-18 (Refactorización Diátaxis Integral)
