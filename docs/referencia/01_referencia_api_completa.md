@@ -7,7 +7,7 @@ Esta guía detalla todos los endpoints disponibles en **CGR-Platform**. Para cad
 > **Headers Requeridos**:  
 > - `Content-Type: application/json`
 > - `Accept: application/json`
-> - `x-admin-token: <PAZ_MUNDIAL>` (Solo para endpoints administrativos)
+> - `x-admin-token: <<TU_TOKEN_SECRETO>>` (Solo para endpoints administrativos)
 
 ---
 
@@ -96,12 +96,12 @@ Escanea D1 en busca de registros con `division_id` nulo y los repara consultando
   - **Reparación Masiva**:
     ```bash
     curl -X POST "https://cgr-platform.abogado.workers.dev/api/v1/jobs/repair-nulls?limit=100" \
-         -H "x-admin-token: paz_mundial"
+         -H "x-admin-token: <TU_TOKEN_SECRETO>"
     ```
   - **Reparación de un ID**:
     ```bash
     curl -X POST "https://cgr-platform.abogado.workers.dev/api/v1/jobs/repair-nulls?id=012345N26" \
-         -H "x-admin-token: paz_mundial"
+         -H "x-admin-token: <TU_TOKEN_SECRETO>"
     ```
 
 ### `POST /api/v1/dictamenes/batch-enrich`
@@ -115,14 +115,14 @@ Dispara el `BackfillWorkflow` para enriquecer registros pendientes.
   - **Backfill Recursivo Estándar**:
     ```bash
     curl -X POST "https://cgr-platform.abogado.workers.dev/api/v1/dictamenes/batch-enrich" \
-         -H "x-admin-token: paz_mundial" \
+         -H "x-admin-token: <TU_TOKEN_SECRETO>" \
          -H "Content-Type: application/json" \
          -d '{"batchSize": 10}'
     ```
   - **Control de Recursión (No recursivo)**:
     ```bash
     curl -X POST "https://cgr-platform.abogado.workers.dev/api/v1/dictamenes/batch-enrich" \
-         -H "x-admin-token: paz_mundial" \
+         -H "x-admin-token: <TU_TOKEN_SECRETO>" \
          -d '{"batchSize": 20, "recursive": false}'
     ```
 

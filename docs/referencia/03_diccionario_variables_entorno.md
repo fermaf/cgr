@@ -13,7 +13,7 @@ Este documento describe la configuración de **CGR-Platform** definida en `wrang
 | `LOG_LEVEL` | Nivel de verbosidad del logger (`debug`, `info`, `error`). | `debug` |
 | `CRAWL_DAYS_LOOKBACK` | Días de historia a revisar en la ingesta diaria. | `3` |
 | `BACKFILL_BATCH_SIZE` | Tamaño de lote para el BackfillWorkflow. | `50` |
-| `INGEST_TRIGGER_TOKEN` | Token secreto para disparar jobs administrativos. | `paz_mundial` |
+| `INGEST_TRIGGER_TOKEN` | Token secreto para disparar jobs administrativos. | `<TU_TOKEN_SECRETO>` |
 | `ANALYTICS_CACHE_TTL` | Tiempo de vida (segundos) del cache en KV Paso. | `900` |
 
 ---
