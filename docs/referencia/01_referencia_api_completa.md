@@ -59,7 +59,10 @@ curl -X POST "https://cgr-platform.abogado.workers.dev/api/v1/analytics/multidim
 El núcleo del sistema de consulta para el Frontend.
 
 ### `GET /api/v1/dictamenes`
-El orquestador de búsqueda. Resuelve el gran problema de los LLM: "Encontrar documentos que no tienen la palabra exacta pero significan lo mismo". No consulta directamente a D1; primero delega la vectorización del prompt a Cloudflare AI (Pinecone) para encontrar proximidad matemática por cosenos y, solo si falla o no hay índice vectorial, aplica una heurística *Fallback* de `LIKE %text%` contra D1.
+El orquestador de búsqueda maestro. Resuelve el gran desafío del enrutamiento cognitivo:
+1. **Detección de Patrones Exactos (Shortcut)**: Si el término ingresado ("q") coincide con una estructura alfanumérica típica de dictamen (ej. `[A-Z0-9]*[0-9]+N[0-9]+` o un número `>3` dígitos), el orquestador aborta la inferencia y aplica un `LIKE %id%` directo a la base relacional SQL de D1. Esto previene que el LLM intente encontrar semántica en un código y obligue a resultados directos al usuario.
+2. **Inferencia Semántica Vectorial**: Si no es un patrón exacto, delega la vectorización del texto a Cloudflare AI (Pinecone) encontrando documentos matemáticamente próximos por coseno.
+3. **Fallback Resiliente**: Si Pinecone cae o no devuelve resultados, aplica la heurística final SQL `LIKE %text%` contra D1.
 
 #### Parámetros Query
 | Parámetro | Default | Razón de ser / Caso de uso (Ingeniería Inversa) |
@@ -76,6 +79,14 @@ El orquestador de búsqueda. Resuelve el gran problema de los LLM: "Encontrar do
 # Caso de uso: Búsqueda detallada usando multiplicidad de filtros avanzados
 curl "https://cgr-platform.abogado.workers.dev/api/v1/dictamenes?q=probidad&year=2024&materia=Urbanismo&page=1"
 ```
+
+### `GET /api/v1/divisions`
+Expone el catálogo autorizado y depurado de divisiones o áreas técnicas.
+
+#### Argumentación de Diseño
+En los sistemas transaccionales legacy de Contraloría, existen incontables registros con el área `División No Identificada...` o `Sin División Asignada...`. Este endpoint garantiza a nivel de red que el Frontend de CGR.ai jamás renderizará opciones inútiles, filtrando las excepciones directamente en la query SQL para entregar el mapeo de `codigo` y `nombre_completo`.
+
+---
 
 ### `GET /api/v1/dictamenes/:id/lineage`
 Genera el *"Grafo de Linaje Doctrinal"*. Evalúa la tabla de aristas `dictamen_referencias`.
