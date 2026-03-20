@@ -3,31 +3,19 @@ import { useMemo } from 'react';
 
 type VolumetriaData = {
     anio: number;
-    estado: string;
     count: number;
+    vectorized: number;
 };
 
 export function TimelineChart({ data }: { data: VolumetriaData[] }) {
     const chartData = useMemo(() => {
         if (!data || data.length === 0) return [];
 
-        // Group by year
-        const yearMap = new Map<number, any>();
-        data.forEach(item => {
-            if (!yearMap.has(item.anio)) {
-                yearMap.set(item.anio, { year: item.anio, total: 0, vectorized: 0, enriched: 0, ingested: 0, error: 0 });
-            }
-            const agg = yearMap.get(item.anio);
-            agg.total += item.count;
-            if (item.estado === 'vectorized') agg.vectorized += item.count;
-            else if (item.estado === 'enriched') agg.enriched += item.count;
-            else if (item.estado === 'ingested') agg.ingested += item.count;
-            else if (item.estado === 'error') agg.error += item.count;
-        });
-
-        const arr = Array.from(yearMap.values()).sort((a, b) => a.year - b.year);
-        // Maybe filter years before 1990 for better chart density if needed
-        return arr;
+        return data.map(item => ({
+            year: item.anio,
+            total: item.count,
+            vectorized: item.vectorized
+        })).sort((a, b) => a.year - b.year);
     }, [data]);
 
     if (chartData.length === 0) {
@@ -56,8 +44,8 @@ export function TimelineChart({ data }: { data: VolumetriaData[] }) {
                         itemStyle={{ color: '#1e293b', fontWeight: 500 }}
                     />
                     <Legend wrapperStyle={{ paddingTop: '20px', color: '#64748b' }} />
-                    <Area type="monotone" dataKey="total" stroke="#818cf8" fillOpacity={1} fill="url(#colorTotal)" name="Total Ingresados" />
-                    <Area type="monotone" dataKey="vectorized" stroke="#eab308" fillOpacity={1} fill="url(#colorVectorized)" name="Vectorizados (Completos)" />
+                    <Area type="monotone" dataKey="total" stroke="#818cf8" fillOpacity={1} fill="url(#colorTotal)" name="Total Dictámenes (CGR)" />
+                    <Area type="monotone" dataKey="vectorized" stroke="#eab308" fillOpacity={1} fill="url(#colorVectorized)" name="Vectorizados (Portal Legal)" />
                 </AreaChart>
             </ResponsiveContainer>
         </div>

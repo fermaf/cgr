@@ -1,13 +1,12 @@
 import { NavLink } from "react-router-dom";
-import { Home, Search, FileText, BarChart2, Shield, CircleDot, Scale, Sparkles } from "lucide-react";
+import { Home, Search, BarChart2, Shield, CircleDot, Scale, Sparkles } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 const NAV_ITEMS = [
     { label: "Inicio", icon: Home, href: "/" },
-    { label: "Jurisprudencia", icon: FileText, href: "/dictamenes" },
     { label: "Búsqueda Avanzada", icon: Search, href: "/buscar" },
     { label: "Estadísticas", icon: BarChart2, href: "/stats" },
-    { label: "Gestión Interna", icon: Shield, href: "/gestion", disabled: true },
+    { label: "Administración", icon: Shield, href: "/admin" },
 ];
 
 export function Sidebar() {
@@ -41,10 +40,8 @@ export function Sidebar() {
                             "flex items-center gap-4 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 group border",
                             isActive
                                 ? "bg-white/10 text-white border-white/20 shadow-sm"
-                                : "text-blue-200 border-transparent hover:text-white hover:bg-white/5",
-                            item.disabled && "opacity-40 cursor-not-allowed pointer-events-none"
+                                : "text-blue-200 border-transparent hover:text-white hover:bg-white/5"
                         )}
-                        onClick={(e) => item.disabled && e.preventDefault()}
                     >
                         {({ isActive }) => (
                             <>
@@ -65,6 +62,18 @@ export function Sidebar() {
                     <div className="flex items-center gap-2 text-xs font-semibold text-white">
                         <CircleDot className="w-3 h-3 text-green-400" />
                         Online & Segura
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t border-white/5 opacity-80">
+                        <div className="flex flex-col gap-1.5">
+                            <span className="text-[12px] font-mono text-white flex items-center gap-2 font-bold uppercase tracking-wider">
+                                <div className="w-1.5 h-1.5 bg-cgr-gold rounded-full shadow-[0_0_8px_rgba(234,179,8,0.5)]" />
+                                v1.2.4
+                            </span>
+                            <span className="text-[11px] font-semibold text-blue-100/80 leading-tight">
+                                Build: 2026-03-20 13:30
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>

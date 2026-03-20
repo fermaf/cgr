@@ -10,10 +10,13 @@ export function useAdminDashboard(filters: { yearFrom?: number; yearTo?: number 
         let isMounted = true;
         setLoading(true);
 
-        fetch('/api/v1/analytics/multidimensional', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(filters)
+        const params = new URLSearchParams();
+        if (filters.yearFrom) params.append('yearFrom', filters.yearFrom.toString());
+        if (filters.yearTo) params.append('yearTo', filters.yearTo.toString());
+
+        fetch(`/api/v1/analytics/multidimensional?${params.toString()}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
         })
             .then(res => {
                 if (!res.ok) throw new Error('Error fetcheando datos multidimensionales');

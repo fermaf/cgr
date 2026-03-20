@@ -64,13 +64,17 @@ El orquestador de búsqueda. Resuelve el gran problema de los LLM: "Encontrar do
 #### Parámetros Query
 | Parámetro | Default | Razón de ser / Caso de uso (Ingeniería Inversa) |
 | :--- | :--- | :--- |
-| `q` | `''` | El texto, párrafo o idea. Pinecone convierte este texto a 1024 dimensiones. |
-| `page` | `1` | Paginador. El tamaño de fragmento (`limit` interno) está congelado intencionalmente en `10` para prevenir abusos de *data scraping* en una de las rutas públicas más costosas en términos de ancho de banda. |
+| `q` | `''` | Búsqueda semántica base. Pinecone convierte este texto a 1024 dimensiones. |
+| `page` | `1` | Paginador. Congelado a 10 resultados por página. |
+| `year` | `null` | Filtro exacto por año de emisión. Crucial para reducir el espacio de búsqueda vectorial y acelerar la consulta SQL. |
+| `materia` | `null` | Coincidencia parcial (`LIKE`) de la materia principal del dictamen. Se alimenta del autocompletado en el frontend. |
+| `division` | `null` | Filtrado estricto por la división jurídica o área responsable de la CGR. |
+| `tags` | `null` | Búsqueda por etiquetas inteligentes inyectadas vía motor de enriquecimiento LLM. |
 
 #### Ejemplo CURL
 ```bash
-# Caso de uso: Búsqueda del concepto de probidad, no de la palabra probidad.
-curl "https://cgr-platform.abogado.workers.dev/api/v1/dictamenes?q=uso+indebido+vehiculos+fiscales+por+alcaldes&page=1"
+# Caso de uso: Búsqueda detallada usando multiplicidad de filtros avanzados
+curl "https://cgr-platform.abogado.workers.dev/api/v1/dictamenes?q=probidad&year=2024&materia=Urbanismo&page=1"
 ```
 
 ### `GET /api/v1/dictamenes/:id/lineage`

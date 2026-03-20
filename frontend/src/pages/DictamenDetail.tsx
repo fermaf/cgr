@@ -1,26 +1,175 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Calendar, Building2, Tag, BookOpen, Share2, AlertCircle, Sparkles, Download, FileCheck } from "lucide-react";
+import { ArrowLeft, Calendar, Building2, Tag, BookOpen, Share2, AlertCircle, Sparkles, Download, FileCheck, Activity } from "lucide-react";
 import type { DictamenResponse } from "../types";
 import { cn } from "../lib/utils";
+
+const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "Sin fecha";
+    try {
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) {
+            // Intento de fallback para formatos raros
+            const match = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+            if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+            return dateStr.split('T')[0];
+        }
+        return date.toISOString().split('T')[0];
+    } catch (e) {
+        return dateStr;
+    }
+};
+
+function NervioCentral({ lineage, currentId }: { lineage: any, currentId: string }) {
+    if (!lineage || (!lineage.references_from?.length && !lineage.references_to?.length)) return null;
+
+    const fromNodes = lineage.references_from || [];
+    const toNodes = lineage.references_to || [];
+
+    // Simplificamos la visualización en un layout tipo radial/lineal para SVG
+    const width = 800;
+    const height = 400;
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const nodeRadius = 35;
+
+    return (
+        <div className="bg-slate-900 rounded-3xl p-8 border border-slate-800 shadow-2xl relative overflow-hidden group">
+            {/* Background effects */}
+            <div className="absolute inset-0 opacity-20 pointer-events-none">
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-500 rounded-full blur-[120px]" />
+            </div>
+
+            <h3 className="font-bold text-white flex items-center gap-3 mb-10 relative z-10 uppercase tracking-widest text-xs font-sans">
+                <Activity className="w-5 h-5 text-blue-400 animate-pulse" />
+                Nervio Central de Relaciones
+            </h3>
+
+            <div className="relative z-10 w-full overflow-x-auto custom-scrollbar pb-4">
+                <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="mx-auto block">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6" />
+                        </marker>
+                    </defs>
+
+                    {/* From Nodes (Incoming References) */}
+                    {fromNodes.map((node: any, i: number) => {
+                        const x = 100;
+                        const y = (height / (fromNodes.length + 1)) * (i + 1);
+                        return (
+                            <g key={`from-${i}`}>
+                                <path
+                                    d={`M ${x + nodeRadius} ${y} L ${centerX - nodeRadius - 10} ${centerY}`}
+                                    stroke="#1e293b" strokeWidth="2" strokeDasharray="5,5" fill="none"
+                                />
+                                <Link to={`/dictamen/${node.id}`}>
+                                    <circle cx={x} cy={y} r={nodeRadius} className="fill-slate-800 stroke-blue-500/30 hover:stroke-blue-400 transition-all cursor-pointer" strokeWidth="2" />
+                                    <text x={x} y={y + 4} textAnchor="middle" fontSize="10" className="fill-blue-200 font-bold font-mono pointer-events-none">
+                                        {node.id.substring(0, 6)}
+                                    </text>
+                                </Link>
+                                <text x={x} y={y + nodeRadius + 15} textAnchor="middle" fontSize="8" className="fill-slate-500 uppercase tracking-tighter pointer-events-none">
+                                    Cita a este
+                                </text>
+                            </g>
+                        );
+                    })}
+
+                    {/* Center Node (Current) */}
+                    <g>
+                        <circle cx={centerX} cy={centerY} r={nodeRadius + 10} className="fill-blue-600 stroke-blue-400 transition-all" strokeWidth="4" />
+                        <text x={centerX} y={centerY + 6} textAnchor="middle" fontSize="12" className="fill-white font-bold font-mono pointer-events-none">
+                            {currentId.substring(0, 8)}
+                        </text>
+                        <text x={centerX} y={centerY - nodeRadius - 20} textAnchor="middle" fontSize="9" className="fill-blue-400 font-bold uppercase tracking-widest pointer-events-none">
+                            Núcleo Actual
+                        </text>
+                    </g>
+
+                    {/* To Nodes (Outgoing References) */}
+                    {toNodes.map((node: any, i: number) => {
+                        const x = width - 100;
+                        const y = (height / (toNodes.length + 1)) * (i + 1);
+                        return (
+                            <g key={`to-${i}`}>
+                                <path
+                                    d={`M ${centerX + nodeRadius + 10} ${centerY} L ${x - nodeRadius} ${y}`}
+                                    stroke="#3b82f6" strokeWidth="2" fill="none" opacity="0.4"
+                                />
+                                <Link to={`/dictamen/${node.id}`}>
+                                    <circle cx={x} cy={y} r={nodeRadius} className="fill-slate-800 stroke-emerald-500/30 hover:stroke-emerald-400 transition-all cursor-pointer" strokeWidth="2" />
+                                    <text x={x} y={y + 4} textAnchor="middle" fontSize="10" className="fill-emerald-200 font-bold font-mono pointer-events-none">
+                                        {node.id.substring(0, 6)}
+                                    </text>
+                                </Link>
+                                <text x={x} y={y + nodeRadius + 15} textAnchor="middle" fontSize="8" className="fill-slate-500 uppercase tracking-tighter pointer-events-none">
+                                    Citado por
+                                </text>
+                            </g>
+                        );
+                    })}
+                </svg>
+            </div>
+
+            <div className="mt-6 flex justify-center gap-8 text-[10px] uppercase tracking-widest font-bold">
+                <div className="flex items-center gap-2 text-slate-500">
+                    <span className="w-2 h-2 rounded-full border border-blue-500/50 bg-slate-800"></span> Referencias Entrantes
+                </div>
+                <div className="flex items-center gap-2 text-blue-400">
+                    <span className="w-3 h-3 rounded-full bg-blue-600"></span> Documento Actual
+                </div>
+                <div className="flex items-center gap-2 text-slate-500">
+                    <span className="w-2 h-2 rounded-full border border-emerald-500/50 bg-slate-800"></span> Referencias Salientes
+                </div>
+            </div>
+        </div>
+    );
+}
 
 export function DictamenDetail() {
     const { id } = useParams<{ id: string }>();
     const [data, setData] = useState<DictamenResponse | null>(null);
+    const [lineage, setLineage] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [copySuccess, setCopySuccess] = useState(false);
 
     useEffect(() => {
         if (!id) return;
-        fetch(`/api/v1/dictamenes/${id}`)
-            .then(async (res) => {
-                if (!res.ok) throw new Error("El documento no se encuentra disponible o el enlace está dañado");
-                return res.json();
-            })
-            .then((data) => setData(data))
-            .catch((err) => setError(err.message))
-            .finally(() => setLoading(false));
+        setLoading(true);
+        setError(null);
+
+        const fetchData = async () => {
+            try {
+                const [dRes, lRes] = await Promise.all([
+                    fetch(`/api/v1/dictamenes/${id}`).then(r => {
+                        if (!r.ok) throw new Error("Documento no disponible");
+                        return r.json();
+                    }),
+                    fetch(`/api/v1/dictamenes/${id}/lineage`).then(r => r.json()).catch(() => null)
+                ]);
+                setData(dRes);
+                setLineage(lRes);
+            } catch (err: any) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
     }, [id]);
+
+    const handleShare = () => {
+        navigator.clipboard.writeText(window.location.href);
+        setCopySuccess(true);
+        setTimeout(() => setCopySuccess(false), 2000);
+    };
+
+    const handlePrint = () => {
+        window.print();
+    };
 
     if (loading) return (
         <div className="py-32 flex flex-col items-center justify-center relative z-10 w-full">
@@ -69,16 +218,28 @@ export function DictamenDetail() {
     return (
         <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700 relative z-10 pb-20">
             {/* Nav */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between print:hidden">
                 <Link to="/" className="flex items-center gap-3 text-slate-500 hover:text-cgr-navy transition-colors font-sans text-sm font-semibold group bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm">
                     <ArrowLeft className="w-4 h-4 transform group-hover:-translate-x-1 transition-transform" /> Volver al Buscador
                 </Link>
                 <div className="flex gap-3">
-                    <button title="Descargar PDF" className="p-2.5 text-slate-500 hover:text-cgr-blue bg-white rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-all">
+                    <button
+                        onClick={handlePrint}
+                        title="Descargar PDF (Imprimir)"
+                        className="p-2.5 text-slate-500 hover:text-cgr-blue bg-white rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-all active:scale-95"
+                    >
                         <Download className="w-5 h-5" />
                     </button>
-                    <button title="Compartir Enlace" className="p-2.5 text-slate-500 hover:text-cgr-blue bg-white rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-all">
+                    <button
+                        onClick={handleShare}
+                        title="Compartir Enlace"
+                        className={cn(
+                            "p-2.5 rounded-lg border shadow-sm hover:shadow-md transition-all active:scale-95 flex items-center gap-2",
+                            copySuccess ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "text-slate-500 hover:text-cgr-blue bg-white border-slate-200"
+                        )}
+                    >
                         <Share2 className="w-5 h-5" />
+                        {copySuccess && <span className="text-[10px] font-bold uppercase tracking-wider">Copiado</span>}
                     </button>
                 </div>
             </div>
@@ -95,7 +256,7 @@ export function DictamenDetail() {
                         </h1>
                     </div>
                     <span className={cn(
-                        "px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider border flex items-center gap-2 whitespace-nowrap shadow-sm",
+                        "px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider border flex items-center gap-2 whitespace-nowrap shadow-sm print:hidden",
                         isEnriched ? "bg-blue-50 text-cgr-blue border-blue-200" : "bg-slate-50 text-slate-500 border-slate-200"
                     )}>
                         {isEnriched ? <><Sparkles className="w-4 h-4" /> ANÁLISIS IA</> : <><FileCheck className="w-4 h-4" /> ESTÁNDAR</>}
@@ -104,7 +265,7 @@ export function DictamenDetail() {
 
                 <div className="flex flex-wrap gap-x-8 gap-y-4 text-sm text-slate-600 font-sans font-medium">
                     <div className="flex items-center gap-2.5">
-                        <Calendar className="w-4 h-4 text-slate-400" /> {meta.fecha_documento}
+                        <Calendar className="w-4 h-4 text-slate-400" /> {formatDate(meta.fecha_documento)}
                     </div>
                     <div className="flex items-center gap-2.5">
                         <Building2 className="w-4 h-4 text-slate-400" /> {meta.division_nombre || "División no especificada"}
@@ -159,8 +320,13 @@ export function DictamenDetail() {
                         </div>
                     </div>
 
+                    {/* Nervio Central (Grafo) */}
+                    <div className="pt-10 print:hidden">
+                        <NervioCentral lineage={lineage} currentId={id || ""} />
+                    </div>
+
                     {meta.referencias && meta.referencias.length > 0 && (
-                        <div className="pt-8 border-t border-slate-200 space-y-4">
+                        <div className="pt-8 border-t border-slate-200 space-y-4 print:hidden">
                             <h3 className="font-bold text-cgr-navy font-sans uppercase tracking-wide text-sm">Normativa Referenciada</h3>
                             <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 {meta.referencias.map((ref, idx) => (

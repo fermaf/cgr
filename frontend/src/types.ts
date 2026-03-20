@@ -26,6 +26,7 @@ export interface DictamenMeta {
     criterio?: string;
     estado?: 'ingested' | 'enriched' | 'vectorized' | 'error' | null;
     origen_busqueda?: 'vectorial' | 'literal';
+    genera_jurisprudencia?: boolean;
 }
 
 export interface DictamenDetail extends DictamenMeta {
@@ -64,12 +65,12 @@ export interface StatsResponse {
 }
 
 export interface MultidimensionalResponse {
-    volumetria: { anio: number; estado: string; count: number }[];
+    volumetria: { anio: number; count: number; jurisprudencia: number; vectorized: number }[];
     transaccional: { estado: string; count: number }[];
     operacional: { en_paso: number; en_source: number; count: number }[];
     semantica: {
         topMaterias: { materia: string; count: number }[];
-        impacto: { relevantes: number; recursos: number; genera_juris: number };
+        impacto: { relevantes: number; recursos: number; jurisprudencia: number };
     };
 }
 

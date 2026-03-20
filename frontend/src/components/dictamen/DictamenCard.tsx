@@ -1,6 +1,7 @@
-import { FileText, Calendar, Building2, Download, Share2 } from "lucide-react";
+import { FileText, Calendar, Building2, Download, Share2, Sparkles, FileStack } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { DictamenMeta } from "../../types";
+import { formatRobustDate } from "../../lib/date";
 
 interface DictamenCardProps {
     dictamen: DictamenMeta;
@@ -27,23 +28,20 @@ export function DictamenCard({ dictamen }: DictamenCardProps) {
                             <h3 className="font-sans font-bold text-lg md:text-xl text-slate-800 group-hover:text-cgr-navy transition-colors leading-tight">
                                 N° {dictamen.id}
                             </h3>
-                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-1 block">
-                                {dictamen.anio}
-                            </span>
+                            <div className="mt-1 flex items-center gap-2">
+                                {dictamen.genera_jurisprudencia ? (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 uppercase tracking-tight">
+                                        <Sparkles className="w-3 h-3" /> Genera Jurisprudencia
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+                                        <FileStack className="w-3 h-3" /> Dictamen Estándar
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </div>
                     <div className="flex items-center gap-1.5 md:gap-2 flex-wrap justify-end">
-                        {dictamen.origen_busqueda === 'literal' && (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-bold text-slate-500 border border-slate-200 tracking-wider">
-                                BÚSQUEDA LITERAL
-                            </span>
-                        )}
-                        {dictamen.origen_busqueda === 'vectorial' && (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2 py-0.5 text-[9px] font-bold text-indigo-500 border border-indigo-200 tracking-wider">
-                                BÚSQUEDA SEMÁNTICA
-                            </span>
-                        )}
-
                         {isEnriched ? (
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-[10px] font-bold text-cgr-blue border border-blue-200 shadow-sm tracking-wider">
                                 <span className="w-1.5 h-1.5 rounded-full bg-cgr-blue" />
@@ -57,7 +55,7 @@ export function DictamenCard({ dictamen }: DictamenCardProps) {
                     </div>
                 </div>
 
-                <p className="text-slate-600 line-clamp-2 md:line-clamp-3 mb-6 text-sm leading-relaxed pl-2 font-serif">
+                <p className="text-slate-700 line-clamp-2 md:line-clamp-3 mb-6 text-lg leading-relaxed pl-2 font-serif font-medium">
                     {dictamen.resumen || dictamen.materia}
                 </p>
 
@@ -65,7 +63,7 @@ export function DictamenCard({ dictamen }: DictamenCardProps) {
                     <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
                         <div className="flex items-center gap-2 group-hover:text-cgr-navy transition-colors font-medium">
                             <Calendar className="w-4 h-4 text-slate-400 group-hover:text-cgr-navy" />
-                            <span>{dictamen.fecha_documento}</span>
+                            <span>{formatRobustDate(dictamen.fecha_documento)}</span>
                         </div>
                         {dictamen.division_nombre && (
                             <div className="flex items-center gap-2 group-hover:text-cgr-navy transition-colors font-medium">

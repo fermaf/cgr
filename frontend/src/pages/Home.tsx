@@ -61,7 +61,7 @@ export function Home() {
                             </span>
                         </h1>
                         <p className="text-base md:text-xl text-blue-100 font-light max-w-2xl mx-auto leading-relaxed mt-4 drop-shadow-sm">
-                            Acceso a más de <span className="font-bold text-white">{stats?.total?.toLocaleString() || '...'}</span> dictámenes oficiales potenciados por análisis neuronal avanzado.
+                            Acceso a más de <span className="font-bold text-white">{stats?.total?.toLocaleString() || '...'}</span> dictámenes de la <span className="text-white font-semibold italic">Contraloría General de la República</span>, potenciados por análisis neuronal avanzado.
                         </p>
                     </div>
 
@@ -83,10 +83,13 @@ export function Home() {
                         <span className="w-8 h-[3px] bg-cgr-red rounded-full shadow-sm" />
                         Últimos Documentos
                     </h2>
-                    <button className="text-sm font-semibold text-cgr-navy hover:text-cgr-blue transition-colors group flex items-center gap-2">
+                    <Link
+                        to="/buscar"
+                        className="text-sm font-semibold text-cgr-navy hover:text-cgr-blue transition-colors group flex items-center gap-2"
+                    >
                         Ver Todos
                         <span className="transform transition-transform text-lg group-hover:translate-x-1">&rarr;</span>
-                    </button>
+                    </Link>
                 </div>
 
                 {loading ? (

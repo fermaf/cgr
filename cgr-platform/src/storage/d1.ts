@@ -146,24 +146,62 @@ async function upsertDictamen(db: D1Database, params: DictamenUpsertParams): Pro
 
 async function getOrInsertDivisionId(db: D1Database, origenes: unknown): Promise<number | null> {
   if (!origenes || typeof origenes !== 'string') return null;
-  const sigla = origenes.split(',')[0]?.trim().toUpperCase();
+  const parts = origenes.split(',').map(p => p.trim());
+  const sigla = parts[0]?.toUpperCase();
   if (!sigla) return null;
 
-  // Mapeo seguro y conocido por defecto
-  const knownMap: Record<string, number> = {
-    'DIFE': 1, 'DJA': 2, 'DAEE': 3, 'DGOREMUN': 4, 'CGR': 5, 'DPP': 6
-  };
-  if (knownMap[sigla]) return knownMap[sigla];
+  // Intentar deducir el nombre completo del mismo string origenes (ej: "DJA, División Jurídica")
+  let nombreDeducido = parts.length > 1 ? parts[1] : null;
 
-  // Consultar a la base de datos si la división ya fue ingresada dinámicamente
-  const row = await db.prepare('SELECT id FROM cat_divisiones WHERE codigo = ?').bind(sigla).first<{ id: number }>();
-  if (row) return row.id;
+  // Mapeo exhaustivo y actualizado de divisiones (Fuente: CGR y Manual de Organización)
+  const knownMap: Record<string, string> = {
+    'DJU': 'División Jurídica',
+    'DJA': 'División Jurídica', // Alias
+    'DICOF': 'División de Contabilidad y Finanzas Públicas',
+    'DCO': 'División de Contabilidad y Finanzas Públicas',
+    'DIR': 'División de Infraestructura y Regulación',
+    'DAEE': 'División de Auditoría de Entidades Estatales', // Tradicional
+    'DGOREMUN': 'División de Gobiernos Regionales y Municipalidades',
+    'CGR': 'Gabinete Contralor General',
+    'DPP': 'División de Personal y Presupuesto',
+    'DFP': 'División de Función Pública',
+    'CRM': 'Contraloría Regional Metropolitana',
+    'CRMI': 'Contraloría Regional Metropolitana I',
+    'DPA': 'División de Personal de la Administración',
+    'MUN': 'Municipalidades',
+    'DAC': 'Departamento de Auditoría y Control',
+    'DAU': 'División de Auditoría',
+    'RCP': 'Registro de Contratos y Personal', // Contexto CGR
+    'CIJ': 'Comité de Informatización Jurídica',
+    'RAP': 'Registro de Actos de Personal',
+    'DMA': 'Departamento de Medio Ambiente',
+    'DFFAA': 'Departamento de Fuerzas Armadas y Seguridad Pública'
+  };
+
+  // Si no tenemos nombre deducido de 'origenes', buscar en el mapa conocido
+  if (!nombreDeducido || nombreDeducido.length < 5) {
+      nombreDeducido = knownMap[sigla] || null;
+  }
+
+  // Fallback final si no hay forma de saber qué es
+  const finalName = nombreDeducido || `División No Identificada: ${sigla}`;
+
+  // Consultar a la base de datos si la división ya fue ingresada
+  const row = await db.prepare('SELECT id FROM cat_divisiones WHERE codigo = ?').bind(sigla).first<{ id: number; nombre_completo: string }>();
+
+  if (row) {
+    // Si el nombre es genérico/feo ("Nueva División..."), intentar actualizarlo con el nuevo valor más preciso
+    if (row.nombre_completo.includes('Nueva División Autogenerada') && nombreDeducido) {
+        await db.prepare('UPDATE cat_divisiones SET nombre_completo = ? WHERE id = ?').bind(finalName, row.id).run();
+    }
+    return row.id;
+  }
 
   // Autogenerar dinámicamente y devolver ID
   try {
     const insertRes = await db.prepare(
       'INSERT INTO cat_divisiones (codigo, nombre_completo) VALUES (?, ?) RETURNING id'
-    ).bind(sigla, `Nueva División Autogenerada: ${sigla}`).first<{ id: number }>();
+    ).bind(sigla, finalName).first<{ id: number }>();
     return insertRes?.id ?? null;
   } catch (err) {
     console.warn(`[D1] No se pudo autogenerar división para sigla ${sigla}:`, err);
@@ -548,10 +586,10 @@ async function getMigrationStats(db: D1Database): Promise<Record<string, number>
   const stats = await db.prepare(`
     SELECT 
       COUNT(*) as total,
-      SUM(CASE WHEN d.estado = 'error' THEN 1 ELSE 0 END) as errors,
+      SUM(CASE WHEN d.estado LIKE 'error%' THEN 1 ELSE 0 END) as errors,
       SUM(CASE WHEN d.estado IN ('ingested', 'processing') THEN 1 ELSE 0 END) as pending,
-      SUM(CASE WHEN d.estado NOT IN ('error', 'ingested', 'processing') AND e.modelo_llm = 'mistral-large-2512' THEN 1 ELSE 0 END) as migrated,
-      SUM(CASE WHEN d.estado NOT IN ('error', 'ingested', 'processing') AND e.modelo_llm IN ('mistral-large-2411', 'mistralLarge2411') THEN 1 ELSE 0 END) as legacy
+      SUM(CASE WHEN d.estado NOT LIKE 'error%' AND d.estado NOT IN ('ingested', 'processing') AND e.modelo_llm = 'mistral-large-2512' THEN 1 ELSE 0 END) as migrated,
+      SUM(CASE WHEN d.estado NOT LIKE 'error%' AND d.estado NOT IN ('ingested', 'processing') AND e.modelo_llm IN ('mistral-large-2411', 'mistralLarge2411') THEN 1 ELSE 0 END) as legacy
     FROM dictamenes d
     LEFT JOIN enriquecimiento e ON d.id = e.dictamen_id
   `).first<Record<string, number>>();

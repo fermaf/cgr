@@ -115,6 +115,8 @@ async function queryHeatmapLive(
     INNER JOIN dictamenes d ON d.id = f.dictamen_id
     WHERE (? IS NULL OR d.anio >= ?)
       AND (? IS NULL OR d.anio <= ?)
+      AND LOWER(f.tipo_norma) NOT LIKE '%valor de relleno%'
+      AND LOWER(f.numero) NOT LIKE '%valor de relleno%'
     GROUP BY d.anio, COALESCE(NULLIF(TRIM(f.tipo_norma), ''), 'Desconocido'), COALESCE(NULLIF(TRIM(f.numero), ''), '-')
     ORDER BY total_refs DESC, total_dictamenes DESC
     LIMIT ?
@@ -176,6 +178,8 @@ async function refreshAnalyticsSnapshots(
     INNER JOIN dictamenes d ON d.id = f.dictamen_id
     WHERE (? IS NULL OR d.anio >= ?)
       AND (? IS NULL OR d.anio <= ?)
+      AND LOWER(f.tipo_norma) NOT LIKE '%valor de relleno%'
+      AND LOWER(f.numero) NOT LIKE '%valor de relleno%'
     GROUP BY d.anio, COALESCE(NULLIF(TRIM(f.tipo_norma), ''), 'Desconocido'), COALESCE(NULLIF(TRIM(f.numero), ''), '-')
     ORDER BY total_refs DESC, total_dictamenes DESC
     LIMIT ?
@@ -433,12 +437,35 @@ app.post('/api/v1/analytics/refresh', async (c) => {
   }
 });
 
+// Endpoint para obtener catálogo de divisiones real (Fase 11)
+app.get('/api/v1/divisions', async (c) => {
+  const db = c.env.DB;
+  try {
+    const list = await db.prepare(`
+      SELECT DISTINCT codigo, nombre_completo 
+      FROM cat_divisiones 
+      WHERE nombre_completo NOT LIKE 'División No Identificada%' 
+      AND nombre_completo NOT LIKE 'Sin División Asignada%' 
+      ORDER BY nombre_completo
+    `).all();
+    return c.json({ data: list.results || [] });
+  } catch (e: any) {
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
 // --- BÚSQUEDA CON FALLBACK ---
 // 1. Intenta búsqueda vectorial (Pinecone).
 // 2. Si falla, recurre a SQL LIKE en D1.
 app.get('/api/v1/dictamenes', async (c) => {
   const query = c.req.query('q') || '';
   const page = parseInt(c.req.query('page') || '1', 10);
+  const yearFromStr = c.req.query('year');
+  const materia = c.req.query('materia');
+  const division = c.req.query('division');
+  const tags = c.req.query('tags');
+  const juris = c.req.query('juris') === 'true';
+
   const limit = 10;
   const offset = (page - 1) * limit;
   const db = c.env.DB;
@@ -447,25 +474,76 @@ app.get('/api/v1/dictamenes', async (c) => {
     let dataToReturn: any[] | null = null;
     let totalToReturn = 0;
 
+    // Construcción de filtros para Pinecone
+    const pcFilter: Record<string, any> = {};
+    if (yearFromStr) {
+      pcFilter["fecha"] = { "$gte": `${yearFromStr}-01-01` };
+      // También podríamos filtrar por el límite superior del año si se requiere
+    }
+    if (division) {
+      pcFilter["division_nombre"] = { "$eq": division };
+    }
+    // Pinecone (Integrated Inference fallback) no soporta $contains en campos de texto de metadatos fácilmente para búsqueda libre.
+    // Pero si se desea filtrar por etiquetas exactas (Array):
+    if (tags) {
+      const tagsArray = tags.split(',').map(t => t.trim());
+      pcFilter["descriptores_AI"] = { "$in": tagsArray };
+    }
+
     if (query.trim() !== '') {
       try {
-        // Búsqueda Vectorial (Pinecone)
-        const pcRes = await queryRecords(c.env, query, limit * 2);
-        const matches = pcRes.matches || [];
-        const data = matches.map((m: any) => ({
-          id: m.id,
-          numero: m.id.substring(0, 8),
-          anio: parseInt(m.metadata?.fecha?.split('-')?.[0] || '2024', 10),
-          fecha_documento: m.metadata?.fecha || '',
-          materia: m.metadata?.titulo || m.metadata?.materia || 'Materia Reservada o Sin título',
-          resumen: m.metadata?.analisis || m.metadata?.resumen || '',
-          origen_busqueda: 'vectorial',
-          estado: 'vectorized'
-        }));
+        const queryTrimmed = query.trim();
+        // Detección de patrones de ID (Ej: E85862N25, 71381, N25)
+        const isLikelyId = /^[A-Z0-9]*[0-9]+N[0-9]+$/i.test(queryTrimmed) || (/^[0-9]+$/.test(queryTrimmed) && queryTrimmed.length > 3);
+        
+        if (isLikelyId) {
+          // Búsqueda SQL directa primero (Prioridad ID)
+          const sqlRes = await db.prepare(`SELECT d.id FROM dictamenes d WHERE d.id LIKE ? OR d.numero LIKE ? LIMIT 5`)
+            .bind(`%${queryTrimmed}%`, `%${queryTrimmed}%`).all();
+          
+          if (sqlRes.results && sqlRes.results.length > 0) {
+             console.log("ID Match detected, skipping vector search priority.");
+             // Si hay match exacto/parcial de ID, dejamos que el fallback SQL maneje todo con filtros.
+             // No asignamos dataToReturn aquí para forzar el flujo SQL completo con filtros.
+          } else {
+             // Si no hay match de ID, intentamos vectorial
+             const pcRes = await queryRecords(c.env, query, limit * 2, Object.keys(pcFilter).length > 0 ? pcFilter : undefined);
+             const matches = pcRes.matches || [];
+             if (matches.length > 0) {
+               dataToReturn = matches.map((m: any) => ({
+                 id: m.id,
+                 numero: m.id.substring(0, 8),
+                 anio: parseInt(m.metadata?.fecha?.split('-')?.[0] || '2024', 10),
+                 fecha_documento: m.metadata?.fecha || '',
+                 materia: m.metadata?.titulo || m.metadata?.materia || 'Materia Reservada o Sin título',
+                 resumen: m.metadata?.analisis || m.metadata?.resumen || '',
+                 origen_busqueda: 'vectorial',
+                 estado: 'vectorized',
+                 genera_jurisprudencia: m.metadata?.criterio === 'Genera Jurisprudencia'
+               })).slice(0, limit);
+               totalToReturn = matches.length;
+             }
+          }
+        } else {
+          // Búsqueda Vectorial normal
+          const pcRes = await queryRecords(c.env, query, limit * 2, Object.keys(pcFilter).length > 0 ? pcFilter : undefined);
+          const matches = pcRes.matches || [];
+          const data = matches.map((m: any) => ({
+            id: m.id,
+            numero: m.id.substring(0, 8),
+            anio: parseInt(m.metadata?.fecha?.split('-')?.[0] || '2024', 10),
+            fecha_documento: m.metadata?.fecha || '',
+            materia: m.metadata?.titulo || m.metadata?.materia || 'Materia Reservada o Sin título',
+            resumen: m.metadata?.analisis || m.metadata?.resumen || '',
+            origen_busqueda: 'vectorial',
+            estado: 'vectorized',
+            genera_jurisprudencia: m.metadata?.criterio === 'Genera Jurisprudencia'
+          }));
 
-        if (data.length > 0) {
-          dataToReturn = data.slice(0, limit);
-          totalToReturn = data.length;
+          if (data.length > 0) {
+            dataToReturn = data.slice(0, limit);
+            totalToReturn = data.length;
+          }
         }
       } catch (err) {
         console.error("Excepción en búsqueda vectorial, recurriendo a SQL (Fallback).", err);
@@ -474,30 +552,81 @@ app.get('/api/v1/dictamenes', async (c) => {
 
     if (!dataToReturn) {
       // Búsqueda SQL (Fallback)
-      let condition = "";
+      let condition = "WHERE 1=1";
       let binds: any[] = [];
 
       if (query.trim() !== '') {
-        const words = query.trim().split(/\s+/).filter(w => w.length > 2).slice(0, 5);
-
+        const words = query.trim().split(/\s+/).slice(0, 5); // Incluir palabras cortas (IDs)
         if (words.length > 0) {
-          const conditions = words.map(() => "(materia LIKE ? OR numero LIKE ?)");
-          condition = "WHERE " + conditions.join(" AND ");
+          const conditions = words.map(() => "(d.materia LIKE ? OR d.numero LIKE ? OR d.id LIKE ?)");
+          condition += " AND " + conditions.join(" AND ");
           words.forEach(w => {
             const safeW = w.substring(0, 40);
-            binds.push(`%${safeW}%`, `%${safeW}%`);
+            binds.push(`%${safeW}%`, `%${safeW}%`, `%${safeW}%`);
           });
-        } else {
-          condition = "WHERE materia LIKE ? OR numero LIKE ?";
-          const safeQ = query.trim().substring(0, 40);
-          binds.push(`%${safeQ}%`, `%${safeQ}%`);
         }
       }
 
-      const totalRes = await db.prepare(`SELECT COUNT(*) as count FROM dictamenes ${condition}`).bind(...binds).first<{ count: number }>();
+      if (yearFromStr) {
+        condition += " AND d.anio = ?";
+        binds.push(parseInt(yearFromStr, 10));
+      }
+      if (materia) {
+        const trimmed = materia.trim();
+        const fullPattern = `%${trimmed}%`;
+        const mWords = trimmed.split(/\s+/).filter(w => w.length > 1);
+
+        // Lógica: Match frase completa OR (Match palabra 1 AND palabra 2...)
+        let mCondition = `(LOWER(d.materia) LIKE LOWER(?) OR d.id IN (SELECT dictamen_id FROM enriquecimiento WHERE LOWER(etiquetas_json) LIKE LOWER(?)))`;
+        binds.push(fullPattern, fullPattern);
+
+        if (mWords.length > 1) {
+          const wordMatches = mWords.map(() => "(LOWER(d.materia) LIKE LOWER(?) OR d.id IN (SELECT dictamen_id FROM enriquecimiento WHERE LOWER(etiquetas_json) LIKE LOWER(?)))");
+          mCondition = `(${mCondition} OR (${wordMatches.join(" AND ")}))`;
+          mWords.forEach(w => binds.push(`%${w}%`, `%${w}%`));
+        }
+        condition += ` AND ${mCondition}`;
+      }
+
+      if (tags) {
+        const trimmed = tags.trim();
+        const fullPattern = `%${trimmed}%`;
+        const tWords = trimmed.split(/\s+/).filter(w => w.length > 1);
+
+        let tCondition = `d.id IN (SELECT dictamen_id FROM enriquecimiento WHERE LOWER(etiquetas_json) LIKE LOWER(?))`;
+        binds.push(fullPattern);
+
+        if (tWords.length > 1) {
+          const wordMatches = tWords.map(() => "d.id IN (SELECT dictamen_id FROM enriquecimiento WHERE LOWER(etiquetas_json) LIKE LOWER(?))");
+          tCondition = `(${tCondition} OR (${wordMatches.join(" AND ")}))`;
+          tWords.forEach(w => binds.push(`%${w}%`));
+        }
+        condition += ` AND ${tCondition}`;
+      }
+      if (division) {
+        condition += " AND d.division_id IN (SELECT id FROM cat_divisiones WHERE codigo = ?)";
+        binds.push(division);
+      }
+      if (tags) {
+        const tWords = tags.trim().split(/\s+/).filter(w => w.length > 1);
+        if (tWords.length > 0) {
+          const tConditions = tWords.map(() => "d.id IN (SELECT dictamen_id FROM enriquecimiento WHERE etiquetas_json LIKE ?)");
+          condition += " AND " + tConditions.join(" AND ");
+          tWords.forEach(w => binds.push(`%${w}%`));
+        }
+      }
+
+      if (juris) {
+        condition += " AND d.criterio = 'Genera Jurisprudencia'";
+      }
+
+      const totalRes = await db.prepare(`SELECT COUNT(*) as count FROM dictamenes d ${condition}`).bind(...binds).first<{ count: number }>();
       totalToReturn = totalRes?.count ?? 0;
 
-      const listQuery = `SELECT id, numero, anio, fecha_documento, materia, estado FROM dictamenes ${condition} ORDER BY fecha_documento DESC LIMIT ? OFFSET ?`;
+      const listQuery = `SELECT d.id, d.numero, d.anio, d.fecha_documento, d.materia, d.estado, d.criterio, e.genera_jurisprudencia 
+                         FROM dictamenes d 
+                         LEFT JOIN enriquecimiento e ON d.id = e.dictamen_id 
+                         ${condition} ORDER BY d.fecha_documento DESC LIMIT ? OFFSET ?`;
       const list = await db.prepare(listQuery).bind(...binds, limit, offset).all<any>();
 
       dataToReturn = (list.results ?? []).map((r: any) => ({
@@ -508,7 +637,8 @@ app.get('/api/v1/dictamenes', async (c) => {
         materia: r.materia || 'Sin materia especificada',
         resumen: '',
         origen_busqueda: 'literal',
-        estado: r.estado || null
+        estado: r.estado || null,
+        genera_jurisprudencia: r.criterio === 'Genera Jurisprudencia'
       }));
     }
 
@@ -516,6 +646,67 @@ app.get('/api/v1/dictamenes', async (c) => {
       data: dataToReturn,
       meta: { page, limit, total: totalToReturn, totalPages: Math.ceil(totalToReturn / limit) }
     });
+  } catch (e: any) {
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+// --- SUGERENCIAS DE MATERIA (Autocomplete) ---
+app.get('/api/v1/analytics/suggest/materia', async (c) => {
+  const query = c.req.query('q') || '';
+  if (query.length < 3) return c.json({ suggestions: [] });
+
+  const db = c.env.DB;
+  try {
+    const res = await db.prepare(
+      `SELECT DISTINCT termino as materia 
+       FROM cat_descriptores 
+       WHERE LOWER(termino) LIKE LOWER(?) 
+       ORDER BY materia ASC
+       LIMIT 10`
+    ).bind(`%${query}%`).all<any>();
+
+    return c.json({
+      suggestions: (res.results ?? []).map((r: any) => r.materia)
+    });
+  } catch (e: any) {
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+// --- SUGERENCIAS DE ETIQUETAS IA (Autocomplete) ---
+app.get('/api/v1/analytics/suggest/tags', async (c) => {
+  const query = c.req.query('q') || '';
+  if (query.length < 2) return c.json({ suggestions: [] });
+
+  const db = c.env.DB;
+  try {
+    const results = await db.prepare(`
+      SELECT etiquetas_json 
+      FROM enriquecimiento 
+      WHERE etiquetas_json LIKE ? 
+      LIMIT 100
+    `).bind(`%${query}%`).all<any>();
+
+    const allTags = new Set<string>();
+    (results.results || []).forEach((r: any) => {
+      try {
+        const tagsArr = JSON.parse(r.etiquetas_json || '[]');
+        if (Array.isArray(tagsArr)) {
+          tagsArr.forEach((t: string) => {
+            if (t.toLowerCase().includes(query.toLowerCase())) {
+              allTags.add(t);
+            }
+          });
+        }
+      } catch (e) {
+        if (r.etiquetas_json && r.etiquetas_json.toLowerCase().includes(query.toLowerCase())) {
+          allTags.add(r.etiquetas_json);
+        }
+      }
+    });
+
+    return c.json({ suggestions: Array.from(allTags).slice(0, 10) });
   } catch (e: any) {
     return c.json({ error: errorMessage(e) }, 500);
   }
@@ -947,11 +1138,10 @@ app.get('/api/v1/dictamenes/:id/history', async (c) => {
   }
 });
 
-app.post('/api/v1/analytics/multidimensional', async (c) => {
+app.get('/api/v1/analytics/multidimensional', async (c) => {
   const db = c.env.DB;
-  const body = await readJsonBody(c);
-  const yearFrom = parseOptionalInt(body.yearFrom);
-  const yearTo = parseOptionalInt(body.yearTo);
+  const yearFrom = parseOptionalInt(c.req.query('yearFrom'));
+  const yearTo = parseOptionalInt(c.req.query('yearTo'));
 
   try {
     let baseWhere = "WHERE 1=1";
@@ -959,8 +1149,19 @@ app.post('/api/v1/analytics/multidimensional', async (c) => {
     if (yearFrom !== null) { baseWhere += " AND anio >= ?"; binds.push(yearFrom); }
     if (yearTo !== null) { baseWhere += " AND anio <= ?"; binds.push(yearTo); }
 
-    // 1. Volumetría
-    const volRes = await db.prepare(`SELECT anio, estado, COUNT(*) as count FROM dictamenes ${baseWhere} AND anio IS NOT NULL GROUP BY anio, estado ORDER BY anio ASC`).bind(...binds).all<any>();
+    // 1. Volumetría y Jurisprudencia por año
+    const volRes = await db.prepare(`
+      SELECT 
+        anio, 
+        COUNT(*) as count,
+        SUM(CASE WHEN criterio = 'Genera Jurisprudencia' THEN 1 ELSE 0 END) as jurisprudencia,
+        SUM(CASE WHEN estado = 'vectorized' THEN 1 ELSE 0 END) as vectorized
+      FROM dictamenes 
+      ${baseWhere} 
+      AND anio IS NOT NULL 
+      GROUP BY anio 
+      ORDER BY anio ASC
+    `).bind(...binds).all<any>();
 
     // 2. Transaccionalidad
     const statusRes = await db.prepare(`SELECT estado, COUNT(*) as count FROM dictamenes ${baseWhere} GROUP BY estado`).bind(...binds).all<any>();
@@ -975,7 +1176,7 @@ app.post('/api/v1/analytics/multidimensional', async (c) => {
       SELECT 
         SUM(COALESCE(a.es_relevante, 0)) as relevantes, 
         SUM(COALESCE(a.recurso_proteccion, 0)) as recursos, 
-        SUM(COALESCE(e.genera_jurisprudencia, 0)) as genera_juris 
+        SUM(CASE WHEN d.criterio = 'Genera Jurisprudencia' THEN 1 ELSE 0 END) as jurisprudencia
       FROM atributos_juridicos a 
       LEFT JOIN enriquecimiento e ON a.dictamen_id = e.dictamen_id
       INNER JOIN dictamenes d ON a.dictamen_id = d.id

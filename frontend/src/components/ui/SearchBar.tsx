@@ -23,8 +23,8 @@ export function SearchBar() {
                 <input
                     type="text"
                     name="q"
-                    className="block w-full pl-16 pr-20 py-4 lg:py-5 bg-white border border-slate-200/80 rounded-[14px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-cgr-blue/10 focus:border-cgr-blue shadow-sm hover:shadow-md transition-all duration-300 text-lg md:text-xl font-sans"
-                    placeholder="Búsqueda libre por materia, conceptos, descriptores..."
+                    className="block w-full pl-16 pr-20 py-4 lg:py-5 bg-white border-2 border-slate-300/80 rounded-[14px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-cgr-blue/20 focus:border-cgr-blue shadow-md hover:shadow-lg transition-all duration-300 text-lg md:text-xl font-sans"
+                    placeholder="Escribe aquí para buscar por materia, conceptos, descriptores..."
                     autoComplete="off"
                 />
             </form>
