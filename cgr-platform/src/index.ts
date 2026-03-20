@@ -40,7 +40,7 @@ function cleanMetadataText(text: string | null | undefined): string {
   if (!text) return '';
   return text
     .replace(/^Título:\s*/gi, '')
-    .replace(/\s*Resumen:\s*/gi, ' ')
+    .replace(/\.*?\s*Resumen:\s*/gi, '. ')
     .trim();
 }
 
