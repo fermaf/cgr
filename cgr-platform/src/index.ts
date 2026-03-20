@@ -33,6 +33,17 @@ function errorMessage(error: unknown): string {
   }
 }
 
+/**
+ * Limpia prefijos redundantes ("Título:", "Resumen:") que vienen de Pinecone (Fase 12)
+ */
+function cleanMetadataText(text: string | null | undefined): string {
+  if (!text) return '';
+  return text
+    .replace(/^Título:\s*/gi, '')
+    .replace(/\s*Resumen:\s*/gi, ' ')
+    .trim();
+}
+
 function isIsoDateYmd(value: unknown): value is string {
   return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
@@ -515,8 +526,8 @@ app.get('/api/v1/dictamenes', async (c) => {
                  numero: m.id.substring(0, 8),
                  anio: parseInt(m.metadata?.fecha?.split('-')?.[0] || '2024', 10),
                  fecha_documento: m.metadata?.fecha || '',
-                 materia: m.metadata?.titulo || m.metadata?.materia || 'Materia Reservada o Sin título',
-                 resumen: m.metadata?.analisis || m.metadata?.resumen || '',
+                 materia: cleanMetadataText(m.metadata?.titulo || m.metadata?.materia || 'Materia Reservada o Sin título'),
+                 resumen: cleanMetadataText(m.metadata?.analisis || m.metadata?.resumen || ''),
                  origen_busqueda: 'vectorial',
                  estado: 'vectorized',
                  genera_jurisprudencia: m.metadata?.criterio === 'Genera Jurisprudencia'
@@ -533,8 +544,8 @@ app.get('/api/v1/dictamenes', async (c) => {
             numero: m.id.substring(0, 8),
             anio: parseInt(m.metadata?.fecha?.split('-')?.[0] || '2024', 10),
             fecha_documento: m.metadata?.fecha || '',
-            materia: m.metadata?.titulo || m.metadata?.materia || 'Materia Reservada o Sin título',
-            resumen: m.metadata?.analisis || m.metadata?.resumen || '',
+            materia: cleanMetadataText(m.metadata?.titulo || m.metadata?.materia || 'Materia Reservada o Sin título'),
+            resumen: cleanMetadataText(m.metadata?.analisis || m.metadata?.resumen || ''),
             origen_busqueda: 'vectorial',
             estado: 'vectorized',
             genera_jurisprudencia: m.metadata?.criterio === 'Genera Jurisprudencia'

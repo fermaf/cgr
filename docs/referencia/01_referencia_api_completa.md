@@ -64,6 +64,9 @@ El orquestador de búsqueda maestro. Resuelve el gran desafío del enrutamiento 
 2. **Inferencia Semántica Vectorial**: Si no es un patrón exacto, delega la vectorización del texto a Cloudflare AI (Pinecone) encontrando documentos matemáticamente próximos por coseno.
 3. **Fallback Resiliente**: Si Pinecone cae o no devuelve resultados, aplica la heurística final SQL `LIKE %text%` contra D1.
 
+#### Post-procesamiento Estético (Fase 12)
+Para garantizar una interfaz limpia ("El Librero"), el orquestador aplica una limpieza por Regex a los campos `materia` y `resumen` antes de servirlos al frontend. Se eliminan automáticamente los prefijos estructurales de vectorización como `^Título:` y se neutralizan los separadores internos `Resumen:`, permitiendo que el texto fluya de manera natural sin etiquetas técnicas visibles para el usuario final.
+
 #### Parámetros Query
 | Parámetro | Default | Razón de ser / Caso de uso (Ingeniería Inversa) |
 | :--- | :--- | :--- |
