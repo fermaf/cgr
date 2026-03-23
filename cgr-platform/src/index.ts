@@ -13,7 +13,8 @@ import {
   getOrInsertDivisionId,
   getMigrationStats,
   getMigrationEvolution,
-  getRecentMigrationEvents
+  getRecentMigrationEvents,
+  getDictamenRelacionesJuridicas
 } from './storage/d1';
 import type { Env, DictamenRaw } from './types';
 import { IngestWorkflow } from './workflows/ingestWorkflow';
@@ -22,6 +23,7 @@ import { KVSyncWorkflow } from './workflows/kvSyncWorkflow';
 import { analyzeDictamen } from './clients/mistral';
 import { fetchDictamenesSearchPage } from './clients/cgr';
 import { ingestDictamen, extractDictamenId } from './lib/ingest';
+import { applyRetroUpdates } from './lib/relations';
 import { logInfo, logError, setLogLevel } from './lib/log';
 
 function errorMessage(error: unknown): string {
@@ -269,6 +271,161 @@ app.use('*', async (c, next) => {
 app.get('/', (c) => c.text('CGR Platform API'));
 
 // --- ESTADÍSTICAS ---
+
+// --- AUDITORIA BIDIRECCIONAL (SRE) ---
+app.get('/api/v1/admin/audit-sync', async (c) => {
+  const db = c.env.DB;
+  const kv = c.env.DICTAMENES_SOURCE;
+  const executeFixes = c.req.query('fix') === 'true';
+  const fixLimit = parsePositiveInt(c.req.query('limit'), 50, 1, 500);
+
+  try {
+    const d1Res = await db.prepare("SELECT id, estado FROM dictamenes").all<{id: string, estado: string}>();
+    const d1Records = d1Res.results ?? [];
+    const d1Map = new Map<string, string>();
+    for (const r of d1Records) {
+      d1Map.set(r.id, r.estado);
+    }
+
+    const kvKeys = new Set<string>();
+    const garbageKeys: string[] = [];
+    
+    let cursor: string | undefined = undefined;
+    do {
+      const listRes: any = await kv.list({ cursor });
+      for (const keyObj of listRes.keys) {
+        const name = keyObj.name;
+        if (name.includes(':') || name.includes('_') || name.startsWith('legacy') || name.startsWith('raw')) {
+           garbageKeys.push(name);
+        } else {
+           kvKeys.add(name);
+        }
+      }
+      cursor = listRes.list_complete ? undefined : listRes.cursor;
+    } while (cursor);
+
+    const missingInKv: string[] = [];
+    for (const [id, estado] of d1Map.entries()) {
+      if (!kvKeys.has(id)) {
+        const foundGarbage = garbageKeys.find(gk => gk.includes(id));
+        if (!foundGarbage) {
+            missingInKv.push(id);
+        }
+      }
+    }
+
+    const missingInD1: string[] = [];
+    for (const key of kvKeys) {
+      if (!d1Map.has(key)) {
+        missingInD1.push(key);
+      }
+    }
+
+    const withErrorButHasKv: string[] = [];
+    for (const [id, estado] of d1Map.entries()) {
+      if ((estado === 'error_sin_KV_source' || estado === 'error') && kvKeys.has(id)) {
+         withErrorButHasKv.push(id);
+      }
+    }
+
+    const fixesExecuted = {
+      garbageCleaned: 0,
+      missingKvCrawled: 0,
+      missingD1Ingested: 0,
+      errorStatusFixed: 0,
+      errors: [] as string[]
+    };
+
+    if (executeFixes) {
+      // 1. Fix Garbage (limit to fixLimit)
+      for (let i = 0; i < Math.min(garbageKeys.length, fixLimit); i++) {
+         const badKey = garbageKeys[i];
+         try {
+            const raw = await kv.get(badKey, 'json');
+            if (raw) {
+               const id = extractDictamenId(raw as any);
+               if (id !== 'unknown') {
+                  await kv.put(id, JSON.stringify(raw));
+                  await kv.delete(badKey);
+                  fixesExecuted.garbageCleaned++;
+               }
+            }
+         } catch (e: any) {
+            fixesExecuted.errors.push(`Garbage fix error ${badKey}: ${e.message}`);
+         }
+      }
+
+      // 2. Fix Error Status (limit to fixLimit)
+      for (let i = 0; i < Math.min(withErrorButHasKv.length, fixLimit); i++) {
+        const id = withErrorButHasKv[i];
+        try {
+          await db.prepare("UPDATE dictamenes SET estado = 'ingested' WHERE id = ?").bind(id).run();
+          await db.prepare("INSERT INTO historial_cambios (dictamen_id, campo_modificado, valor_anterior, valor_nuevo, origen) VALUES (?, ?, ?, ?, ?)")
+            .bind(id, 'estado', 'error_sin_KV_source', 'ingested', 'auditoria_bidireccional_kv_d1').run();
+          fixesExecuted.errorStatusFixed++;
+        } catch (e: any) {
+          fixesExecuted.errors.push(`Status fix error ${id}: ${e.message}`);
+        }
+      }
+
+      // 3. Fix missing in KV (Crawl) (limit to a smaller number to avoid timeouts, e.g. 5)
+      const crawlLimit = Math.min(missingInKv.length, Math.min(fixLimit, 5));
+      for (let i = 0; i < crawlLimit; i++) {
+        const id = missingInKv[i];
+        try {
+          const cgrUrl = c.env.CGR_BASE_URL || 'https://www.contraloria.cl';
+          const searchRes = await fetchDictamenesSearchPage(cgrUrl, 1, [], undefined, id);
+          if (searchRes.items && searchRes.items.length > 0) {
+            const raw = searchRes.items[0];
+            await ingestDictamen(c.env, raw as any, { force: true, origenImportacion: 'worker_manual' });
+            fixesExecuted.missingKvCrawled++;
+          } else {
+             fixesExecuted.errors.push(`Crawl found no results for ${id}`);
+          }
+        } catch (e: any) {
+          fixesExecuted.errors.push(`Crawl fix error ${id}: ${e.message}`);
+        }
+      }
+
+      // 4. Fix missing in D1 (Ingest from KV) (limit e.g. 5)
+      const ingestLimit = Math.min(missingInD1.length, Math.min(fixLimit, 5));
+      for (let i = 0; i < ingestLimit; i++) {
+        const id = missingInD1[i];
+        try {
+           const raw = await kv.get(id, 'json');
+           if (raw) {
+              await ingestDictamen(c.env, raw as any, { force: true, origenImportacion: 'worker_manual' });
+              fixesExecuted.missingD1Ingested++;
+           }
+        } catch (e: any) {
+           fixesExecuted.errors.push(`Missing D1 ingest error ${id}: ${e.message}`);
+        }
+      }
+    }
+
+    return c.json({
+      dryRun: !executeFixes,
+      stats: {
+        totalD1: d1Map.size,
+        totalKV: kvKeys.size + garbageKeys.length,
+        garbageKeys: garbageKeys.length,
+        missingInKv: missingInKv.length,
+        missingInD1: missingInD1.length,
+        withErrorButHasKv: withErrorButHasKv.length
+      },
+      fixesExecuted,
+      samples: {
+        garbage: garbageKeys.slice(0, 10),
+        missingD1: missingInD1.slice(0, 10),
+        missingKv: missingInKv.slice(0, 10),
+        withErrorButHasKv: withErrorButHasKv.slice(0, 10)
+      }
+    });
+  } catch (e: any) {
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
 app.get('/api/v1/stats', async (c) => {
   const db = c.env.DB;
   try {
@@ -552,7 +709,25 @@ app.get('/api/v1/dictamenes', async (c) => {
           }));
 
           if (data.length > 0) {
-            dataToReturn = data.slice(0, limit);
+            const resultIds = data.map(d => d.id);
+            const placeholders = resultIds.map(() => '?').join(',');
+            const rels = await db.prepare(`
+              SELECT dictamen_destino_id as destino_id, 
+                     '[' || GROUP_CONCAT('{"origen_id":"' || dictamen_origen_id || '","tipo_accion":"' || r.tipo_accion || '"}') || ']' as relaciones_json
+              FROM dictamen_relaciones_juridicas r
+              WHERE dictamen_destino_id IN (${placeholders})
+              GROUP BY dictamen_destino_id
+            `).bind(...resultIds).all<any>();
+            
+            const relMap = new Map<string, any[]>();
+            (rels.results || []).forEach(r => {
+              relMap.set(r.destino_id, JSON.parse(r.relaciones_json));
+            });
+
+            dataToReturn = data.map(d => ({
+              ...d,
+              relaciones_causa: relMap.get(d.id) || []
+            })).slice(0, limit);
             totalToReturn = data.length;
           }
         }
@@ -631,26 +806,30 @@ app.get('/api/v1/dictamenes', async (c) => {
         condition += " AND d.criterio = 'Genera Jurisprudencia'";
       }
 
-      const totalRes = await db.prepare(`SELECT COUNT(*) as count FROM dictamenes d ${condition}`).bind(...binds).first<{ count: number }>();
-      totalToReturn = totalRes?.count ?? 0;
+    const totalRes = await db.prepare(`SELECT COUNT(*) as count FROM dictamenes d ${condition}`).bind(...binds).first<{ count: number }>();
+    totalToReturn = totalRes?.count ?? 0;
 
-      const listQuery = `SELECT d.id, d.numero, d.anio, d.fecha_documento, d.materia, d.estado, d.criterio, e.genera_jurisprudencia 
-                         FROM dictamenes d 
-                         LEFT JOIN enriquecimiento e ON d.id = e.dictamen_id 
-                         ${condition} ORDER BY d.fecha_documento DESC LIMIT ? OFFSET ?`;
-      const list = await db.prepare(listQuery).bind(...binds, limit, offset).all<any>();
+    const listQuery = `SELECT d.id, d.numero, d.anio, d.fecha_documento, d.materia, d.estado, d.criterio, e.genera_jurisprudencia,
+                       (SELECT '[' || GROUP_CONCAT('{"origen_id":"' || r.dictamen_origen_id || '","tipo_accion":"' || r.tipo_accion || '"}') || ']'
+                        FROM dictamen_relaciones_juridicas r 
+                        WHERE r.dictamen_destino_id = d.id) as relaciones_json
+                       FROM dictamenes d 
+                       LEFT JOIN enriquecimiento e ON d.id = e.dictamen_id 
+                       ${condition} ORDER BY d.fecha_documento DESC LIMIT ? OFFSET ?`;
+    const list = await db.prepare(listQuery).bind(...binds, limit, offset).all<any>();
 
-      dataToReturn = (list.results ?? []).map((r: any) => ({
-        id: r.id,
-        numero: r.numero || r.id.substring(0, 8),
-        anio: r.anio || (r.fecha_documento ? parseInt(r.fecha_documento.split('-')[0], 10) : new Date().getFullYear()),
-        fecha_documento: r.fecha_documento || '',
-        materia: r.materia || 'Sin materia especificada',
-        resumen: '',
-        origen_busqueda: 'literal',
-        estado: r.estado || null,
-        genera_jurisprudencia: r.criterio === 'Genera Jurisprudencia'
-      }));
+    dataToReturn = (list.results ?? []).map((r: any) => ({
+      id: r.id,
+      numero: r.numero || r.id.substring(0, 8),
+      anio: r.anio || (r.fecha_documento ? parseInt(r.fecha_documento.split('-')[0], 10) : new Date().getFullYear()),
+      fecha_documento: r.fecha_documento || '',
+      materia: r.materia || 'Sin materia especificada',
+      resumen: '',
+      origen_busqueda: 'literal',
+      estado: r.estado || null,
+      genera_jurisprudencia: r.criterio === 'Genera Jurisprudencia',
+      relaciones_causa: r.relaciones_json ? JSON.parse(r.relaciones_json) : []
+    }));
     }
 
     return c.json({
@@ -1053,6 +1232,9 @@ app.post('/api/v1/dictamenes/:id/re-process', async (c) => {
       await insertDictamenFuenteLegal(db, id, source);
     }
 
+    // RETRO-UPDATES: Propagar cambios a dictámenes históricos
+    await applyRetroUpdates(c.env, id, enrichment.acciones_juridicas_emitidas);
+
     await updateDictamenStatus(db, id, 'enriched', 'MANUAL_UPDATE', {
       detail: 'Re-proceso integral (Ingest + Mistral) desde API',
       model: c.env.MISTRAL_MODEL
@@ -1101,6 +1283,7 @@ app.post('/api/v1/dictamenes/:id/re-process', async (c) => {
       arreglo_booleanos: enrichment.booleanos,
       detalle_fuentes: enrichment.fuentes_legales,
       extrae_jurisprudencia: enrichment.extrae_jurisprudencia,
+      acciones_juridicas_emitidas: enrichment.acciones_juridicas_emitidas,
       modelo_llm: c.env.MISTRAL_MODEL,
       descriptores: sourceContent.descriptores ? String(sourceContent.descriptores).split(/[,;\n]/).map((s: string) => s.trim()).filter((s: string) => s.length > 2) : [],
       referencias: [],

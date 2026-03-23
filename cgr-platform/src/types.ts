@@ -102,7 +102,9 @@ export type DictamenEventType =
   | 'MANUAL_UPDATE'
   | 'SYSTEM_ERROR'
   | 'KV_SOURCE_MISSING'
-  | 'AI_QUOTA_EXCEEDED';
+  | 'AI_QUOTA_EXCEEDED'
+  | 'RETRO_UPDATE_APPLIED'
+  | 'RELATION_BACKFILL_SUCCESS';
 
 // Fila de la nueva tabla dictamen_events.
 export interface DictamenEventRow {
@@ -113,6 +115,12 @@ export interface DictamenEventRow {
   status_to: string | null;
   metadata: string | null; // JSON string
   created_at: string;
+}
+
+export interface AccionJuridicaEmitida {
+  accion: 'aclarado' | 'alterado' | 'complementado' | 'confirmado' | 'reactivado' | 'reconsiderado' | 'reconsiderado_parcialmente';
+  numero_destino: string;
+  anio_destino: string;
 }
 
 

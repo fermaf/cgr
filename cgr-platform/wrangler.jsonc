@@ -69,7 +69,7 @@
     "PINECONE_INDEX_HOST": "https://cgr-8aea039.svc.aped-4627-b74a.pinecone.io",
     "PINECONE_NAMESPACE": "mistralLarge2512",
     "LOG_LEVEL": "debug",
-    "CRAWL_DAYS_LOOKBACK": "3",
+    "CRAWL_DAYS_LOOKBACK": "30",
     "BACKFILL_BATCH_SIZE": "50",
     "BACKFILL_DELAY_MS": "500",
     "ANALYTICS_CACHE_TTL_SECONDS": "900",
@@ -87,7 +87,7 @@
         "PINECONE_INDEX_HOST": "https://cgr-8aea039.svc.aped-4627-b74a.pinecone.io",
         "PINECONE_NAMESPACE": "mistralLarge2512",
         "LOG_LEVEL": "debug",
-        "CRAWL_DAYS_LOOKBACK": "3",
+        "CRAWL_DAYS_LOOKBACK": "30",
         "BACKFILL_BATCH_SIZE": "50",
         "BACKFILL_DELAY_MS": "500",
         "ANALYTICS_CACHE_TTL_SECONDS": "900",
@@ -139,7 +139,7 @@
         "PINECONE_INDEX_HOST": "https://cgr-8aea039.svc.aped-4627-b74a.pinecone.io",
         "PINECONE_NAMESPACE": "mistralLarge2512",
         "LOG_LEVEL": "debug",
-        "CRAWL_DAYS_LOOKBACK": "3",
+        "CRAWL_DAYS_LOOKBACK": "30",
         "BACKFILL_BATCH_SIZE": "50",
         "BACKFILL_DELAY_MS": "500",
         "ANALYTICS_CACHE_TTL_SECONDS": "900",
@@ -199,7 +199,7 @@
   },
   "triggers": {
     "crons": [
-      "05 3 * * *"
+      "11 0,8,16 * * *"
     ]
   }
 }

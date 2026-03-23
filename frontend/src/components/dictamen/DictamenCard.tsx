@@ -1,6 +1,6 @@
-import { FileText, Calendar, Building2, Download, Share2, Sparkles, FileStack } from "lucide-react";
+import { FileText, Calendar, Building2, Download, Share2, Sparkles, FileStack, Info } from "lucide-react";
 import { Link } from "react-router-dom";
-import type { DictamenMeta } from "../../types";
+import type { DictamenMeta, RelacionCausa } from "../../types";
 import { formatRobustDate } from "../../lib/date";
 
 interface DictamenCardProps {
@@ -69,6 +69,20 @@ export function DictamenCard({ dictamen }: DictamenCardProps) {
                             <div className="flex items-center gap-2 group-hover:text-cgr-navy transition-colors font-medium">
                                 <Building2 className="w-4 h-4 text-slate-400 group-hover:text-cgr-navy" />
                                 <span className="line-clamp-1 max-w-[150px]">{dictamen.division_nombre}</span>
+                            </div>
+                        )}
+                        
+                        {/* Indicadores de Relaciones Jurídicas (Retro-Update) */}
+                        {dictamen.relaciones_causa && dictamen.relaciones_causa.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-1 sm:mt-0">
+                                {dictamen.relaciones_causa.map((rel, idx) => (
+                                    <div key={idx} className="flex items-center gap-1 px-2 py-0.5 bg-amber-50 border border-amber-200 rounded text-[10px] font-bold text-amber-700 uppercase tracking-tight shadow-sm hover:bg-amber-100 transition-colors">
+                                        <Info className="w-3 h-3" />
+                                        <span>{rel.tipo_accion}</span>
+                                        <span className="text-amber-500 opacity-60">|</span>
+                                        <span className="font-mono text-[9px]">{rel.origen_id}</span>
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </div>

@@ -14,6 +14,7 @@ import {
     insertDictamenFuenteLegal
 } from '../storage/d1';
 import { logInfo, logError, setLogLevel } from '../lib/log';
+import { applyRetroUpdates } from '../lib/relations';
 import { persistIncident } from '../storage/incident_d1';
 import { countTokens, MAX_MISTRAL_TOKENS, MAX_PINECONE_TOKENS } from '../lib/tokenizer';
 
@@ -126,6 +127,7 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
                                         arreglo_booleanos: enrichment.booleanos,
                                         detalle_fuentes: enrichment.fuentes_legales,
                                         extrae_jurisprudencia: enrichment.extrae_jurisprudencia,
+                                        acciones_juridicas_emitidas: enrichment.acciones_juridicas_emitidas,
                                         modelo_llm: mistralModel,
                                         creado_en: now,
                                         procesado: true
@@ -162,6 +164,9 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
                                     for (const source of enrichment.fuentes_legales) {
                                         await insertDictamenFuenteLegal(db, id, source);
                                     }
+
+                                    // 2.2.5 RETRO-UPDATES: Propagar cambios a dictámenes históricos
+                                    await applyRetroUpdates(env, id, enrichment.acciones_juridicas_emitidas);
                                 }
                             } else {
                                 console.log(`[Backfill] Recuperado enriquecimiento previo para ${id} (${mistralModel}). Saltando Mistral AI y continuando hacia Pinecone...`);

@@ -187,11 +187,11 @@ async function getOrInsertDivisionId(db: D1Database, origenes: unknown): Promise
   const finalName = nombreDeducido || `División No Identificada: ${sigla}`;
 
   // Consultar a la base de datos si la división ya fue ingresada
-  const row = await db.prepare('SELECT id FROM cat_divisiones WHERE codigo = ?').bind(sigla).first<{ id: number; nombre_completo: string }>();
+  const row = await db.prepare('SELECT id, nombre_completo FROM cat_divisiones WHERE codigo = ?').bind(sigla).first<{ id: number; nombre_completo: string }>();
 
   if (row) {
     // Si el nombre es genérico/feo ("Nueva División..."), intentar actualizarlo con el nuevo valor más preciso
-    if (row.nombre_completo.includes('Nueva División Autogenerada') && nombreDeducido) {
+    if (row.nombre_completo && row.nombre_completo.includes('Nueva División Autogenerada') && nombreDeducido) {
         await db.prepare('UPDATE cat_divisiones SET nombre_completo = ? WHERE id = ?').bind(finalName, row.id).run();
     }
     return row.id;
@@ -329,7 +329,10 @@ async function listDictamenes(
   const whereClause = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   const sql = `SELECT d.id, d.numero, d.anio, d.fecha_documento, d.materia, d.criterio,
                       d.destinatarios, d.estado, d.created_at, d.updated_at,
-                      e.titulo, e.resumen
+                      e.titulo, e.resumen,
+                      (SELECT '[' || GROUP_CONCAT('{"origen_id":"' || r.dictamen_origen_id || '","tipo_accion":"' || r.tipo_accion || '"}') || ']'
+                       FROM dictamen_relaciones_juridicas r 
+                       WHERE r.dictamen_destino_id = d.id) as relaciones_json
                FROM dictamenes d
                LEFT JOIN enriquecimiento e ON e.dictamen_id = d.id
                ${whereClause}
@@ -582,6 +585,16 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+async function getDictamenRelacionesJuridicas(db: D1Database, dictamenId: string): Promise<any[]> {
+  const res = await db.prepare(`
+    SELECT r.dictamen_origen_id as origen_id, r.tipo_accion, r.created_at
+    FROM dictamen_relaciones_juridicas r
+    WHERE r.dictamen_destino_id = ?
+    ORDER BY r.created_at DESC
+  `).bind(dictamenId).all<any>();
+  return res.results || [];
+}
+
 async function getMigrationStats(db: D1Database): Promise<Record<string, number>> {
   const stats = await db.prepare(`
     SELECT 
@@ -649,6 +662,67 @@ async function getRecentMigrationEvents(db: D1Database): Promise<Array<any>> {
   ).slice(0, 30);
 }
 
+// ─── Relaciones Jurídicas ─────────────────────────────────────────────
+
+async function findDictamenIdByNumeroAnio(db: D1Database, numero: string, anio: number | string): Promise<string | null> {
+  // Búsqueda robusta: el número puede venir con ceros o puntos, usamos LIKE para flexibilidad
+  const numClean = numero.replace(/\\./g, '').replace(/^0+/, '');
+  const row = await db.prepare(
+    "SELECT id FROM dictamenes WHERE anio = ? AND (numero = ? OR numero LIKE ? OR numero LIKE ?) LIMIT 1"
+  ).bind(
+    Number(anio),
+    numero,
+    `%${numClean}%`,
+    `%${numero}%`
+  ).first<{ id: string }>();
+  return row?.id ?? null;
+}
+
+async function insertDictamenRelacionJuridica(
+  db: D1Database,
+  params: {
+    origen_id: string;
+    destino_id: string;
+    tipo_accion: string;
+    origen_extracccion?: string;
+  }
+): Promise<void> {
+  await db.prepare(
+    `INSERT OR IGNORE INTO dictamen_relaciones_juridicas 
+     (dictamen_origen_id, dictamen_destino_id, tipo_accion, origen_extracccion)
+     VALUES (?, ?, ?, ?)`
+  ).bind(
+    params.origen_id,
+    params.destino_id,
+    params.tipo_accion,
+    params.origen_extracccion ?? 'ai_mistral'
+  ).run();
+}
+
+async function insertDictamenRelacionHuerfana(
+  db: D1Database,
+  dictamenId: string,
+  flag: string
+): Promise<void> {
+  await db.prepare(
+    `INSERT OR IGNORE INTO dictamen_relaciones_huerfanas (dictamen_id, flag_huerfano)
+     VALUES (?, ?)`
+  ).bind(dictamenId, flag).run();
+}
+
+async function updateEnrichmentBooleanos(
+  db: D1Database,
+  dictamenId: string,
+  flag: string,
+  value: boolean
+): Promise<void> {
+  await db.prepare(
+    `UPDATE enriquecimiento 
+     SET booleanos_json = json_set(COALESCE(booleanos_json, '{}'), '$.' || ?, json(?))
+     WHERE dictamen_id = ?`
+  ).bind(flag, value ? 'true' : 'false', dictamenId).run();
+}
+
 // ─── Exports ─────────────────────────────────────────────────────────
 
 export {
@@ -680,5 +754,10 @@ export {
   insertDictamenReferencia,
   insertDictamenEtiquetaLLM,
   insertDictamenFuenteLegal,
-  getOrInsertDivisionId
+  getOrInsertDivisionId,
+  findDictamenIdByNumeroAnio,
+  insertDictamenRelacionJuridica,
+  insertDictamenRelacionHuerfana,
+  updateEnrichmentBooleanos,
+  getDictamenRelacionesJuridicas
 };

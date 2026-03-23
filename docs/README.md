@@ -26,6 +26,7 @@ Bienvenido al centro de conocimiento de **CGR-Platform**. Esta documentación ha
 - **[03 - Estrategia de Inferencia AI (Mistral)](explicacion/03_analisis_mistral_y_prompts.md)**: Por qué el Mega-Prompt Consolidado V5 triunfa sobre el enfoque secuencial en Edge. Relación con Metadata V2 Pinecone.
 - **[04 - Gobernanza y Estratigrafía de Datos](explicacion/04_gobernanza_y_estrategia.md)**: El modelo de capas (Bronce->Paso), y los algoritmos LIFO y normalización de IDs de CGR.
 - **[05 - Roadmap Estratégico (2026-2027)](explicacion/05_roadmap_estrategico.md)**: Extensión conceptual hacia un "Buscador Analítico" y un Worker Predictivo de Compliance.
+- **[06 - Arquitectura de Relaciones Jurídicas (Retro-Update)](explicacion/06_arquitectura_relaciones_juridicas.md)**: El Dependency Graph que sincroniza el ecosistema D1/KV/Pinecone.
 
 ### 📖 [Referencia](referencia/)
 - **[01 - Referencia de API Completa](referencia/01_referencia_api_completa.md)**: Detalle técnico de todos los endpoints, parámetros y comandos CURL didácticos (Base y Avanzados).

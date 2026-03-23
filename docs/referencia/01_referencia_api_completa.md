@@ -76,6 +76,21 @@ Para garantizar una interfaz limpia ("El Librero"), el orquestador aplica una li
 | `materia` | `null` | Coincidencia parcial (`LIKE`) de la materia principal del dictamen. Se alimenta del autocompletado en el frontend. |
 | `division` | `null` | Filtrado estricto por la división jurídica o área responsable de la CGR. |
 | `tags` | `null` | Búsqueda por etiquetas inteligentes inyectadas vía motor de enriquecimiento LLM. |
+| `relaciones_causa` | `[]` | **Nuevo (Retro-Update)**: Array inyectado con los dictámenes que originaron el estado actual (ej: quién lo complementó). |
+
+#### Ejemplo Respuesta (Fragmento)
+```json
+{
+  "id": "E85862N25",
+  "materia": "...",
+  "relaciones_causa": [
+    {
+      "origen_id": "008890N20",
+      "tipo_accion": "complementado"
+    }
+  ]
+}
+```
 
 #### Ejemplo CURL
 ```bash
@@ -95,7 +110,7 @@ En los sistemas transaccionales legacy de Contraloría, existen incontables regi
 Genera el *"Grafo de Linaje Doctrinal"*. Evalúa la tabla de aristas `dictamen_referencias`.
 
 #### Argumentación de Diseño
-En lugar de extraer solo "a quién cita este dictamen", este endpoint extrae en modo bidireccional (quién me cita + a quién cito). Esto te permite construir árboles de precedencia jurídica para validar si la doctrina de un dictamen viejo ha sido revocada hoy.
+En lugar de extraer solo "a quién cita este dictamen", este endpoint extrae en modo bidireccional (quién me cita + a quién cito). Esto te permite construir árboles de precedencia jurídica para validar si la doctrina de un dictamen viejo ha sido revocada hoy. Incluye la metadata de `relacion_juridica_causa` mapeada desde el Dependency Graph.
 
 ---
 

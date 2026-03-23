@@ -74,6 +74,13 @@ function buildPromptConsolidado(raw: DictamenRaw) {
     "- year: 4 dígitos (ej. 91 -> 1991).",
     "- sector, articulo, extra: según aparezca (o null).",
     "",
+    "### 4. Acciones Jurídicas Emitidas (RETRO-UPDATE)",
+    "Si este dictamen altera, aclara, complementa, confirma, reactiva, o reconsidera (total o parcialmente) la jurisprudencia de uno o varios dictámenes emitidos EN EL PASADO, debes extraer:",
+    "- accion: 'aclarado', 'alterado', 'complementado', 'confirmado', 'reactivado', 'reconsiderado', 'reconsiderado_parcialmente'.",
+    "- numero_destino: El número del dictamen modificado (sin 'N°', ej: 7640).",
+    "- anio_destino: El año de emisión del dictamen modificado (ej: 2007).",
+    "Si no modifica a ningún dictamen específico anterior, retorna el array vacío [].",
+    "",
     "### Políticas de Estilo (Obligatorias):",
     "- Impersonalidad total: \"Se establece\", \"Se concluye\". NUNCA \"el dictamen señala\".",
     "- NUNCA menciones \"de Chile\" o \"chilenas\".",
@@ -110,6 +117,13 @@ function buildPromptConsolidado(raw: DictamenRaw) {
     '      "sector": null,',
     '      "articulo": null,',
     '      "extra": null',
+    "    }",
+    "  ],",
+    '  "acciones_juridicas_emitidas": [',
+    "    {",
+    '      "accion": "",',
+    '      "numero_destino": "",',
+    '      "anio_destino": ""',
     "    }",
     "  ]",
     "}",
@@ -219,7 +233,8 @@ async function analyzeDictamen(env: Env, raw: DictamenRaw): Promise<{ result: an
           extrae_jurisprudencia,
           genera_jurisprudencia: typeof parsed.genera_jurisprudencia === "boolean" ? parsed.genera_jurisprudencia : parsed.genera_jurisprudencia === void 0 ? void 0 : normalizeBoolean(parsed.genera_jurisprudencia),
           booleanos,
-          fuentes_legales: fuentes ?? []
+          fuentes_legales: fuentes ?? [],
+          acciones_juridicas_emitidas: Array.isArray(parsed.acciones_juridicas_emitidas) ? parsed.acciones_juridicas_emitidas : []
         }
       };
     } catch (error: any) {

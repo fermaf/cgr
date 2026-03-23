@@ -14,6 +14,12 @@ export interface Descriptor {
     termino: string;
 }
 
+export interface RelacionCausa {
+    origen_id: string;
+    tipo_accion: string;
+    created_at?: string;
+}
+
 export interface DictamenMeta {
     id: string;
     numero: string | null;
@@ -27,6 +33,7 @@ export interface DictamenMeta {
     estado?: 'ingested' | 'enriched' | 'vectorized' | 'error' | null;
     origen_busqueda?: 'vectorial' | 'literal';
     genera_jurisprudencia?: boolean;
+    relaciones_causa?: RelacionCausa[];
 }
 
 export interface DictamenDetail extends DictamenMeta {

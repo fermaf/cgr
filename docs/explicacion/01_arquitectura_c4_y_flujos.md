@@ -85,6 +85,12 @@ sequenceDiagram
             else Fallo AI/Longitud/Quota
                 W->>D: Update Status (error_longitud / error_ai / error_quota)
             end
+
+            opt Retro-Update (Impacto Histórico)
+                W->>D: Propagate Flags (Atributos Jurídicos Destino)
+                W->>KV: Update Source Destino (JSON Sync)
+                W->>D: Log Relation (dictamen_relaciones_juridicas)
+            end
         end
         W->>KV: Store Processed JSON (PASO)
     end
@@ -106,6 +112,7 @@ Para optimizar costos y latencia, el sistema utiliza un **Prompt Consolidado**. 
 2.  **Análisis de Jurisprudencia** (si genera o no jurisprudencia).
 3.  **Atributos Booleanos** (ej: si afecta a funcionarios, si es de carácter general).
 4.  **Fuentes Legales** (Leyes, Decretos, etc.).
+5.  **Acciones Jurídicas Emitidas (Retro-Update)**: Identificación de dictámenes antiguos que son modificados por el nuevo documento.
 
 ### 4.3 Pinecone Integrated Inference
 Se utiliza el modelo **Serverless** de Pinecone con inferencia integrada:

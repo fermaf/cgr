@@ -97,6 +97,9 @@ export class IngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> {
         // Unificamos fetch+ingesta en el mismo step para evitar serializar payloads grandes entre steps.
         const pageResult = await step.do(`process-page-${currentPage}`, async () => {
           try {
+            if (currentPage > 0) {
+              await new Promise(r => setTimeout(r, 2000)); // Delay de 2 segundos para no saturar a CGR
+            }
             logDebug('INGEST_PAGE_START', { instanceId: event.instanceId ?? 'n/a', page: currentPage });
 
             const result = await fetchDictamenesSearchPage(

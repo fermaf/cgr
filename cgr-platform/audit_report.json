@@ -1,0 +1,29 @@
+{
+  "dryRun": false,
+  "stats": {
+    "totalD1": 86287,
+    "totalKV": 86294,
+    "garbageKeys": 7,
+    "missingInKv": 0,
+    "missingInD1": 0,
+    "withErrorButHasKv": 74433
+  },
+  "samples": {
+    "garbage": [
+      "dictamen:E122873N25",
+      "dictamen:E123071N25",
+      "dictamen:E129274N25",
+      "dictamen:E195880N25",
+      "dictamen:E195929N25"
+    ],
+    "missingD1": [],
+    "missingKv": [],
+    "withErrorButHasKv": [
+      "037181N81",
+      "041455N69",
+      "004512N68",
+      "068215N76",
+      "010589N78"
+    ]
+  }
+}
