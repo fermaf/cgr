@@ -68,10 +68,10 @@ export function Sidebar() {
                         <div className="flex flex-col gap-1.5">
                             <span className="text-[12px] font-mono text-white flex items-center gap-2 font-bold uppercase tracking-wider">
                                 <div className="w-1.5 h-1.5 bg-cgr-gold rounded-full shadow-[0_0_8px_rgba(234,179,8,0.5)]" />
-                                v1.2.4
+                                v2.1.0
                             </span>
                             <span className="text-[11px] font-semibold text-blue-100/80 leading-tight">
-                                Build: 2026-03-20 13:30
+                                Build: 2026-03-23 15:05
                             </span>
                         </div>
                     </div>
