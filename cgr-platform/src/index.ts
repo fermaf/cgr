@@ -849,15 +849,15 @@ app.get('/api/v1/analytics/suggest/materia', async (c) => {
   const db = c.env.DB;
   try {
     const res = await db.prepare(
-      `SELECT DISTINCT termino as materia 
+      `SELECT DISTINCT termino
        FROM cat_descriptores 
        WHERE LOWER(termino) LIKE LOWER(?) 
-       ORDER BY materia ASC
+       ORDER BY 1 ASC
        LIMIT 10`
     ).bind(`%${query}%`).all<any>();
 
     return c.json({
-      suggestions: (res.results ?? []).map((r: any) => r.materia)
+      suggestions: (res.results ?? []).map((r: any) => r.termino)
     });
   } catch (e: any) {
     return c.json({ error: errorMessage(e) }, 500);
@@ -896,7 +896,11 @@ app.get('/api/v1/analytics/suggest/tags', async (c) => {
       }
     });
 
-    return c.json({ suggestions: Array.from(allTags).slice(0, 10) });
+    const finalSuggestions = Array.from(allTags)
+      .sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }))
+      .slice(0, 10);
+
+    return c.json({ suggestions: finalSuggestions });
   } catch (e: any) {
     return c.json({ error: errorMessage(e) }, 500);
   }

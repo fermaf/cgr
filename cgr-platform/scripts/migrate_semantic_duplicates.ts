@@ -197,9 +197,17 @@ function runGenerate() {
     sqlMigration += `DELETE FROM dictamen_etiquetas_llm WHERE id NOT IN (SELECT MIN(id) FROM dictamen_etiquetas_llm GROUP BY dictamen_id, etiqueta);\n`;
 
     fs.writeFileSync('/tmp/reporte_auditoria_similitudes.md', reporteMD);
-    fs.writeFileSync('/tmp/migration_script.sql', sqlMigration);
+    
+    // Split SQL into chunks of 5000 queries
+    const sqlLines = sqlMigration.split(';\n');
+    const CHUNK_SIZE = 5000;
+    for (let i = 0; i < sqlLines.length; i += CHUNK_SIZE) {
+        const chunk = sqlLines.slice(i, i + CHUNK_SIZE).join(';\n') + ';';
+        const chunkIndex = Math.floor(i / CHUNK_SIZE);
+        fs.writeFileSync(`/tmp/migration_chunk_${chunkIndex}.sql`, chunk);
+    }
 
-    console.log(`Generated report and SQL with ${descUpdates} descriptor operations and ${etiqUpdates} etiqueta operations.`);
+    console.log(`Generated report and ${Math.ceil(sqlLines.length / CHUNK_SIZE)} SQL chunks.`);
 }
 
 runGenerate();
