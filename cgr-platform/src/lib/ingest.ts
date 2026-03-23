@@ -119,6 +119,11 @@ function isMissingColumnError(error: unknown) {
   return message.includes('has no column named') || message.includes('no such column');
 }
 
+import {
+  findSemanticMatch,
+  normalizeDisplay
+} from './stringMatch';
+
 async function upsertCatalogAndLink(
   db: D1Database,
   dictamenId: string,
@@ -131,18 +136,18 @@ async function upsertCatalogAndLink(
     candidateTermColumns: string[];
   }
 ): Promise<void> {
-  const termNorm =
-    options.normalizerSqlFn === 'LOWER'
-      ? term.toLowerCase()
-      : options.normalizerSqlFn === 'UPPER'
-        ? term.toUpperCase()
-        : term;
+  const displayTerm = normalizeDisplay(term);
 
   for (const termColumn of options.candidateTermColumns) {
     try {
+      // 1. Detección semántica (prevención de huérfanos/duplicados)
+      const existingMatch = await findSemanticMatch(db, options.catalogTable, termColumn, displayTerm);
+      const insertTerm = existingMatch ?? displayTerm;
+
+      // 2. Inserción canónica segura
       await db
         .prepare(`INSERT OR IGNORE INTO ${options.catalogTable} (${termColumn}) VALUES (?)`)
-        .bind(termNorm)
+        .bind(insertTerm)
         .run();
 
       await db
@@ -150,7 +155,7 @@ async function upsertCatalogAndLink(
           `INSERT OR IGNORE INTO ${options.relationTable} (dictamen_id, ${options.relationForeignIdColumn})
            SELECT ?, id FROM ${options.catalogTable} WHERE ${termColumn} = ?`
         )
-        .bind(dictamenId, termNorm)
+        .bind(dictamenId, insertTerm)
         .run();
 
       return;

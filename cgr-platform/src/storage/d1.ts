@@ -455,10 +455,16 @@ async function updateEnrichmentFuentes(db: D1Database, dictamenId: string, fuent
 
 // ─── Tablas M:N (etiquetas, booleanos, fuentes, referencias) ─────────
 
+import { findSemanticMatch, normalizeDisplay } from '../lib/stringMatch';
+
 async function insertDictamenEtiquetaLLM(db: D1Database, dictamenId: string, etiqueta: string): Promise<void> {
+  const displayTerm = normalizeDisplay(etiqueta);
+  const existingMatch = await findSemanticMatch(db, 'dictamen_etiquetas_llm', 'etiqueta', displayTerm);
+  const insertTerm = existingMatch ?? displayTerm;
+
   await db.prepare(
     `INSERT INTO dictamen_etiquetas_llm (dictamen_id, etiqueta) VALUES (?, ?)`
-  ).bind(dictamenId, etiqueta).run();
+  ).bind(dictamenId, insertTerm).run();
 }
 
 async function insertDictamenFuenteLegal(db: D1Database, dictamenId: string, fuente: any): Promise<void> {
