@@ -63,6 +63,10 @@ export async function findSemanticMatch(
         const lenDiff = Math.abs(candidateBase.length - base.length);
         if (lenDiff > 3) continue;
 
+        // Validar que no difieran en su contenido numérico (ej: "Ley 20212" vs "Ley 20282")
+        const extractNums = (s: string) => s.replace(/\D/g, '');
+        if (extractNums(base) !== extractNums(candidateBase)) continue;
+
         const dist = levenshtein(base, candidateBase);
         
         let maxDist = 1;

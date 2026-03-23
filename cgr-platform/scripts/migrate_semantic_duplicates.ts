@@ -77,6 +77,9 @@ function processItems(items: Array<{id?: number, value: string}>) {
             let maxDist = 1;
             if (base.length > 10) maxDist = 2;
 
+            const extractNums = (s: string) => s.replace(/\D/g, '');
+            if (extractNums(base) !== extractNums(target)) continue;
+
             if (dist <= maxDist) {
                 union(base, target);
             }
