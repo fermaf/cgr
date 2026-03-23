@@ -1,6 +1,6 @@
 import { FileText, Calendar, Building2, Download, Share2, Sparkles, FileStack, Info } from "lucide-react";
 import { Link } from "react-router-dom";
-import type { DictamenMeta, RelacionCausa } from "../../types";
+import type { DictamenMeta } from "../../types";
 import { formatRobustDate } from "../../lib/date";
 
 interface DictamenCardProps {

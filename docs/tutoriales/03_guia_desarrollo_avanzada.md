@@ -53,3 +53,9 @@ Para no repetir los errores del pasado, la plataforma registra incidentes operac
 - **Causa**: El parser usaba un `.split(',')` rudimentario.
 - **Saneamiento Realizado**: Se reescribió la heurística de limpieza (ver Gobernanza y Estratigrafía) con una expresión regular multicaso (`/[\s,;\n]+/`) y un Regex validador purista (`/^[A-Z]{2,5}$/`). Se mandó a re-ingerir a más de 37 sentencias masivas para corregir el daño.
 - **Lección**: Cualquier lógica de extracción de Metadata que afecte tablas distintas a la central (`dictamenes`) debe escribirse asumiendo el ingreso de "cadenas hostiles".
+
+### Incidente D: Retro-Update y Relaciones Jurídicas (Huérfanos)
+- **Síntoma**: Dictámenes marcados como `complementado` o `reconsiderado` sin un origen claro en la base de datos (Nodos Huérfanos).
+- **Causa**: Migración pasiva de flags desde sistemas legacy sin reconstruir el grafo de dependencias.
+- **Saneamiento Realizado**: Implementación de la arquitectura de *Retro-Update* (Fase 13) que sincroniza en cascada D1, KV y Pinecone ante cada nueva detección de Mistral.
+- **Lección**: Las relaciones jurídicas no son estados estáticos, sino aristas dinámicas. Todo proceso de enriquecimiento debe evaluar el impacto retrospectivo sobre el Datalake para evitar la fragmentación del conocimiento legal.
