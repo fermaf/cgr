@@ -925,6 +925,9 @@ app.get('/api/v1/dictamenes/:id', async (c) => {
       raw = rawJson || {};
     }
 
+    const relsIn = await db.prepare("SELECT dictamen_origen_id as origen_id, tipo_accion FROM dictamen_relaciones_juridicas WHERE dictamen_destino_id = ? ORDER BY rowid DESC LIMIT 100").bind(id).all<any>();
+    const relsOut = await db.prepare("SELECT dictamen_destino_id as destino_id, tipo_accion FROM dictamen_relaciones_juridicas WHERE dictamen_origen_id = ? ORDER BY rowid DESC LIMIT 100").bind(id).all<any>();
+
     return c.json({
       meta: {
         id: doc.id,
@@ -934,6 +937,8 @@ app.get('/api/v1/dictamenes/:id', async (c) => {
         materia: doc.materia || 'Sin materia',
         estado: doc.estado,
         division_nombre: 'Contraloría General de la República',
+        relaciones_causa: relsIn.results || [],
+        relaciones_efecto: relsOut.results || []
       },
       raw: raw,
       extrae_jurisprudencia: enrichment ? {

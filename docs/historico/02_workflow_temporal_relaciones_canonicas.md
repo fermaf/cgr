@@ -151,6 +151,13 @@ Ademas, contrastar algunos casos contra `DICTAMENES_SOURCE` y verificar:
 - si el `destino_id` corresponde al dictamen citado
 - si las huerfanas responden a referencias irresolubles o a fallas de matching por `numero/anio`
 
+## Visibilidad en Frontend
+
+Desde este avance, la revision ya no depende solo de D1 o de logs:
+
+- `GET /api/v1/dictamenes/:id` devuelve `relaciones_causa` y `relaciones_efecto` en `meta`.
+- `frontend/src/pages/DictamenDetail.tsx` renderiza un panel de relaciones canonicas entrantes y salientes.
+- Esto permite revisar el progreso del backfill directamente desde la UI del dictamen.
 ## Siguiente paso recomendado
 
 Antes de usar Mistral, cerrar esta secuencia:

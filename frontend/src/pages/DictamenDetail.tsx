@@ -214,6 +214,8 @@ export function DictamenDetail() {
     };
 
     const textoIntegro = extractText(raw);
+    const relacionesCausa = meta.relaciones_causa || [];
+    const relacionesEfecto = meta.relaciones_efecto || [];
 
     return (
         <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700 relative z-10 pb-20">
@@ -345,6 +347,56 @@ export function DictamenDetail() {
                 </article>
 
                 <aside className="lg:col-span-1 space-y-6 order-1 lg:order-2">
+                    {(relacionesCausa.length > 0 || relacionesEfecto.length > 0) && (
+                        <div className="bg-white p-7 rounded-2xl border border-slate-200 shadow-sm space-y-5">
+                            <div>
+                                <h3 className="font-bold text-slate-400 text-[10px] uppercase tracking-widest">Relaciones Canónicas</h3>
+                                <p className="mt-2 text-sm text-slate-500 font-sans">Relaciones jurídicas materializadas desde evidencia productiva.</p>
+                            </div>
+
+                            {relacionesCausa.length > 0 && (
+                                <div className="space-y-3">
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-cgr-navy">Lo afectan</h4>
+                                    <div className="space-y-2">
+                                        {relacionesCausa.map((rel, idx) => (
+                                            <Link
+                                                key={`${rel.origen_id}-${rel.tipo_accion}-${idx}`}
+                                                to={`/dictamen/${rel.origen_id}`}
+                                                className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 hover:border-cgr-blue hover:bg-white transition-all"
+                                            >
+                                                <div>
+                                                    <div className="font-mono text-sm font-bold text-cgr-navy">{rel.origen_id}</div>
+                                                    <div className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">{rel.tipo_accion}</div>
+                                                </div>
+                                                <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Origen</span>
+                                            </Link>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {relacionesEfecto.length > 0 && (
+                                <div className="space-y-3">
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-cgr-navy">A quienes afecta</h4>
+                                    <div className="space-y-2">
+                                        {relacionesEfecto.map((rel, idx) => (
+                                            <Link
+                                                key={`${rel.destino_id}-${rel.tipo_accion}-${idx}`}
+                                                to={`/dictamen/${rel.destino_id}`}
+                                                className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 hover:border-cgr-blue hover:bg-white transition-all"
+                                            >
+                                                <div>
+                                                    <div className="font-mono text-sm font-bold text-cgr-navy">{rel.destino_id}</div>
+                                                    <div className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">{rel.tipo_accion}</div>
+                                                </div>
+                                                <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Destino</span>
+                                            </Link>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                     {extrae_jurisprudencia?.resumen && (
                         <div className="bg-cgr-navy rounded-2xl p-7 border border-cgr-navy shadow-premium relative overflow-hidden group">
                             <h3 className="font-bold text-white flex items-center gap-3 mb-5 relative z-10 uppercase tracking-wide text-sm font-sans">
