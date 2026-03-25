@@ -27,6 +27,7 @@ Bienvenido al centro de conocimiento de **CGR-Platform**. Esta documentación ha
 - **[04 - Gobernanza y Estratigrafía de Datos](explicacion/04_gobernanza_y_estrategia.md)**: El modelo de capas (Bronce->Paso), y los algoritmos LIFO y normalización de IDs de CGR.
 - **[05 - Roadmap Estratégico (2026-2027)](explicacion/05_roadmap_estrategico.md)**: Extensión conceptual hacia un "Buscador Analítico" y un Worker Predictivo de Compliance.
 - **[06 - Arquitectura de Relaciones Jurídicas (Retro-Update)](explicacion/06_arquitectura_relaciones_juridicas.md)**: El Dependency Graph que sincroniza el ecosistema D1/KV/Pinecone.
+- **[07 - Modelo Canónico de Relaciones entre Dictámenes](explicacion/07_modelo_canonico_relaciones_dictamenes.md)**: Propuesta evidence-first para separar evidencia, afirmaciones y proyecciones doctrinales.
 
 ### 📖 [Referencia](referencia/)
 - **[01 - Referencia de API Completa](referencia/01_referencia_api_completa.md)**: Detalle técnico de todos los endpoints, parámetros y comandos CURL didácticos (Base y Avanzados).
