@@ -52,6 +52,8 @@ export interface DictamenSource {
   destinatarios?: unknown;
   genera_jurisprudencia?: unknown;
   fuentes_legales?: unknown;
+  is_accion?: unknown;
+  'acción'?: unknown;
   accion?: unknown;
 }
 
@@ -131,6 +133,7 @@ export interface Env {
   WORKFLOW: Workflow;
   BACKFILL_WORKFLOW: Workflow;
   KV_SYNC_WORKFLOW: Workflow;
+  CANONICAL_RELATIONS_WORKFLOW: Workflow;
   DB: D1Database;
   DICTAMENES_SOURCE: KVNamespace;
   DICTAMENES_PASO: KVNamespace;

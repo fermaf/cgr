@@ -25,6 +25,11 @@
       "name": "kv-sync-workflow",
       "binding": "KV_SYNC_WORKFLOW",
       "class_name": "KVSyncWorkflow"
+    },
+    {
+      "name": "canonical-relations-workflow",
+      "binding": "CANONICAL_RELATIONS_WORKFLOW",
+      "class_name": "CanonicalRelationsWorkflow"
     }
   ],
   "kv_namespaces": [
@@ -125,6 +130,11 @@
           "name": "kv-sync-workflow",
           "binding": "KV_SYNC_WORKFLOW",
           "class_name": "KVSyncWorkflow"
+        },
+        {
+          "name": "canonical-relations-workflow",
+          "binding": "CANONICAL_RELATIONS_WORKFLOW",
+          "class_name": "CanonicalRelationsWorkflow"
         }
       ]
     },
@@ -193,6 +203,11 @@
           "name": "kv-sync-workflow",
           "binding": "KV_SYNC_WORKFLOW",
           "class_name": "KVSyncWorkflow"
+        },
+        {
+          "name": "canonical-relations-workflow",
+          "binding": "CANONICAL_RELATIONS_WORKFLOW",
+          "class_name": "CanonicalRelationsWorkflow"
         }
       ]
     }

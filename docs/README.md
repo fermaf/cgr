@@ -41,6 +41,7 @@ Documentación de etapas previas conservada para fines de auditoría y trazabili
 - **[Legacy v1](historico/legacy_v1/)**: Documentación de la fase inicial del proyecto.
 - **[Skillgen](historico/skillgen/)**: Evolución del motor de gobernanza.
 - **[Etapa 1: Insumos AI](historico/etapa1_insumos_ai/)**: Prompts y outputs de modelos previos.
+- **[02 - Workflow Temporal de Relaciones Canonicas](historico/02_workflow_temporal_relaciones_canonicas.md)**: Implementacion temporal, validacion tecnica y plan de continuidad para el backfill canonico.
 
 ---
 

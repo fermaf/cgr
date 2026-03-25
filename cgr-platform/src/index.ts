@@ -20,6 +20,7 @@ import type { Env, DictamenRaw } from './types';
 import { IngestWorkflow } from './workflows/ingestWorkflow';
 import { BackfillWorkflow } from './workflows/backfillWorkflow';
 import { KVSyncWorkflow } from './workflows/kvSyncWorkflow';
+import { CanonicalRelationsWorkflow } from './workflows/canonicalRelationsWorkflow';
 import { analyzeDictamen } from './clients/mistral';
 import { fetchDictamenesSearchPage } from './clients/cgr';
 import { ingestDictamen, extractDictamenId } from './lib/ingest';
@@ -239,7 +240,8 @@ async function readJsonBody(c: Context<{ Bindings: Env }>): Promise<Record<strin
 export {
   IngestWorkflow,
   BackfillWorkflow,
-  KVSyncWorkflow
+  KVSyncWorkflow,
+  CanonicalRelationsWorkflow
 };
 
 const app = new Hono<{ Bindings: Env }>();
@@ -709,7 +711,7 @@ app.get('/api/v1/dictamenes', async (c) => {
           }));
 
           if (data.length > 0) {
-            const resultIds = data.map(d => d.id);
+            const resultIds = data.map((d: any) => d.id);
             const placeholders = resultIds.map(() => '?').join(',');
             const rels = await db.prepare(`
               SELECT dictamen_destino_id as destino_id, 
@@ -724,7 +726,7 @@ app.get('/api/v1/dictamenes', async (c) => {
               relMap.set(r.destino_id, JSON.parse(r.relaciones_json));
             });
 
-            dataToReturn = data.map(d => ({
+            dataToReturn = data.map((d: any) => ({
               ...d,
               relaciones_causa: relMap.get(d.id) || []
             })).slice(0, limit);
@@ -1499,6 +1501,29 @@ app.post('/api/v1/trigger/kv-sync', async (c) => {
     return c.json({ error: 'Binding KV_SYNC_WORKFLOW no disponible en ambiente.' }, 500);
   }
 });
+
+app.post('/api/v1/trigger/canonical-relations', async (c) => {
+  if (c.env.ENVIRONMENT === 'prod') {
+    const token = c.req.header('x-admin-token');
+    if (!token || token !== c.env.INGEST_TRIGGER_TOKEN) {
+      return c.json({ error: 'Unauthorized' }, 403);
+    }
+  }
+  const params = await readJsonBody(c);
+  if (c.env.CANONICAL_RELATIONS_WORKFLOW) {
+    const defaultParams = {
+      limit: parsePositiveInt(params.limit, 100, 1, 1000),
+      offset: parsePositiveInt(params.offset, 0, 0, 1000000),
+      recursive: params.recursive !== false,
+      onlyFlagged: params.onlyFlagged !== false
+    };
+    const instance = await c.env.CANONICAL_RELATIONS_WORKFLOW.create({ params: defaultParams });
+    logInfo('CANONICAL_REL_WORKFLOW_CREATED', { workflowId: instance.id, ...defaultParams });
+    return c.json({ status: 'started', instanceId: instance.id, message: 'Workflow temporal de relaciones canonicas iniciado', params: defaultParams });
+  }
+  return c.json({ error: 'Binding CANONICAL_RELATIONS_WORKFLOW no disponible.' }, 500);
+});
+
 
 app.post('/api/v1/debug/cgr', async (c) => {
   const body = await readJsonBody(c);
