@@ -111,6 +111,52 @@ Lo demostrado es esto:
 - sobre el cohorte faltante real, la tasa de hallazgo no es alta en muestra pequena
 - ademas puede producir falsos positivos cuando no existe anclaje textual evidente
 
+## Benchmark comparativo de modelos
+
+Muestra usada:
+
+- positivos conocidos: `001302N03`, `025436N18`, `008890N20`
+- negativos/faltantes: `000006N19`, `000044N85`, `OF10641N26`
+
+Resultados observados por calidad:
+
+### `mistral-large-2411`
+
+- acierta `001302N03 -> 2861/1996 aplicado`
+- acierta `025436N18 -> 41169/2017 confirmado`
+- acierta `008890N20 -> 7640/2007 complementado`
+- deja vacios los 3 negativos de la muestra
+
+Lectura: mejor equilibrio observado entre precision y conservadurismo.
+
+### `magistral-medium-2509`
+
+- acierta `025436N18 -> 41169/2017 confirmado`
+- acierta `008890N20 -> 7640/2007 complementado`
+- falla `001302N03` al no detectar `aplicado`
+- deja vacios los 3 negativos de la muestra
+
+Lectura: mas conservador, pero pierde cobertura justo en `aplicado`, que es el hueco mas importante del cohorte faltante.
+
+### `ministral-14b-2512`
+
+- en esta tarea fue significativamente mas lento que los otros modelos
+- no entrego resultado en una ventana operacional razonable para el benchmark
+
+Lectura: aunque podria reevaluarse en otro contexto, no es el mejor candidato operacional para esta mision en este worker.
+
+### Conclusión del benchmark
+
+Hoy, `mistral-large-2411` sigue siendo la mejor opcion para esta mision.
+
+El problema principal no parece ser simplemente “el modelo equivocado”. Hay dos limites distintos:
+
+- calidad/prompt: todavia falta exigir mejor evidencia textual antes de aplicar propuestas dudosas
+- naturaleza del cohorte: muchos faltantes realmente vienen con `accion` e `is_accion` vacios
+
+Por eso, antes de aplicar en masa, conviene ajustar el prompt para que toda accion emitida venga con una justificacion o cita textual verificable.
+
+
 ## Siguiente paso recomendado
 
 No aplicar en masa todavia.

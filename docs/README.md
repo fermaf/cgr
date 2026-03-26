@@ -45,6 +45,7 @@ Documentación de etapas previas conservada para fines de auditoría y trazabili
 - **[03 - Remediacion de Relaciones Legacy Regex](historico/03_remediacion_relaciones_legacy_regex.md)**: Hallazgo, causa y limpieza del lote historico `backfill_workflow_regex` que contaminaba la UI/API.
 - **[04 - Auditoria Final del Rebuild Canonico](historico/04_auditoria_rebuild_relaciones_canonicas.md)**: Estado final en produccion, metricas reales, limpieza del intento historico y plan sistematizado para cerrar la funcionalidad.
 - **[05 - Fase 1: Relations Gap con Mistral Large 2411](historico/05_fase1_relations_gap_llm_2411.md)**: Cohorte faltante, ruta controlada con `mistral-large-2411`, validacion inicial y criterio para no aplicar en masa sin revision.
+- **[06 - Contexto Bug Migracion KV Source](historico/06_contexto_bug_migracion_kv_source.md)**: Handoff para otro agente sobre la mezcla potencial de keys `id` / `dictamen:id` en `DICTAMENES_SOURCE`.
 
 ---
 
