@@ -27,8 +27,11 @@ const ACTION_PATTERNS: Array<{ regex: RegExp; accion: CanonicalRelationAction }>
   { regex: /^(?:se\s+)?altera(?:n)?\b/i, accion: 'alterado' }
 ];
 
+const ACTION_MARKER_REGEX = /\b(?:se\s+)?(?:aplica(?:n)?|confirma(?:n)?|complementa(?:n)?|aclara(?:n)?|reconsidera(?:n)?|reactiva(?:n)?|altera(?:n)?)\b/gi;
 const REF_REGEX = /\b(E?\d{1,6})\s*\/\s*(\d{2,4})\b/gi;
 const HREF_REGEX = /dictamenes\/([A-Z]?\d{6}N\d{2})\/html/gi;
+const PLAIN_ID_REGEX = /\b([A-Z]?\d{6}N)\b/g;
+const YEAR_LINE_REGEX = /\b(\d{2,4})\b/;
 
 function normalizeYear(year: string): string {
   const trimmed = year.trim();
@@ -53,9 +56,22 @@ function decodeHtml(text: string): string {
 
 function stripHtml(text: string): string {
   return decodeHtml(text)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/tr>/gi, '\n')
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function cellToLines(html: string): string[] {
+  return decodeHtml(html)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/a>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .split('\n')
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
 }
 
 function detectAction(text: string): CanonicalRelationAction | null {
@@ -64,6 +80,27 @@ function detectAction(text: string): CanonicalRelationAction | null {
     if (pattern.regex.test(trimmed)) return pattern.accion;
   }
   return null;
+}
+
+function splitActionSegments(text: string): string[] {
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  if (!normalized) return [];
+
+  const indices: number[] = [];
+  for (const match of normalized.matchAll(ACTION_MARKER_REGEX)) {
+    if (typeof match.index === 'number') indices.push(match.index);
+  }
+
+  if (indices.length <= 1) return [normalized];
+
+  const segments: string[] = [];
+  for (let i = 0; i < indices.length; i += 1) {
+    const start = indices[i];
+    const end = i + 1 < indices.length ? indices[i + 1] : normalized.length;
+    const segment = normalized.slice(start, end).replace(/^[,;:\-\s]+|[,;:\-\s]+$/g, '').trim();
+    if (segment) segments.push(segment);
+  }
+  return segments;
 }
 
 function parseReferences(text: string): Array<{ numero_destino: string; anio_destino: string }> {
@@ -109,14 +146,66 @@ function fromActionText(
   text: string,
   channel: CanonicalRelationCandidate['evidence_channel']
 ): CanonicalRelationCandidate[] {
-  const accion = detectAction(text);
-  if (!accion) return [];
-  return parseReferences(text).map((ref) => ({
-    accion,
-    ...ref,
-    evidence_channel: channel,
-    evidence_text: text.slice(0, 500)
-  }));
+  const segments = splitActionSegments(text);
+  return segments.flatMap((segment) => {
+    const accion = detectAction(segment);
+    if (!accion) return [];
+    return parseReferences(segment).map((ref) => ({
+      accion,
+      ...ref,
+      evidence_channel: channel,
+      evidence_text: segment.slice(0, 500)
+    }));
+  });
+}
+
+function extractFromAccionHtmlRows(rawHtml: string): CanonicalRelationCandidate[] {
+  const rows = [...rawHtml.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)];
+  const candidates: CanonicalRelationCandidate[] = [];
+
+  for (const rowMatch of rows.slice(1)) {
+    const rowHtml = rowMatch[1];
+    const cells = [...rowHtml.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map((match) => match[1]);
+    if (cells.length < 3) continue;
+
+    const actionLines = cellToLines(cells[0]);
+    const dictamenLines = cellToLines(cells[1]);
+    const yearLines = cellToLines(cells[2]);
+    const hrefRefs = parseHrefReferences(cells[1]);
+    const rowLength = Math.max(actionLines.length, dictamenLines.length, yearLines.length, hrefRefs.length);
+
+    for (let index = 0; index < rowLength; index += 1) {
+      const accion = detectAction(actionLines[index] || actionLines[0] || '');
+      if (!accion) continue;
+
+      let numeroDestino: string | null = null;
+      let anioDestino: string | null = null;
+      const hrefRef = hrefRefs[index];
+      if (hrefRef) {
+        numeroDestino = hrefRef.numero_destino;
+        anioDestino = hrefRef.anio_destino;
+      } else {
+        const dictamenLine = dictamenLines[index] || '';
+        const idMatch = [...dictamenLine.matchAll(PLAIN_ID_REGEX)][0];
+        const yearMatch = (yearLines[index] || '').match(YEAR_LINE_REGEX);
+        if (idMatch && yearMatch) {
+          numeroDestino = normalizeNumero(idMatch[1]);
+          anioDestino = normalizeYear(yearMatch[1]);
+        }
+      }
+
+      if (!numeroDestino || !anioDestino) continue;
+      candidates.push({
+        accion,
+        numero_destino: numeroDestino,
+        anio_destino: anioDestino,
+        evidence_channel: 'accion_html',
+        evidence_text: stripHtml(rowHtml).slice(0, 500)
+      });
+    }
+  }
+
+  return candidates;
 }
 
 function extractFromAccionHtml(source: DictamenSource): CanonicalRelationCandidate[] {
@@ -127,20 +216,25 @@ function extractFromAccionHtml(source: DictamenSource): CanonicalRelationCandida
       : '';
   if (!raw) return [];
   const plain = stripHtml(raw);
-  const accion = detectAction(plain);
-  if (!accion) return [];
+  const rowCandidates = extractFromAccionHtmlRows(raw);
+  const textCandidates = fromActionText(plain, 'accion_html');
+  const segments = splitActionSegments(plain);
+  const fallbackHrefCandidates = segments.length === 1
+    ? parseHrefReferences(raw)
+        .map((ref) => ({
+          ...ref,
+          accion: detectAction(segments[0]) as CanonicalRelationAction,
+          evidence_channel: 'accion_html' as const,
+          evidence_text: plain.slice(0, 500)
+        }))
+        .filter((candidate) => Boolean(candidate.accion))
+    : [];
 
-  const refs = [
-    ...parseHrefReferences(raw),
-    ...parseReferences(plain)
-  ];
-
-  return refs.map((ref) => ({
-    accion,
-    ...ref,
-    evidence_channel: 'accion_html',
-    evidence_text: plain.slice(0, 500)
-  }));
+  return uniqueCandidates([
+    ...rowCandidates,
+    ...textCandidates,
+    ...fallbackHrefCandidates
+  ]);
 }
 
 function extractFromIsAccion(source: DictamenSource): CanonicalRelationCandidate[] {
@@ -155,8 +249,10 @@ function extractFromReferencias(raw: DictamenRaw): CanonicalRelationCandidate[] 
     : [];
   const source = (raw._source ?? raw.source ?? raw.raw_data ?? raw) as DictamenSource;
   const isAccion = typeof source?.is_accion === 'string' ? source.is_accion : '';
-  const accion = detectAction(isAccion);
-  if (!accion || refs.length === 0) return [];
+  const segments = splitActionSegments(isAccion);
+  if (segments.length !== 1 || refs.length === 0) return [];
+  const accion = detectAction(segments[0]);
+  if (!accion) return [];
 
   return refs
     .filter((ref: Record<string, unknown>) => typeof ref?.nombre === 'string' && typeof ref?.year === 'string')
@@ -165,7 +261,7 @@ function extractFromReferencias(raw: DictamenRaw): CanonicalRelationCandidate[] 
       numero_destino: normalizeNumero(String(ref.nombre).replace(/N$/i, '')),
       anio_destino: normalizeYear(String(ref.year)),
       evidence_channel: 'dictamen_referencias',
-      evidence_text: isAccion.slice(0, 500)
+      evidence_text: segments[0].slice(0, 500)
     }));
 }
 

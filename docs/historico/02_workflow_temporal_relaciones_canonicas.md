@@ -30,6 +30,7 @@ El workflow no modifica `atributos_juridicos` ni intenta cerrar doctrina definit
     - `ID`
     - `dictamen:ID`
   - Inserta relaciones idempotentes con `INSERT OR IGNORE`.
+- Soporta rerun dirigido por `dictamenIds` para regenerar desde cero las aristas canonicas de un subconjunto sin reejecutar todo el universo.
   - Marca huerfanas cuando encuentra evidencia pero no logra resolver `destino_id`.
   - Permite recursividad por lotes.
 

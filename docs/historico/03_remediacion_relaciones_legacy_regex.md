@@ -92,3 +92,20 @@ Si reaparecen relaciones historicas dudosas:
 2. contrastar contra `raw.source["accion"]`, `raw.is_accion` y `dictamen_referencias`
 3. corregir o purgar el lote defectuoso en origen, evitando filtros transitorios
 4. solo promover relaciones nuevas desde extractores canonicos auditables
+
+## Limpieza adicional de origenes residuales
+
+Despues de purgar `backfill_workflow_regex`, quedaban dos filas no canonicas en produccion:
+
+- `retro_update_test`: artefacto de prueba
+- `ai_mistral`: relacion correcta semanticamente, pero fuera del flujo canonico
+
+Se mejoro el extractor canonico para soportar textos y tablas con verbos multiples (`Aplica ..., Confirma ...`) y luego se reejecutaron de forma dirigida los dictamenes afectados.
+
+Resultado:
+
+- `008890N20 -> 007640N07 complementado` quedo como `canonical_v1_accion_html`
+- `025436N18 -> 041169N17 confirmado` quedo como `canonical_v1_accion_html`
+- las filas `retro_update_test` y `ai_mistral` fueron purgadas
+
+Leccion: la tabla consumida por frontend no debe mezclar origenes de prueba, experimentales o transitorios con el flujo canonico.

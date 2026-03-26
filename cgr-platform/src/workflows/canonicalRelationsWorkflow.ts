@@ -14,6 +14,7 @@ interface CanonicalRelParams {
   offset?: number;
   recursive?: boolean;
   onlyFlagged?: boolean;
+  dictamenIds?: string[];
 }
 
 export class CanonicalRelationsWorkflow extends WorkflowEntrypoint<Env, CanonicalRelParams> {
@@ -29,16 +30,24 @@ export class CanonicalRelationsWorkflow extends WorkflowEntrypoint<Env, Canonica
       const currentOffset = params.offset ?? 0;
       const recursive = params.recursive ?? true;
       const onlyFlagged = params.onlyFlagged ?? true;
+      const dictamenIdsParam = Array.isArray(params.dictamenIds)
+        ? params.dictamenIds.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        : [];
 
       logInfo('CANONICAL_REL_BACKFILL_START', {
         instanceId: event.instanceId,
         limit,
         offset: currentOffset,
         recursive,
-        onlyFlagged
+        onlyFlagged,
+        targetedIds: dictamenIdsParam.length
       });
 
       const dictamenIds = await step.do('fetch-canonical-batch', async () => {
+        if (dictamenIdsParam.length > 0) {
+          return [...new Set(dictamenIdsParam.map((value) => value.trim()))];
+        }
+
         const where = onlyFlagged
           ? `WHERE a.aclarado = 1 OR a.alterado = 1 OR a.aplicado = 1 OR a.complementado = 1 OR a.confirmado = 1 OR a.reactivado = 1 OR a.reconsiderado = 1`
           : '';
@@ -66,6 +75,11 @@ export class CanonicalRelationsWorkflow extends WorkflowEntrypoint<Env, Canonica
       for (const id of dictamenIds) {
         await step.do(`canonical-relations-${id}`, async () => {
           try {
+            if (dictamenIdsParam.length > 0) {
+              await db.prepare("DELETE FROM dictamen_relaciones_juridicas WHERE dictamen_origen_id = ? AND origen_extracccion LIKE 'canonical_v1_%'").bind(id).run();
+              await db.prepare("DELETE FROM dictamen_relaciones_huerfanas WHERE dictamen_id = ? AND flag_huerfano LIKE 'canonical:%'").bind(id).run();
+            }
+
             let rawJson = await sourceKv.get(id, 'json');
             if (!rawJson) {
               rawJson = await sourceKv.get(`dictamen:${id}`, 'json');
@@ -126,7 +140,7 @@ export class CanonicalRelationsWorkflow extends WorkflowEntrypoint<Env, Canonica
         sourceMissing
       });
 
-      if (recursive && dictamenIds.length === limit) {
+      if (dictamenIdsParam.length === 0 && recursive && dictamenIds.length === limit) {
         const nextOffset = currentOffset + limit;
         await step.sleep('wait-for-next-canonical-batch', '5 seconds');
         await step.do('dispatch-next-canonical-batch', async () => {
