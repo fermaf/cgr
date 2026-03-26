@@ -236,6 +236,15 @@ async function readJsonBody(c: Context<{ Bindings: Env }>): Promise<Record<strin
   return (body && typeof body === 'object') ? body : {};
 }
 
+async function getSourceJsonWithFallback(env: Env, rawKey: string): Promise<unknown | null> {
+  const candidates = rawKey.startsWith('dictamen:') ? [rawKey, rawKey.replace(/^dictamen:/, '')] : [rawKey, `dictamen:${rawKey}`];
+  for (const candidate of candidates) {
+    const rawJson = await env.DICTAMENES_SOURCE.get(candidate, 'json').catch(() => null);
+    if (rawJson) return rawJson;
+  }
+  return null;
+}
+
 // Exportamos las clases Workflow para que Cloudflare pueda asociarlas (bind)
 export {
   IngestWorkflow,
@@ -921,7 +930,7 @@ app.get('/api/v1/dictamenes/:id', async (c) => {
     const rawRef = await getLatestRawRef(db, id);
     let raw = {};
     if (rawRef) {
-      let rawJson = await c.env.DICTAMENES_SOURCE.get(rawRef.raw_key, 'json').catch(() => null);
+      const rawJson = await getSourceJsonWithFallback(c.env, rawRef.raw_key);
       raw = rawJson || {};
     }
 
@@ -1165,7 +1174,7 @@ app.post('/api/v1/dictamenes/:id/sync-vector', async (c) => {
     const rawRef = await getLatestRawRef(db, id);
     let rawJson: any = {};
     if (rawRef) {
-      rawJson = await c.env.DICTAMENES_SOURCE.get(rawRef.raw_key, 'json').catch(() => null);
+      rawJson = await getSourceJsonWithFallback(c.env, rawRef.raw_key);
     }
     const sourceContent = rawJson?._source ?? rawJson?.source ?? rawJson?.raw_data ?? rawJson;
 
@@ -1209,7 +1218,7 @@ app.post('/api/v1/dictamenes/:id/re-process', async (c) => {
   const rawRef = await getLatestRawRef(db, id);
   if (!rawRef) return c.json({ error: 'No se encontró referencia KV para este dictamen' }, 404);
 
-  let rawJson = await c.env.DICTAMENES_SOURCE.get(rawRef.raw_key, 'json') as DictamenRaw | null;
+  let rawJson = await getSourceJsonWithFallback(c.env, rawRef.raw_key) as DictamenRaw | null;
   if (!rawJson) return c.json({ error: 'No se encontró JSON en KV' }, 404);
 
   try {
@@ -1430,7 +1439,7 @@ app.post('/api/v1/dictamenes/sync-vector-mass', async (c) => {
       const rawRef = await getLatestRawRef(db, id);
       if (!enrichment || !rawRef) continue;
 
-      let rawJson: any = await c.env.DICTAMENES_SOURCE.get(rawRef.raw_key, 'json').catch(() => null);
+      const rawJson: any = await getSourceJsonWithFallback(c.env, rawRef.raw_key);
       if (!rawJson) continue;
 
       const sourceContent = rawJson?._source ?? rawJson?.source ?? rawJson?.raw_data ?? rawJson;
@@ -1535,6 +1544,69 @@ app.post('/api/v1/trigger/canonical-relations', async (c) => {
     return c.json({ status: 'started', instanceId: instance.id, message: 'Workflow temporal de relaciones canonicas iniciado', params: defaultParams });
   }
   return c.json({ error: 'Binding CANONICAL_RELATIONS_WORKFLOW no disponible.' }, 500);
+});
+
+app.post('/api/v1/admin/relations-gap/analyze', async (c) => {
+  if (c.env.ENVIRONMENT === 'prod') {
+    const token = c.req.header('x-admin-token');
+    if (!token || token !== c.env.INGEST_TRIGGER_TOKEN) {
+      return c.json({ error: 'Unauthorized' }, 403);
+    }
+  }
+
+  const body = await readJsonBody(c);
+  const dictamenIds = Array.isArray(body.dictamenIds)
+    ? [...new Set(body.dictamenIds.filter((value: unknown): value is string => typeof value === 'string' && value.trim().length > 0).map((value: string) => value.trim()))].slice(0, 20)
+    : [];
+  if (dictamenIds.length === 0) {
+    return c.json({ error: 'dictamenIds requerido' }, 400);
+  }
+
+  const model = typeof body.model === 'string' && body.model.trim().length > 0
+    ? body.model.trim()
+    : 'mistral-large-2411';
+  const apply = isTruthy(body.apply);
+  const results: Array<Record<string, unknown>> = [];
+
+  for (const id of dictamenIds) {
+    const rawRef = await getLatestRawRef(c.env.DB, id);
+    if (!rawRef) {
+      results.push({ id, error: 'RAW_REF_NOT_FOUND', applied: false, acciones_juridicas_emitidas: [] });
+      continue;
+    }
+
+    const rawJson = await getSourceJsonWithFallback(c.env, rawRef.raw_key) as DictamenRaw | null;
+    if (!rawJson) {
+      results.push({ id, error: 'RAW_JSON_NOT_FOUND', applied: false, acciones_juridicas_emitidas: [] });
+      continue;
+    }
+
+    const analysis = await analyzeDictamen(c.env, rawJson, model);
+    if (!analysis.result) {
+      results.push({ id, error: analysis.error || 'LLM_ANALYSIS_FAILED', applied: false, acciones_juridicas_emitidas: [] });
+      continue;
+    }
+
+    const acciones = Array.isArray(analysis.result.acciones_juridicas_emitidas)
+      ? analysis.result.acciones_juridicas_emitidas
+      : [];
+
+    if (apply && acciones.length > 0) {
+      await applyRetroUpdates(c.env, id, acciones, {
+        origenExtraccion: 'llm_gap_v1',
+        orphanPrefix: 'llm_gap_v1'
+      });
+    }
+
+    results.push({
+      id,
+      applied: apply && acciones.length > 0,
+      acciones_juridicas_emitidas: acciones,
+      error: null
+    });
+  }
+
+  return c.json({ success: true, model, apply, count: results.length, results });
 });
 
 

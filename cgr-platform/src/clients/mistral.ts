@@ -75,8 +75,8 @@ function buildPromptConsolidado(raw: DictamenRaw) {
     "- sector, articulo, extra: según aparezca (o null).",
     "",
     "### 4. Acciones Jurídicas Emitidas (RETRO-UPDATE)",
-    "Si este dictamen altera, aclara, complementa, confirma, reactiva, o reconsidera (total o parcialmente) la jurisprudencia de uno o varios dictámenes emitidos EN EL PASADO, debes extraer:",
-    "- accion: 'aclarado', 'alterado', 'complementado', 'confirmado', 'reactivado', 'reconsiderado', 'reconsiderado_parcialmente'.",
+    "Si este dictamen aplica, altera, aclara, complementa, confirma, reactiva, o reconsidera (total o parcialmente) la jurisprudencia de uno o varios dictámenes emitidos EN EL PASADO, debes extraer:",
+    "- accion: 'aplicado', 'aclarado', 'alterado', 'complementado', 'confirmado', 'reactivado', 'reconsiderado', 'reconsiderado_parcialmente'.",
     "- numero_destino: El número del dictamen modificado (sin 'N°', ej: 7640).",
     "- anio_destino: El año de emisión del dictamen modificado (ej: 2007).",
     "Si no modifica a ningún dictamen específico anterior, retorna el array vacío [].",
@@ -195,8 +195,9 @@ function extractJsonArrayPayload(content: string) {
   return content.slice(start, end + 1).trim();
 }
 
-async function analyzeDictamen(env: Env, raw: DictamenRaw): Promise<{ result: any | null; error?: string }> {
+async function analyzeDictamen(env: Env, raw: DictamenRaw, modelOverride?: string): Promise<{ result: any | null; error?: string }> {
   const client = getMistralClient(env);
+  const model = typeof modelOverride === 'string' && modelOverride.trim().length > 0 ? modelOverride.trim() : env.MISTRAL_MODEL;
   let attempts = 0;
   const maxAttempts = 5;
   let delay = 10000;
@@ -204,7 +205,7 @@ async function analyzeDictamen(env: Env, raw: DictamenRaw): Promise<{ result: an
   while (attempts < maxAttempts) {
     try {
       const response = await client.chat.completions.create({
-        model: env.MISTRAL_MODEL,
+        model,
         messages: [{ role: "user", content: buildPromptConsolidado(raw) }],
         temperature: 0.1,
         response_format: { type: "json_object" }
@@ -254,7 +255,7 @@ async function analyzeDictamen(env: Env, raw: DictamenRaw): Promise<{ result: an
         return { result: null, error: 'QUOTA_EXCEEDED' };
       }
 
-      logError('MISTRAL_ANALYZE_DICTAMEN_ERROR', error, { model: env.MISTRAL_MODEL, attempts });
+      logError('MISTRAL_ANALYZE_DICTAMEN_ERROR', error, { model, attempts });
       return { result: null, error: msg };
     }
   }

@@ -11,10 +11,16 @@ import { logInfo, logError } from './log';
 /**
  * Aplica el flujo Retro-Update: propagate flags from a new dictamen to its historical targets.
  */
+interface ApplyRetroUpdatesOptions {
+  origenExtraccion?: string;
+  orphanPrefix?: string;
+}
+
 export async function applyRetroUpdates(
   env: Env,
   origenId: string,
-  acciones: AccionJuridicaEmitida[]
+  acciones: AccionJuridicaEmitida[],
+  options: ApplyRetroUpdatesOptions = {}
 ): Promise<void> {
   if (!acciones || acciones.length === 0) return;
 
@@ -30,7 +36,8 @@ export async function applyRetroUpdates(
       if (!destinoId) {
         logInfo('RELATIONS_TARGET_NOT_FOUND', { numero_destino, anio_destino, action: accion });
         // Registrar en tabla de huérfanos para auditoría futura/batch LLM
-        await insertDictamenRelacionHuerfana(env.DB, origenId, `${accion}:${numero_destino}/${anio_destino}`);
+        const orphanPrefix = options.orphanPrefix ?? 'llm_actions_v1';
+        await insertDictamenRelacionHuerfana(env.DB, origenId, `${orphanPrefix}:${accion}:${numero_destino}/${anio_destino}`);
         continue;
       }
 
@@ -40,7 +47,8 @@ export async function applyRetroUpdates(
       await insertDictamenRelacionJuridica(env.DB, {
         origen_id: origenId,
         destino_id: destinoId,
-        tipo_accion: accion
+        tipo_accion: accion,
+        origen_extracccion: options.origenExtraccion ?? 'llm_actions_v1'
       });
 
       // 3. Update Atributos Escalares (D1)
@@ -84,13 +92,22 @@ async function syncKVSourceBoolean(
   value: boolean
 ): Promise<void> {
   try {
-    const raw = await env.DICTAMENES_SOURCE.get(dictamenId, { type: 'json' }) as any;
-    if (!raw) return;
+    const candidates = [dictamenId, `dictamen:${dictamenId}`];
+    let raw: any = null;
+    let matchedKey: string | null = null;
+    for (const candidate of candidates) {
+      raw = await env.DICTAMENES_SOURCE.get(candidate, { type: 'json' }) as any;
+      if (raw) {
+        matchedKey = candidate;
+        break;
+      }
+    }
+    if (!raw || !matchedKey) return;
 
     const source = raw._source ?? raw.source ?? raw.raw_data ?? raw;
     source[flag] = value;
 
-    await env.DICTAMENES_SOURCE.put(dictamenId, JSON.stringify(raw));
+    await env.DICTAMENES_SOURCE.put(matchedKey, JSON.stringify(raw));
   } catch (error) {
     logError('KV_SOURCE_SYNC_BOOLEAN_ERROR', error, { dictamenId, flag });
   }

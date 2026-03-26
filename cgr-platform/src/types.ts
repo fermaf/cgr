@@ -120,7 +120,7 @@ export interface DictamenEventRow {
 }
 
 export interface AccionJuridicaEmitida {
-  accion: 'aclarado' | 'alterado' | 'complementado' | 'confirmado' | 'reactivado' | 'reconsiderado' | 'reconsiderado_parcialmente';
+  accion: 'aplicado' | 'aclarado' | 'alterado' | 'complementado' | 'confirmado' | 'reactivado' | 'reconsiderado' | 'reconsiderado_parcialmente';
   numero_destino: string;
   anio_destino: string;
 }
