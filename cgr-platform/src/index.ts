@@ -1519,12 +1519,16 @@ app.post('/api/v1/trigger/canonical-relations', async (c) => {
     const requestedIds = Array.isArray(params.dictamenIds)
       ? params.dictamenIds.filter((value: unknown): value is string => typeof value === 'string' && value.trim().length > 0).map((value: string) => value.trim())
       : [];
+    const requestedRunTag = typeof params.runTag === 'string' && params.runTag.trim().length > 0
+      ? params.runTag.trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24)
+      : undefined;
     const defaultParams = {
       limit: parsePositiveInt(params.limit, 100, 1, 1000),
       offset: parsePositiveInt(params.offset, 0, 0, 1000000),
       recursive: requestedIds.length > 0 ? false : params.recursive !== false,
       onlyFlagged: params.onlyFlagged !== false,
-      dictamenIds: requestedIds.length > 0 ? [...new Set(requestedIds)] : undefined
+      dictamenIds: requestedIds.length > 0 ? [...new Set(requestedIds)] : undefined,
+      runTag: requestedRunTag
     };
     const instance = await c.env.CANONICAL_RELATIONS_WORKFLOW.create({ params: defaultParams });
     logInfo('CANONICAL_REL_WORKFLOW_CREATED', { workflowId: instance.id, ...defaultParams });

@@ -15,6 +15,7 @@ interface CanonicalRelParams {
   recursive?: boolean;
   onlyFlagged?: boolean;
   dictamenIds?: string[];
+  runTag?: string;
 }
 
 export class CanonicalRelationsWorkflow extends WorkflowEntrypoint<Env, CanonicalRelParams> {
@@ -33,6 +34,9 @@ export class CanonicalRelationsWorkflow extends WorkflowEntrypoint<Env, Canonica
       const dictamenIdsParam = Array.isArray(params.dictamenIds)
         ? params.dictamenIds.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
         : [];
+      const runTag = typeof params.runTag === 'string' && params.runTag.trim().length > 0
+        ? params.runTag.trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24)
+        : event.instanceId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24);
 
       logInfo('CANONICAL_REL_BACKFILL_START', {
         instanceId: event.instanceId,
@@ -40,7 +44,8 @@ export class CanonicalRelationsWorkflow extends WorkflowEntrypoint<Env, Canonica
         offset: currentOffset,
         recursive,
         onlyFlagged,
-        targetedIds: dictamenIdsParam.length
+        targetedIds: dictamenIdsParam.length,
+        runTag
       });
 
       const dictamenIds = await step.do('fetch-canonical-batch', async () => {
@@ -142,11 +147,12 @@ export class CanonicalRelationsWorkflow extends WorkflowEntrypoint<Env, Canonica
 
       if (dictamenIdsParam.length === 0 && recursive && dictamenIds.length === limit) {
         const nextOffset = currentOffset + limit;
+        const childInstanceId = `canonical-relations-${runTag}-${nextOffset}`;
         await step.sleep('wait-for-next-canonical-batch', '5 seconds');
         await step.do('dispatch-next-canonical-batch', async () => {
           await env.CANONICAL_RELATIONS_WORKFLOW.create({
-            id: `canonical-relations-${nextOffset}`,
-            params: { limit, offset: nextOffset, recursive: true, onlyFlagged }
+            id: childInstanceId,
+            params: { limit, offset: nextOffset, recursive: true, onlyFlagged, runTag }
           });
         });
       }

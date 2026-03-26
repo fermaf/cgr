@@ -43,6 +43,7 @@ Documentación de etapas previas conservada para fines de auditoría y trazabili
 - **[Etapa 1: Insumos AI](historico/etapa1_insumos_ai/)**: Prompts y outputs de modelos previos.
 - **[02 - Workflow Temporal de Relaciones Canonicas](historico/02_workflow_temporal_relaciones_canonicas.md)**: Implementacion temporal, validacion tecnica y plan de continuidad para el backfill canonico.
 - **[03 - Remediacion de Relaciones Legacy Regex](historico/03_remediacion_relaciones_legacy_regex.md)**: Hallazgo, causa y limpieza del lote historico `backfill_workflow_regex` que contaminaba la UI/API.
+- **[04 - Auditoria Final del Rebuild Canonico](historico/04_auditoria_rebuild_relaciones_canonicas.md)**: Estado final en produccion, metricas reales, limpieza del intento historico y plan sistematizado para cerrar la funcionalidad.
 
 ---
 

@@ -295,25 +295,17 @@ Resultado esperado:
 
 - un grafo jurídico ampliado, no solo intra-dictámenes
 
-## 10. Qué Hacer con el Workflow Histórico Actual
+## 10. Qué Hacer con el Intento Histórico
 
-`HistoricalRelationsWorkflow` puede seguir existiendo, pero debe ser reposicionado:
+El intento basado en `HistoricalRelationsWorkflow` debe considerarse cerrado y retirado.
 
-- no como verdad final
-- sí como generador de evidencias de baja o media confianza
+Lección consolidada:
 
-Su salida debería pasar de:
+- no insertar relaciones finales desde heurísticas regex
+- no derivar flags doctrinales desde ese backfill
+- no reutilizar ese workflow como fuente operativa
 
-- insertar directamente relación final
-- prender flags finales
-
-a:
-
-- registrar evidencia
-- proponer afirmaciones
-- dejar que el resolvedor consolide
-
-Ese cambio reduce falsos positivos y evita que el backfill contamine el estado canónico.
+Si en el futuro se quiere rescatar algo de ese enfoque, debe ser solo como insumo experimental fuera de producción y nunca como generador directo del estado canónico.
 
 ## 11. Invariantes del Sistema
 
