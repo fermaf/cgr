@@ -76,9 +76,12 @@ function buildPromptConsolidado(raw: DictamenRaw) {
     "",
     "### 4. Acciones Jurídicas Emitidas (RETRO-UPDATE)",
     "Si este dictamen aplica, altera, aclara, complementa, confirma, reactiva, o reconsidera (total o parcialmente) la jurisprudencia de uno o varios dictámenes emitidos EN EL PASADO, debes extraer:",
+    "REGLA DE ORO: solo reporta una accion si puedes anclarla en una cita textual breve del dictamen. Si no existe anclaje textual claro, retorna [] para acciones_juridicas_emitidas.",
+    "PROHIBICION: no infieras relaciones solo por flags o por contexto general. Debe existir una frase o pasaje verificable en el texto.",
     "- accion: 'aplicado', 'aclarado', 'alterado', 'complementado', 'confirmado', 'reactivado', 'reconsiderado', 'reconsiderado_parcialmente'.",
     "- numero_destino: El número del dictamen modificado (sin 'N°', ej: 7640).",
     "- anio_destino: El año de emisión del dictamen modificado (ej: 2007).",
+    "- evidencia_textual: cita breve literal del pasaje que sustenta la accion (maximo 180 caracteres).",
     "Si no modifica a ningún dictamen específico anterior, retorna el array vacío [].",
     "",
     "### Políticas de Estilo (Obligatorias):",
@@ -123,7 +126,8 @@ function buildPromptConsolidado(raw: DictamenRaw) {
     "    {",
     '      "accion": "",',
     '      "numero_destino": "",',
-    '      "anio_destino": ""',
+    '      "anio_destino": "",',
+    '      "evidencia_textual": ""',
     "    }",
     "  ]",
     "}",
@@ -235,7 +239,14 @@ async function analyzeDictamen(env: Env, raw: DictamenRaw, modelOverride?: strin
           genera_jurisprudencia: typeof parsed.genera_jurisprudencia === "boolean" ? parsed.genera_jurisprudencia : parsed.genera_jurisprudencia === void 0 ? void 0 : normalizeBoolean(parsed.genera_jurisprudencia),
           booleanos,
           fuentes_legales: fuentes ?? [],
-          acciones_juridicas_emitidas: Array.isArray(parsed.acciones_juridicas_emitidas) ? parsed.acciones_juridicas_emitidas : []
+          acciones_juridicas_emitidas: Array.isArray(parsed.acciones_juridicas_emitidas)
+            ? parsed.acciones_juridicas_emitidas.map((item: any) => ({
+                accion: typeof item?.accion === "string" ? item.accion : "",
+                numero_destino: typeof item?.numero_destino === "string" ? item.numero_destino : "",
+                anio_destino: typeof item?.anio_destino === "string" ? item.anio_destino : "",
+                evidencia_textual: typeof item?.evidencia_textual === "string" ? item.evidencia_textual : null
+              })).filter((item: any) => item.accion && item.numero_destino && item.anio_destino)
+            : []
         }
       };
     } catch (error: any) {

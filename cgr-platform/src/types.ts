@@ -123,6 +123,7 @@ export interface AccionJuridicaEmitida {
   accion: 'aplicado' | 'aclarado' | 'alterado' | 'complementado' | 'confirmado' | 'reactivado' | 'reconsiderado' | 'reconsiderado_parcialmente';
   numero_destino: string;
   anio_destino: string;
+  evidencia_textual?: string | null;
 }
 
 
