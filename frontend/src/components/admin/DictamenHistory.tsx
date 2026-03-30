@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useDictamenHistory } from '../../hooks/useAdminDashboard';
 import { Search, History, ArrowRight, PackageCheck, AlertCircle } from 'lucide-react';
+import { formatSimpleDate } from '../../lib/date';
 
 export function DictamenHistory() {
     const [searchTerm, setSearchTerm] = useState('');
@@ -61,7 +62,7 @@ export function DictamenHistory() {
                             </div>
                             <div className="text-right">
                                 <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Última Actualización</p>
-                                <p className="text-slate-700 font-medium">{new Date(history.dictamen.updated_at).toLocaleString()}</p>
+                                <p className="text-slate-700 font-medium">{formatSimpleDate(history.dictamen.updated_at)}</p>
                             </div>
                         </div>
 
@@ -75,7 +76,7 @@ export function DictamenHistory() {
                                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 relative hover:border-cgr-blue/30 transition-colors shadow-sm">
                                     <div className="flex justify-between items-start mb-2">
                                         <h4 className="font-bold text-cgr-navy">Ingreso a la Plataforma</h4>
-                                        <span className="text-xs text-slate-500 font-medium">{new Date(history.dictamen.created_at).toLocaleString()}</span>
+                                        <span className="text-xs text-slate-500 font-medium">{formatSimpleDate(history.dictamen.created_at)}</span>
                                     </div>
                                     <p className="text-sm text-slate-600 font-medium">El documento fue indexado inicialmente en el sistema.</p>
                                 </div>
@@ -98,7 +99,7 @@ export function DictamenHistory() {
                                         }`}>
                                         <div className="flex justify-between items-start mb-2">
                                             <h4 className="font-bold text-cgr-navy capitalize">Cambio en {h.campo_modificado.replace('_', ' ')}</h4>
-                                            <span className="text-xs text-slate-500 font-medium">{new Date(h.fecha_cambio).toLocaleString()}</span>
+                                            <span className="text-xs text-slate-500 font-medium">{formatSimpleDate(h.fecha_cambio)}</span>
                                         </div>
                                         <div className="flex items-center gap-3 text-sm">
                                             <span className="text-slate-400 line-through">{h.valor_anterior || 'Vacío'}</span>

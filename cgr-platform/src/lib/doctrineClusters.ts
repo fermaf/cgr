@@ -86,6 +86,12 @@ function compactText(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+function formatSimpleDate(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const match = String(value).match(/(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : null;
+}
+
 function normalizeDescriptorLabel(value: string): string {
   const compact = compactText(value).replace(/_/g, ' ');
   if (!compact) return '';
@@ -439,7 +445,7 @@ function buildCoherenceSignals(params: {
     summary = 'La línea parece mezclar señales doctrinales distintas o contener outliers relevantes; conviene revisar si debe separarse o depurarse.';
   } else if (semanticDispersion >= 0.34 || descriptorNoiseScore >= 0.45 || outlierProbability >= 0.22) {
     coherence_status = 'mixta';
-    summary = 'La línea mantiene un eje doctrinal visible, pero muestra ruido semántico o dictámenes con encaje débil.';
+    summary = 'La línea mantiene un eje doctrinal visible, pero algunos dictámenes tratan temas relacionados y no exactamente idénticos.';
   }
 
   return {
@@ -462,7 +468,9 @@ function buildClusterSummary(
   to: string | null
 ): string {
   const doctrinalAxis = normalizeDescriptorLabel(topDescriptor || topAction || 'criterio recurrente');
-  const timeNote = from && to ? `entre ${from} y ${to}` : 'en el corpus vigente';
+  const fromDate = formatSimpleDate(from);
+  const toDate = formatSimpleDate(to);
+  const timeNote = fromDate && toDate ? `entre ${fromDate} y ${toDate}` : 'en el corpus vigente';
   return `Grupo de ${memberCount} dictámenes en ${materia} que convergen en ${doctrinalAxis} ${timeNote}.`;
 }
 
@@ -688,8 +696,8 @@ function buildDoctrinalState(params: {
     return {
       doctrinal_state: 'bajo_tension' as const,
       doctrinal_state_reason: params.pivotDictamen
-        ? `La línea muestra tensión doctrinal y su dictamen pivote es ${params.pivotDictamen.id}.`
-        : 'La línea muestra señales de tensión doctrinal por dispersión temporal y acciones jurídicas de ajuste.'
+        ? `Existen decisiones que aplican el criterio de forma distinta y una de las más visibles es ${params.pivotDictamen.id}.`
+        : 'Existen decisiones que aplican el criterio de forma distinta dentro del corpus visible.'
     };
   }
 

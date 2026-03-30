@@ -31,6 +31,12 @@ function compactDisplayText(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+function formatSimpleDate(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const match = String(value).match(/(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : null;
+}
+
 function looksNoisyDisplayLabel(value: string): boolean {
   const compact = compactDisplayText(value);
   if (!compact) return true;
@@ -114,7 +120,9 @@ function buildUserFacingSummary(params: {
 }): string {
   const fuente = params.topFuentesLegales[0] ? formatFuenteLegal(params.topFuentesLegales[0]) : null;
   const accion = params.topAccionesJuridicas[0] ?? null;
-  const periodo = params.from && params.to ? `entre ${params.from} y ${params.to}` : 'en el período consultado';
+  const from = formatSimpleDate(params.from);
+  const to = formatSimpleDate(params.to);
+  const periodo = from && to ? `entre ${from} y ${to}` : 'en el período consultado';
 
   if (fuente && accion) {
     return `Línea doctrinal en ${params.materia} centrada en ${params.clusterLabel}, con referencias reiteradas a ${fuente} y predominio de dictámenes ${accion} ${periodo}.`;

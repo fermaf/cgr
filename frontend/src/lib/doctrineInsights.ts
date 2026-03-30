@@ -110,7 +110,7 @@ const DEMO_RESPONSE: DoctrineInsightsResponse = {
                 descriptor_noise_score: 0.33,
                 fragmentation_risk: 0.34,
                 coherence_status: "mixta",
-                summary: "La línea mantiene un eje doctrinal visible, pero muestra ruido semántico o dictámenes con encaje débil."
+                summary: "La línea mantiene un eje doctrinal visible, pero algunos dictámenes tratan temas relacionados y no exactamente idénticos."
             },
             representative_dictamen_id: "034567N20",
             core_dictamen_ids: ["034567N20"],

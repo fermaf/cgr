@@ -687,7 +687,7 @@ app.get('/api/v1/insights/doctrine-lines', async (c) => {
   const limit = parsePositiveInt(c.req.query('limit'), 5, 1, 10);
   const fromDate = isIsoDateYmd(c.req.query('fromDate')) ? c.req.query('fromDate')! : null;
   const toDate = isIsoDateYmd(c.req.query('toDate')) ? c.req.query('toDate')! : null;
-  const cacheKey = `insights:doctrine-lines:v3:m:${materia ?? 'auto'}:l:${limit}:fd:${fromDate ?? 'na'}:td:${toDate ?? 'na'}`;
+  const cacheKey = `insights:doctrine-lines:v4:m:${materia ?? 'auto'}:l:${limit}:fd:${fromDate ?? 'na'}:td:${toDate ?? 'na'}`;
 
   try {
     const cached = await c.env.DICTAMENES_PASO.get(cacheKey, 'json').catch(() => null);
@@ -727,7 +727,7 @@ app.get('/api/v1/insights/doctrine-search', async (c) => {
     return c.json({ error: 'Missing q parameter' }, 400);
   }
 
-  const cacheKey = `insights:doctrine-search:v7:q:${q}:l:${limit}`;
+  const cacheKey = `insights:doctrine-search:v8:q:${q}:l:${limit}`;
 
   try {
     const cached = await c.env.DICTAMENES_PASO.get(cacheKey, 'json').catch(() => null);
