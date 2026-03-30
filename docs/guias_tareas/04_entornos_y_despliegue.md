@@ -1,68 +1,64 @@
-# 04 - Entornos, Despliegue y Drift de Bases de Datos
+# 04 - Entorno Principal y Despliegue
 
-Este documento establece los protocolos de seguridad y las reglas para desplegar actualizaciones en la **CGR-Platform**, mitigando riesgos sobre la integridad de la base vectorial y la base D1.
+Este proyecto opera con una sola línea principal.
 
----
+La referencia operativa real es:
 
-## ⚠️ ADVERTENCIA CRÍTICA: Recursos Físicos Compartidos
+- Worker productivo: `cgr-platform`
+- URL productiva del backend: `https://cgr-platform.abogado.workers.dev`
+- Pages principal: `cgr-jurisprudencia-frontend`
+- URL principal del frontend: `https://cgr-jurisprudencia-frontend.pages.dev`
 
-> [!CAUTION]
-> **PELIGRO DE CORRUPCIÓN DE DATOS**
-> Por diseño arquitectónico actual, los entornos de **Staging** (`cgr-platform-staging`) y **Producción** (`cgr-platform`) están configurados en `wrangler.jsonc` apuntando a los **mismos recursos físicos**:
-> - **D1**: `cgr-dictamenes` (`c391c767-2c72-450c-8758-bee9e20c8a35`)
-> - **KV Namespaces**: Mismos IDs para SOURCE y PASO.
->
-> **Implicación Inmediata**: Cualquier operación de escritura, borrado o migración DDL realizada desde el worker de *Staging* impactará directamente a los usuarios en *Producción*. Staging es un entorno para validar lógica (ej. una nueva versión del prompt de Mistral), **NUNCA** para ejecutar migraciones SQL destructivas de prueba.
+## Principio operativo
 
----
+- producción es la línea principal;
+- `staging` existe en `wrangler.jsonc`, pero no forma parte del flujo normal de release;
+- no debe usarse como “entorno seguro” de escritura porque comparte recursos reales;
+- los previews de Pages son útiles para validación puntual, pero no son URLs canónicas del producto.
 
-## 🏗️ 1. Matriz de Entornos
+## Despliegue canónico del backend
 
-| Entorno | Comando de Despliegue | Caso de Uso Aprobado | Nivel de Riesgo |
-| :--- | :--- | :--- | :--- |
-| **Local** | `npm run dev` | Desarrollo de lógica general, tipado y pruebas de endpoints. (Usa SQLite local en `.mf`). | Bajo |
-| **Staging** | `wrangler deploy -e staging` | Pruebas de integración de *Workflows* o *Skills* en el EDGE. Validación de latencia Mistral. | **Alto** (Afecta DB Real) |
-| **Prod** | `wrangler deploy -e production`| Versión estable consumida por el Frontend CGR.ai. | Máximo |
-
----
-
-## 🚀 2. Flujo de Despliegue Seguro
-
-### Paso 1: Verificación de Variables (Control de Drift)
-Antes de deplegar, inspecciona el bloque `env.staging` vs `env.production` en tu `wrangler.jsonc`.
-- **Regla de Oro**: Asegúrate de que las credenciales ocultas (`x-admin-token`, `INGEST_TRIGGER_TOKEN`) no estén *hardcodeadas* en el código fuente.
-
-### Paso 2: Despliegue a Staging
-Verifica cómo se comporta el worker en Cloudflare ejecutando un lote de prueba sin afectar toda la cola:
-```bash
-npx wrangler deploy --env staging
-```
-*(Prueba hacer una llamada CURL con un `recursive: false` a un endpoint en el dominio de staging).*
-
-### Paso 3: Despliegue a Producción
-Una vez que `Staging` haya procesado un Dictamen sin lanzar un `Incident` fatal a la DB:
-```bash
-npx wrangler deploy --env production
-```
-
----
-
-## 🔐 3. Protocolos de Seguridad y Secretos
-
-### Gestión de Tokens en Producción
-ParaEndpoints administrativos como `/api/v1/jobs/repair-nulls` o las subrutas `/ingest/*`, los tokens no deben vivir en el Git. Deben inyectarse como secretos criptográficos en Cloudflare:
+Desde `cgr-platform/`:
 
 ```bash
-# Seteo de token seguro
-npx wrangler secret put INGEST_TRIGGER_TOKEN --env production
+npx wrangler deploy --minify
 ```
 
-### Rollback (Plan de Contingencia)
-Si un despliegue en Producción corrompe el parseo de la CGR y empieza a inyectar miles de registros erróneos (estado `error_format`):
-1. **Pausa inmediata**: No intentes hacer fix forward. Ve al dashboard de Cloudflare y pausa el Cron Trigger.
-2. **Reversión**: Busca el último commit estable en Git y redespliega esa versión:
-   ```bash
-   git checkout <hash_anterior_estable>
-   npx wrangler deploy --env production
-   ```
-3. **Limpieza D1**: Usa queries SQL para eliminar los registros ingresados en la última hora.
+Notas:
+
+- este comando publica el Worker productivo real;
+- no usar `--env staging` como paso rutinario;
+- si el release requiere validación previa, hacerla con build local, smoke tests y worktree limpio.
+
+## Despliegue canónico del frontend
+
+Desde `frontend/`:
+
+```bash
+npm run build
+npx wrangler pages deploy dist --project-name cgr-jurisprudencia-frontend
+```
+
+Notas:
+
+- el alias `head` es un preview técnico del deploy, no la URL principal;
+- la URL que debe documentarse y usarse como referencia es `https://cgr-jurisprudencia-frontend.pages.dev`.
+
+## Regla de seguridad
+
+- no introducir nuevos entornos por costumbre;
+- no asumir que `staging` aísla datos reales;
+- para cambios sensibles, preferir:
+  - worktree limpio;
+  - `preview` o `dry-run`;
+  - lotes pequeños;
+  - audit trail;
+  - `apply` explícito.
+
+## Checklist mínimo de release
+
+1. build local del frontend
+2. validación del Worker real
+3. commit limpio
+4. deploy desde worktree limpio
+5. smoke test sobre la URL principal del frontend y el Worker productivo

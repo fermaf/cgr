@@ -83,7 +83,7 @@ wrangler d1 execute cgr-dictamenes --remote --command "SELECT estado, COUNT(*) c
 
 Definidas en `wrangler.jsonc`:
 
-- `ENVIRONMENT` (`local|prod|unknown`)
+- `ENVIRONMENT` (`local|staging|prod`)
 - `CGR_BASE_URL`
 - `MISTRAL_API_URL`
 - `MISTRAL_MODEL`
@@ -124,6 +124,7 @@ Archivo del fix: `src/lib/ingest.ts`.
 
 ## Más detalle
 
-- Desarrollo: [../docs/03_guia_desarrollo.md](../docs/03_guia_desarrollo.md)
-- Operación: [../docs/04_operacion_y_mantenimiento.md](../docs/04_operacion_y_mantenimiento.md)
-- Arquitectura: [../docs/02_arquitectura.md](../docs/02_arquitectura.md)
+- Desarrollo: [../docs/tutoriales/03_guia_desarrollo_avanzada.md](../docs/tutoriales/03_guia_desarrollo_avanzada.md)
+- Operación: [../docs/guias_tareas/03_monitoreo_y_operaciones.md](../docs/guias_tareas/03_monitoreo_y_operaciones.md)
+- Entornos: [../docs/guias_tareas/04_entornos_y_despliegue.md](../docs/guias_tareas/04_entornos_y_despliegue.md)
+- Arquitectura doctrinal/agéntica: [../docs/agentic_architecture.md](../docs/agentic_architecture.md)

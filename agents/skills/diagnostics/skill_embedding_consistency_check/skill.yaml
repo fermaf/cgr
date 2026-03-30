@@ -1,0 +1,75 @@
+id: skill_embedding_consistency_check
+version: 1
+description: >
+  Audita consistencia entre D1, Pinecone, namespace activo y metadata doctrinal
+  para detectar drift entre corpus enriquecido, corpus vectorizado y retrieval semántico.
+owner: doctrine-platform
+category: diagnostics
+diagnostic_only: true
+
+inputs:
+  type: object
+  additionalProperties: false
+  properties:
+    namespace:
+      type: string
+      description: Namespace Pinecone a inspeccionar. Si se omite, usa el namespace activo del entorno.
+    sampleSize:
+      type: integer
+      minimum: 5
+      maximum: 200
+      description: Tamaño del sample usado para contraste D1 ↔ Pinecone.
+    mode:
+      type: string
+      enum: [quick, standard]
+    includeMetadataAudit:
+      type: boolean
+    targetEnvironment:
+      type: string
+      enum: [staging, local]
+    searchProbe:
+      type: string
+      description: Consulta semántica de prueba para retrieval mínimo.
+
+outputs:
+  type: object
+  required: [summary, findings, stats, severity, recommended_actions]
+  properties:
+    summary:
+      type: object
+    findings:
+      type: array
+      items:
+        type: object
+    stats:
+      type: object
+    severity:
+      type: string
+      enum: [low, medium, high, critical]
+    recommended_actions:
+      type: array
+      items:
+        type: string
+
+dependencies:
+  code:
+    - agents/skills/diagnostics/skill_embedding_consistency_check/executor.ts
+    - agents/skills/skill_embedding_consistency_check.ts
+    - agents/utils/devVars.ts
+    - agents/utils/wranglerConfig.ts
+  config:
+    - cgr-platform/wrangler.jsonc
+    - cgr-platform/.dev.vars
+  providers:
+    - cloudflare-d1-rest-api
+    - pinecone-data-plane
+
+side_effects:
+  writes_d1: false
+  writes_kv: false
+  writes_vector: false
+  triggers_workflow: false
+
+notes:
+  - staging es read-only desde la perspectiva de esta skill, aunque hoy comparta recursos reales con production.
+  - local solo soporta auditoría parcial de configuración; la auditoría real del corpus requiere targetEnvironment=staging.

@@ -2,13 +2,19 @@
 
 Aplicación web React 19 + Vite desplegada en Cloudflare Pages.
 
+Línea principal actual:
+
+- proyecto de Pages: `cgr-jurisprudencia-frontend`
+- URL principal: `https://cgr-jurisprudencia-frontend.pages.dev`
+- alias `head`: preview técnico del último deploy, no URL canónica
+
 ## Inicio Rápido
 
 ```bash
 npm install
 npm run dev      # Desarrollo local en http://localhost:5173
 npm run build    # Build de producción
-npx wrangler pages deploy dist --project-name cgr-jurisprudencia
+npx wrangler pages deploy dist --project-name cgr-jurisprudencia-frontend
 ```
 
 ## Documentación

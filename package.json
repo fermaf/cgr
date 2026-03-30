@@ -1,4 +1,30 @@
 {
+  "scripts": {
+    "agents:build": "node ./cgr-platform/node_modules/typescript/bin/tsc -p tsconfig.agents.json",
+    "agents:check": "npm run agents:build -- --pretty false && node ./.agents-dist/scripts/validate_agents_structure.js",
+    "agents:test": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runPing.js",
+    "agents:scan": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runRepoScan.js",
+    "agents:embedding:check": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runEmbeddingConsistencyCheck.js",
+    "agents:metadata:audit": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runMetadataQualityAudit.js",
+    "agents:metadata:plan": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runMetadataRemediationPlanner.js",
+    "agents:metadata:auto-normalize": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runMetadataAutoNormalizationExecutor.js",
+    "agents:metadata:blockers": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runMetadataBlockerRegenerationExecutor.js",
+    "agents:wrap:test": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runLegacyWrapper.js",
+    "agents:wrap:baseurl": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runLegacyBaseurlWrapper.js",
+    "agents:workflow:check": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runWorkflowHealthcheck.js",
+    "agents:legacy:inventory": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runLegacyInventory.js",
+    "agents:ingest:scan": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runIngestTopologyScan.js",
+    "agents:convergence:report": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runCapabilityConvergenceReport.js",
+    "agents:ingest:edge": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runIngestEdgeObservability.js",
+    "agents:ingest:triage": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runIngestIncidentTriage.js",
+    "agents:ingest:decision": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runIngestIncidentDecisioning.js",
+    "agents:ingest:control-plane": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runIngestControlPlane.js",
+    "agents:ingest:bridge": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runIngestIncidentBridge.js",
+    "agents:ingest:delegate": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runIngestLegacyDelegation.js",
+    "agents:ingest:native-incident": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runIngestNativeIncident.js",
+    "agents:ingest:native-router": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runIngestNativeRouter.js",
+    "agents:ingest:route-adapter": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runIngestRouteAdapter.js"
+  },
   "dependencies": {
     "yaml": "^2.8.2"
   }

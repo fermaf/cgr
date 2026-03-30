@@ -1,0 +1,63 @@
+id: skill_metadata_quality_audit
+version: 1
+category: diagnostics
+owner: agents
+description: >
+  Audita la calidad doctrinal de la metadata en D1, clasifica deuda semántica y
+  estima su impacto sobre doctrine-search, doctrine-lines y UX visible.
+diagnostic_only: true
+side_effects: none
+inputs:
+  type: object
+  additionalProperties: false
+  properties:
+    sampleSize:
+      type: integer
+      description: Cantidad de registros a muestrear para clasificar ruido doctrinal.
+    mode:
+      type: string
+      enum:
+        - quick
+        - standard
+      description: quick usa un muestreo acotado; standard amplía la cobertura.
+    targetEnvironment:
+      type: string
+      enum:
+        - staging
+        - local
+      description: staging opera read-only contra Cloudflare D1; local solo se acepta si existe snapshot aislado.
+    includeProductImpact:
+      type: boolean
+      description: Incluye estimación de impacto por área de producto.
+    includeExamples:
+      type: boolean
+      description: Incluye ejemplos representativos por hallazgo.
+outputs:
+  type: object
+  properties:
+    summary:
+      type: object
+    findings:
+      type: array
+    stats:
+      type: object
+    severity:
+      type: string
+    recommended_actions:
+      type: array
+    remediation_buckets:
+      type: array
+dependencies:
+  - Cloudflare D1 read-only API
+  - wrangler.jsonc
+  - .dev.vars
+preconditions:
+  - No usar producción.
+  - Preferir staging porque hoy no existe snapshot local aislado del corpus doctrinal.
+failure_modes:
+  - Falta de CLOUDFLARE_API_TOKEN
+  - wrangler.jsonc no parseable
+  - bindings D1 no resolubles
+  - errores de red hacia Cloudflare D1
+evidence_policy:
+  - Combina conteos agregados exactos en D1 con muestreo clasificado por reglas doctrinales.

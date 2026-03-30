@@ -1,0 +1,60 @@
+id: skill_metadata_remediation_planner
+version: 1
+category: diagnostics
+owner: agents
+description: >
+  Convierte la auditoría de calidad doctrinal en un plan de saneamiento priorizado,
+  seguro y ejecutable, sin modificar datos.
+diagnostic_only: true
+side_effects: none
+inputs:
+  type: object
+  additionalProperties: false
+  properties:
+    mode:
+      type: string
+      enum:
+        - quick
+        - standard
+    targetEnvironment:
+      type: string
+      enum:
+        - staging
+        - local
+    maxSuggestedBatches:
+      type: integer
+    includeExamples:
+      type: boolean
+    includeAutoFixEligibility:
+      type: boolean
+outputs:
+  type: object
+  properties:
+    summary:
+      type: object
+    remediation_plan:
+      type: array
+    batches:
+      type: array
+    strategy_by_bucket:
+      type: array
+    stats:
+      type: object
+    severity:
+      type: string
+    next_actions:
+      type: array
+dependencies:
+  - skill_metadata_quality_audit
+  - Cloudflare D1 read-only API
+  - wrangler.jsonc
+  - .dev.vars
+preconditions:
+  - No usar producción.
+  - No modificar datos.
+failure_modes:
+  - Fallo de auditoría fuente
+  - Errores de conectividad read-only a D1
+  - Falta de credenciales locales
+evidence_policy:
+  - Reutiliza hallazgos de auditoría y los traduce a lotes y estrategias por bucket.

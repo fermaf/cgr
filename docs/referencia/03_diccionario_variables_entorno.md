@@ -13,7 +13,7 @@ Las `vars` rigen el comportamiento aplicativo del código TypeScript desplegado.
 
 | Variable | Tipo y Valor Típico | Impacto de Arquitectura y Razones de Diseño |
 | :--- | :--- | :--- |
-| `ENVIRONMENT` | Enum de String (`dev` / `staging` / `prod`) | Controla caminos de ejecución divergentes (ej: qué nivel de severidad se reporta en fallos o qué tablas cruzar si hay mutación de estructura). Fundamental para aislar los entornos, aunque debes guiarte por el `wrangler env` pertinente. |
+| `ENVIRONMENT` | Enum de String (`local` / `staging` / `prod`) | Identifica el contexto de ejecución real del Worker. Hoy `staging` y `prod` comparten recursos físicos en `wrangler.jsonc`, por lo que el valor sirve principalmente para trazabilidad, guardas operativas y auditoría; no garantiza aislamiento de datos. |
 | `APP_TIMEZONE` | `America/Santiago` | Estándar base para cronjobs. Si CGR publica fallos a las 11:59PM en Chile, el Cron debe dispararse respetando esta franja y no `UTC`, para no adelantar ni retrasar los "días retroactivos". |
 | `LOG_LEVEL` | Enum (`debug` / `info` / `error`) | Nivel de verbosidad del logger (`src/lib/log.ts`). En `debug` expones cargas completas en el `wrangler tail`, ideal pero extremadamente devorador de memoria en producción si se mantiene prolongado. |
 

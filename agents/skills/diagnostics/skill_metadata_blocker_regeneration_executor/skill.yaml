@@ -1,0 +1,83 @@
+id: skill_metadata_blocker_regeneration_executor
+version: 1
+category: enrichment
+owner: agents
+description: >
+  Clasifica y prepara el tratamiento de blockers críticos de metadata doctrinal.
+  Opera solo sobre registros con titulo/resumen/analisis vacíos o bloqueantes,
+  con preview por defecto, apply restringido y trazabilidad local.
+diagnostic_only: false
+side_effects: >
+  En modo apply puede disparar re-procesos puntuales via /api/v1/dictamenes/:id/re-process
+  solo en un entorno aislado de production. Siempre escribe un audit trail local en
+  agents/out/metadata-blocker-regeneration.
+inputs:
+  type: object
+  additionalProperties: false
+  properties:
+    mode:
+      type: string
+      enum:
+        - preview
+        - apply
+    targetEnvironment:
+      type: string
+      enum:
+        - staging
+        - local
+    maxBatchSize:
+      type: integer
+    dryRun:
+      type: boolean
+    includeExamples:
+      type: boolean
+    allowIds:
+      type: array
+    reprocessBaseUrl:
+      type: string
+outputs:
+  type: object
+  properties:
+    summary:
+      type: object
+    candidate_count:
+      type: integer
+    applied_count:
+      type: integer
+    skipped_count:
+      type: integer
+    blockers:
+      type: array
+    strategy_summary:
+      type: array
+    safety_checks:
+      type: array
+    apply_summary:
+      type: object
+    apply_attempts:
+      type: array
+    stats:
+      type: object
+    severity:
+      type: string
+    next_actions:
+      type: array
+dependencies:
+  - skill_metadata_remediation_planner
+  - Cloudflare D1 REST API
+  - /api/v1/dictamenes/:id/re-process
+  - wrangler.jsonc
+  - .dev.vars
+preconditions:
+  - targetEnvironment explícito
+  - preview por defecto
+  - no usar production
+  - apply solo con allowlist explícita y lote pequeño
+failure_modes:
+  - apply sin allowlist explícita
+  - lote excede el límite seguro
+  - faltan credenciales Cloudflare para consultar blockers
+  - endpoint /re-process no disponible o no alcanzable
+  - un blocker requiere revisión manual y no conviene regenerarlo automáticamente
+evidence_policy:
+  - Siempre guarda audit trail local con blockers, estrategias, safety checks y apply attempts.

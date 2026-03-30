@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "strict": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "typeRoots": ["./cgr-platform/node_modules/@types"],
+    "rootDir": ".",
+    "outDir": ".agents-dist"
+  },
+  "include": [
+    "agents/**/*.ts",
+    "scripts/validate_agents_structure.ts",
+    "cgr-platform/src/skills/cgr_network_baseurl_verify.ts",
+    "cgr-platform/src/skills/check_env_sanity.ts",
+    "cgr-platform/src/types.ts",
+    "cgr-platform/src/lib/incident.ts",
+    "cgr-platform/src/lib/incidentRouter.ts"
+  ]
+}
