@@ -1,6 +1,8 @@
 import type { SkillDefinition } from '../types/skill';
 import { skill as capabilityConvergenceReportSkill } from './skill_capability_convergence_report';
 import { skill as embeddingConsistencyCheckSkill } from './skill_embedding_consistency_check';
+import { skill as doctrineCoherenceAuditSkill } from './skill_doctrine_coherence_audit';
+import { skill as doctrineStructureRemediationExecutorSkill } from './skill_doctrine_structure_remediation_executor';
 import { skill as ingestControlPlaneSkill } from './skill_ingest_control_plane';
 import { skill as ingestIncidentBridgeSkill } from './skill_ingest_incident_bridge';
 import { skill as ingestIncidentDecisioningSkill } from './skill_ingest_incident_decisioning';
@@ -29,6 +31,8 @@ export interface SkillRegistryEntry {
 
 const nativeSkills: Array<SkillDefinition<object, object>> = [
   capabilityConvergenceReportSkill,
+  doctrineCoherenceAuditSkill,
+  doctrineStructureRemediationExecutorSkill,
   embeddingConsistencyCheckSkill,
   ingestControlPlaneSkill,
   ingestIncidentBridgeSkill,

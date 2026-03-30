@@ -1,24 +1,64 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Calendar, Building2, Tag, BookOpen, Share2, AlertCircle, Sparkles, Download, FileCheck, Activity } from "lucide-react";
+import { ArrowLeft, Calendar, Building2, Tag, BookOpen, Share2, AlertCircle, Sparkles, Download, FileCheck, Activity, Landmark, ShieldAlert } from "lucide-react";
 import type { DictamenResponse } from "../types";
 import { cn } from "../lib/utils";
+import { formatDisplayDate } from "../lib/date";
+import { describeLegalSource } from "../lib/legalSources";
+import type { RelacionCausa, RelacionEfecto } from "../types";
 
-const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return "Sin fecha";
-    try {
-        const date = new Date(dateStr);
-        if (isNaN(date.getTime())) {
-            // Intento de fallback para formatos raros
-            const match = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
-            if (match) return `${match[1]}-${match[2]}-${match[3]}`;
-            return dateStr.split('T')[0];
-        }
-        return date.toISOString().split('T')[0];
-    } catch (e) {
-        return dateStr;
+function relationBucket(tipoAccion: string): "consolida" | "desarrolla" | "ajusta" {
+    if (["confirmado", "aplicado"].includes(tipoAccion)) return "consolida";
+    if (["complementado", "aclarado"].includes(tipoAccion)) return "desarrolla";
+    return "ajusta";
+}
+
+function relationBucketLabel(bucket: "consolida" | "desarrolla" | "ajusta") {
+    if (bucket === "consolida") return "consolidación";
+    if (bucket === "desarrolla") return "desarrollo";
+    return "ajuste";
+}
+
+function outgoingRelationPhrase(tipoAccion: string) {
+    if (tipoAccion === "aplicado") return "Este dictamen aplica criterio de";
+    if (tipoAccion === "confirmado") return "Este dictamen confirma criterio de";
+    if (tipoAccion === "complementado") return "Este dictamen complementa criterio de";
+    if (tipoAccion === "aclarado") return "Este dictamen aclara criterio de";
+    if (tipoAccion === "alterado") return "Este dictamen altera criterio de";
+    if (tipoAccion === "reconsiderado") return "Este dictamen reconsidera criterio de";
+    if (tipoAccion === "reactivado") return "Este dictamen reactiva criterio de";
+    return "Este dictamen se relaciona con";
+}
+
+function incomingRelationPhrase(tipoAccion: string) {
+    if (tipoAccion === "aplicado") return "Fue usado después para aplicar su criterio";
+    if (tipoAccion === "confirmado") return "Fue usado después para confirmar su criterio";
+    if (tipoAccion === "complementado") return "Fue usado después para complementar su criterio";
+    if (tipoAccion === "aclarado") return "Fue usado después para aclarar su criterio";
+    if (tipoAccion === "alterado") return "Fue usado después para ajustar o alterar su criterio";
+    if (tipoAccion === "reconsiderado") return "Fue usado después para reconsiderar su criterio";
+    if (tipoAccion === "reactivado") return "Fue usado después para reactivar su criterio";
+    return "Fue utilizado por un dictamen posterior";
+}
+
+function summarizeRelationRole(relacionesCausa: RelacionCausa[], relacionesEfecto: RelacionEfecto[]) {
+    const outgoingBuckets = relacionesEfecto.map((relation) => relationBucket(relation.tipo_accion));
+    const incomingBuckets = relacionesCausa.map((relation) => relationBucket(relation.tipo_accion));
+
+    if (outgoingBuckets.includes("ajusta")) {
+        return "Este dictamen parece intervenir sobre criterio previo ajustándolo o reordenándolo.";
     }
-};
+    if (outgoingBuckets.includes("desarrolla")) {
+        return "Este dictamen parece desarrollar criterio previo mediante aclaraciones o complementos.";
+    }
+    if (outgoingBuckets.includes("consolida")) {
+        return "Este dictamen parece apoyarse en criterio previo para consolidar una línea existente.";
+    }
+    if (incomingBuckets.length > 0) {
+        return "Este dictamen ya funciona como apoyo doctrinal para decisiones posteriores.";
+    }
+    return "Este dictamen aún muestra pocas relaciones jurídicas materializadas en la red visible.";
+}
 
 function NervioCentral({ lineage, currentId }: { lineage: any, currentId: string }) {
     if (!lineage || (!lineage.references_from?.length && !lineage.references_to?.length)) return null;
@@ -216,6 +256,7 @@ export function DictamenDetail() {
     const textoIntegro = extractText(raw);
     const relacionesCausa = meta.relaciones_causa || [];
     const relacionesEfecto = meta.relaciones_efecto || [];
+    const relacionRoleSummary = summarizeRelationRole(relacionesCausa, relacionesEfecto);
 
     return (
         <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700 relative z-10 pb-20">
@@ -267,7 +308,7 @@ export function DictamenDetail() {
 
                 <div className="flex flex-wrap gap-x-8 gap-y-4 text-sm text-slate-600 font-sans font-medium">
                     <div className="flex items-center gap-2.5">
-                        <Calendar className="w-4 h-4 text-slate-400" /> {formatDate(meta.fecha_documento)}
+                        <Calendar className="w-4 h-4 text-slate-400" /> {formatDisplayDate(meta.fecha_documento, "Sin fecha")}
                     </div>
                     <div className="flex items-center gap-2.5">
                         <Building2 className="w-4 h-4 text-slate-400" /> {meta.division_nombre || "División no especificada"}
@@ -327,20 +368,66 @@ export function DictamenDetail() {
                         <NervioCentral lineage={lineage} currentId={id || ""} />
                     </div>
 
-                    {meta.referencias && meta.referencias.length > 0 && (
+                    {meta.fuentes_legales && meta.fuentes_legales.length > 0 && (
                         <div className="pt-8 border-t border-slate-200 space-y-4 print:hidden">
-                            <h3 className="font-bold text-cgr-navy font-sans uppercase tracking-wide text-sm">Normativa Referenciada</h3>
+                            <div className="flex items-start gap-3">
+                                <div className="rounded-xl bg-slate-50 p-2 text-cgr-navy border border-slate-200">
+                                    <Landmark className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-cgr-navy font-sans uppercase tracking-wide text-sm">Normativa citada</h3>
+                                    <p className="mt-1 text-sm leading-6 text-slate-600">
+                                        Indubia ya no muestra solo una sigla o número. Destaca año y órgano emisor cuando la norma no se identifica con seguridad por sí sola.
+                                    </p>
+                                </div>
+                            </div>
                             <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {meta.referencias.map((ref, idx) => (
+                                {meta.fuentes_legales.map((source, idx) => {
+                                    const detail = describeLegalSource(source);
+                                    return (
                                     <li key={idx}>
-                                        <Link to={ref.url} className="flex items-center gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200 hover:bg-white hover:border-cgr-blue hover:shadow-sm transition-all group">
-                                            <div className="w-2 h-2 rounded-full bg-slate-300 group-hover:bg-cgr-blue transition-colors" />
-                                            <span className="text-sm font-sans font-medium text-slate-600 group-hover:text-cgr-navy transition-colors">
-                                                {ref.dictamen_ref_nombre} ({ref.year})
-                                            </span>
-                                        </Link>
+                                        <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4 hover:bg-white hover:border-cgr-blue hover:shadow-sm transition-all">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div>
+                                                    <p className="text-sm font-semibold text-cgr-navy">{detail.primary}</p>
+                                                    {detail.secondary && (
+                                                        <p className="mt-1 text-sm text-slate-600">{detail.secondary}</p>
+                                                    )}
+                                                </div>
+                                                <span className={cn(
+                                                    "shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em]",
+                                                    detail.contextCompleteness === "alta"
+                                                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                                        : detail.contextCompleteness === "media"
+                                                            ? "border-amber-200 bg-amber-50 text-amber-700"
+                                                            : "border-cgr-red/20 bg-cgr-red/10 text-cgr-red"
+                                                )}>
+                                                    identificación {detail.contextCompleteness}
+                                                </span>
+                                            </div>
+
+                                            <div className="mt-3 flex flex-wrap gap-2">
+                                                {detail.articleLabel && (
+                                                    <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700">
+                                                        {detail.articleLabel}
+                                                    </span>
+                                                )}
+                                                {source.mentions > 1 && (
+                                                    <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700">
+                                                        {source.mentions} menciones
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            {detail.caution && (
+                                                <div className="mt-3 flex items-start gap-2 rounded-xl border border-cgr-red/15 bg-cgr-red/5 px-3 py-2 text-xs leading-5 text-cgr-red">
+                                                    <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                                                    <span>{detail.caution}</span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </li>
-                                ))}
+                                )})}
                             </ul>
                         </div>
                     )}
@@ -350,13 +437,34 @@ export function DictamenDetail() {
                     {(relacionesCausa.length > 0 || relacionesEfecto.length > 0) && (
                         <div className="bg-white p-7 rounded-2xl border border-slate-200 shadow-sm space-y-5">
                             <div>
-                                <h3 className="font-bold text-slate-400 text-[10px] uppercase tracking-widest">Relaciones Canónicas</h3>
-                                <p className="mt-2 text-sm text-slate-500 font-sans">Relaciones jurídicas materializadas desde evidencia productiva.</p>
+                                <h3 className="font-bold text-slate-400 text-[10px] uppercase tracking-widest">Posición doctrinal</h3>
+                                <p className="mt-2 text-sm text-slate-500 font-sans">{relacionRoleSummary}</p>
+                            </div>
+
+                            <div className="grid gap-3 sm:grid-cols-3">
+                                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                                    <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-700">Consolidan</p>
+                                    <p className="mt-2 text-2xl font-semibold text-cgr-navy">
+                                        {[...relacionesCausa, ...relacionesEfecto].filter((rel) => relationBucket(rel.tipo_accion) === "consolida").length}
+                                    </p>
+                                </div>
+                                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                                    <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-amber-700">Desarrollan</p>
+                                    <p className="mt-2 text-2xl font-semibold text-cgr-navy">
+                                        {[...relacionesCausa, ...relacionesEfecto].filter((rel) => relationBucket(rel.tipo_accion) === "desarrolla").length}
+                                    </p>
+                                </div>
+                                <div className="rounded-xl border border-cgr-red/20 bg-cgr-red/5 px-4 py-3">
+                                    <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-cgr-red">Ajustan</p>
+                                    <p className="mt-2 text-2xl font-semibold text-cgr-navy">
+                                        {[...relacionesCausa, ...relacionesEfecto].filter((rel) => relationBucket(rel.tipo_accion) === "ajusta").length}
+                                    </p>
+                                </div>
                             </div>
 
                             {relacionesCausa.length > 0 && (
                                 <div className="space-y-3">
-                                    <h4 className="text-xs font-bold uppercase tracking-wider text-cgr-navy">Lo afectan</h4>
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-cgr-navy">Dictámenes posteriores que usan este criterio</h4>
                                     <div className="space-y-2">
                                         {relacionesCausa.map((rel, idx) => (
                                             <Link
@@ -366,9 +474,14 @@ export function DictamenDetail() {
                                             >
                                                 <div>
                                                     <div className="font-mono text-sm font-bold text-cgr-navy">{rel.origen_id}</div>
-                                                    <div className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">{rel.tipo_accion}</div>
+                                                    <div className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">{relationBucketLabel(relationBucket(rel.tipo_accion))} · {rel.tipo_accion}</div>
+                                                    <div className="mt-1 text-xs leading-5 text-slate-500">{incomingRelationPhrase(rel.tipo_accion)}</div>
+                                                    {rel.titulo && <div className="mt-1 text-xs leading-5 text-slate-500">{rel.titulo}</div>}
                                                 </div>
-                                                <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Origen</span>
+                                                <div className="text-right">
+                                                    <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Posterior</span>
+                                                    {rel.fecha_documento && <div className="mt-1 text-[11px] text-slate-500">{formatDisplayDate(rel.fecha_documento)}</div>}
+                                                </div>
                                             </Link>
                                         ))}
                                     </div>
@@ -377,7 +490,7 @@ export function DictamenDetail() {
 
                             {relacionesEfecto.length > 0 && (
                                 <div className="space-y-3">
-                                    <h4 className="text-xs font-bold uppercase tracking-wider text-cgr-navy">A quienes afecta</h4>
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-cgr-navy">Criterio previo que este dictamen toma o ajusta</h4>
                                     <div className="space-y-2">
                                         {relacionesEfecto.map((rel, idx) => (
                                             <Link
@@ -387,9 +500,14 @@ export function DictamenDetail() {
                                             >
                                                 <div>
                                                     <div className="font-mono text-sm font-bold text-cgr-navy">{rel.destino_id}</div>
-                                                    <div className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">{rel.tipo_accion}</div>
+                                                    <div className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">{relationBucketLabel(relationBucket(rel.tipo_accion))} · {rel.tipo_accion}</div>
+                                                    <div className="mt-1 text-xs leading-5 text-slate-500">{outgoingRelationPhrase(rel.tipo_accion)}</div>
+                                                    {rel.titulo && <div className="mt-1 text-xs leading-5 text-slate-500">{rel.titulo}</div>}
                                                 </div>
-                                                <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Destino</span>
+                                                <div className="text-right">
+                                                    <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Previo</span>
+                                                    {rel.fecha_documento && <div className="mt-1 text-[11px] text-slate-500">{formatDisplayDate(rel.fecha_documento)}</div>}
+                                                </div>
                                             </Link>
                                         ))}
                                     </div>

@@ -5,6 +5,7 @@ import type { DoctrineInsightsResponse, DoctrineLine } from "../types";
 import { DOCTRINE_SEARCH_EXAMPLES, fetchDoctrineInsights } from "../lib/doctrineInsights";
 import { cn } from "../lib/utils";
 import { DoctrineReadingWorkspace } from "../components/doctrine/DoctrineReadingWorkspace";
+import { formatDisplayDate } from "../lib/date";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
 
@@ -22,8 +23,8 @@ function levelBadgeTone(level: "low" | "medium" | "high", kind: "importance" | "
 
 function formatDateRange(line: DoctrineLine) {
     if (!line.time_span.from && !line.time_span.to) return "Sin período consolidado";
-    if (line.time_span.from && line.time_span.to) return `${line.time_span.from} → ${line.time_span.to}`;
-    return line.time_span.from ?? line.time_span.to ?? "Sin período consolidado";
+    if (line.time_span.from && line.time_span.to) return `${formatDisplayDate(line.time_span.from, "s/d")} → ${formatDisplayDate(line.time_span.to, "s/d")}`;
+    return formatDisplayDate(line.time_span.from ?? line.time_span.to, "Sin período consolidado");
 }
 
 function formatFuenteLabel(tipo: string, numero: string | null) {
@@ -39,6 +40,27 @@ function doctrinalStateLabel(state: DoctrineLine["doctrinal_state"]) {
     if (state === "consolidado") return "criterio consolidado";
     if (state === "bajo_tension") return "línea bajo tensión";
     return "línea en evolución";
+}
+
+function relationDynamicsLabel(line: DoctrineLine) {
+    if (line.relation_dynamics.dominant_bucket === "consolida") return "predomina consolidación";
+    if (line.relation_dynamics.dominant_bucket === "desarrolla") return "predomina desarrollo";
+    if (line.relation_dynamics.dominant_bucket === "ajusta") return "predomina ajuste";
+    return "sin dinámica dominante";
+}
+
+function coherenceSummaryLabel(line: DoctrineLine) {
+    if (line.coherence_signals.coherence_status === "fragmentada") return "posible fragmentación";
+    if (line.coherence_signals.coherence_status === "mixta") return "línea con ruido";
+    return "coherencia suficiente";
+}
+
+function structureHintLabel(line: DoctrineLine) {
+    if (line.structure_adjustments?.action === "merge_clusters") return "línea consolidada";
+    if (line.coherence_signals.coherence_status === "fragmentada") return "revisar posible separación";
+    if (line.coherence_signals.outlier_probability >= 0.22) return "revisar posible mal agrupado";
+    if (line.coherence_signals.descriptor_noise_score >= 0.4) return "revisar descriptores";
+    return null;
 }
 
 export function Home() {
@@ -86,7 +108,7 @@ export function Home() {
     const modeLabel = state === "loading"
         ? "Actualizando resultado"
         : mode === "live"
-            ? "Usando datos reales de staging"
+            ? "Usando datos reales del corpus"
             : "Usando ejemplo local de respaldo";
     const modeTone = state === "loading"
         ? "text-blue-200"
@@ -231,7 +253,7 @@ export function Home() {
                                 <div className="space-y-2">
                                     <h3 className="font-serif text-xl font-semibold text-cgr-navy">No fue posible completar la búsqueda doctrinal</h3>
                                     <p className="text-sm leading-6 text-slate-600">
-                                        Indubia no pudo consultar esta búsqueda en el backend de staging. Intente nuevamente en unos segundos o use una consulta distinta.
+                                        Indubia no pudo consultar esta búsqueda en el backend principal. Intente nuevamente en unos segundos o use una consulta distinta.
                                     </p>
                                 </div>
                             </div>
@@ -263,6 +285,7 @@ export function Home() {
                         const isSelected = line.representative_dictamen_id === selectedLine?.representative_dictamen_id;
                         const visibleFuentes = line.top_fuentes_legales.slice(0, 3);
                         const visibleKeyDictamenes = line.key_dictamenes.slice(0, 3);
+                        const structureHint = structureHintLabel(line);
                         return (
                             <button
                                 key={line.representative_dictamen_id}
@@ -285,6 +308,19 @@ export function Home() {
                                             <span className={cn("rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]", levelBadgeTone(line.change_risk_level, "risk"))}>
                                                 {doctrinalStateLabel(line.doctrinal_state)}
                                             </span>
+                                            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
+                                                {relationDynamicsLabel(line)}
+                                            </span>
+                                            <span className={cn(
+                                                "rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]",
+                                                line.coherence_signals.coherence_status === "fragmentada"
+                                                    ? "border-cgr-red/20 bg-cgr-red/10 text-cgr-red"
+                                                    : line.coherence_signals.coherence_status === "mixta"
+                                                        ? "border-amber-200 bg-amber-50 text-amber-700"
+                                                        : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                            )}>
+                                                {coherenceSummaryLabel(line)}
+                                            </span>
                                         </div>
                                     </div>
                                     <div className="rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
@@ -294,6 +330,23 @@ export function Home() {
 
                                 <p className="mt-4 text-sm leading-7 text-slate-700">{line.summary}</p>
                                 <p className="mt-3 text-sm leading-6 text-slate-500">{line.doctrinal_state_reason}</p>
+                                <p className="mt-2 text-sm leading-6 text-slate-500">{line.relation_dynamics.summary}</p>
+                                <p className="mt-2 text-sm leading-6 text-slate-500">{line.coherence_signals.summary}</p>
+                                {line.structure_adjustments && (
+                                    <p className="mt-2 text-sm leading-6 text-emerald-800">{line.structure_adjustments.note}</p>
+                                )}
+                                {structureHint && (
+                                    <div
+                                        className={cn(
+                                            "mt-3 inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]",
+                                            line.structure_adjustments
+                                                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                                : "border-cgr-red/15 bg-cgr-red/5 text-cgr-red"
+                                        )}
+                                    >
+                                        {structureHint}
+                                    </div>
+                                )}
 
                                 {line.query_match_reason && (
                                     <div className="mt-4 rounded-2xl border border-cgr-gold/25 bg-cgr-gold/10 px-4 py-3">
@@ -327,7 +380,7 @@ export function Home() {
                                                             <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{dictamen.rol_en_linea}</span>
                                                         </div>
                                                         <p className="mt-2 text-sm text-slate-700">{dictamen.titulo}</p>
-                                                        {dictamen.fecha && <p className="mt-2 text-xs text-slate-500">{dictamen.fecha}</p>}
+                                                        {dictamen.fecha && <p className="mt-2 text-xs text-slate-500">{formatDisplayDate(dictamen.fecha, "Sin fecha")}</p>}
                                                     </div>
                                                 ))}
                                             </div>

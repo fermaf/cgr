@@ -1,0 +1,37 @@
+id: skill_doctrine_coherence_audit
+description: Audita la coherencia doctrinal visible de las líneas activas y detecta fragmentación, ruido y outliers probables.
+diagnostic_only: true
+inputs:
+  type: object
+  properties:
+    limit:
+      type: integer
+      description: Cantidad de líneas doctrinales a revisar.
+    mode:
+      type: string
+      enum: [quick, standard]
+      description: quick revisa pocas líneas; standard amplía la muestra.
+    backendBaseUrl:
+      type: string
+      description: Base URL del backend a inspeccionar. Si se omite usa la principal del proyecto.
+    query:
+      type: string
+      description: Si se entrega, la auditoría se hace sobre doctrine-search para una consulta visible.
+outputs:
+  type: object
+  properties:
+    summary:
+      type: object
+    findings:
+      type: array
+    candidate_actions:
+      type: array
+    stats:
+      type: object
+    severity:
+      type: string
+    recommended_actions:
+      type: array
+dependencies:
+  - cgr-platform:/api/v1/insights/doctrine-lines
+  - cgr-platform:/api/v1/insights/doctrine-search

@@ -34,6 +34,22 @@ const DEMO_RESPONSE: DoctrineInsightsResponse = {
                 signal: "hito_de_evolucion",
                 reason: "Aparece como hito reciente que consolida o proyecta la línea."
             },
+            relation_dynamics: {
+                consolida: 4,
+                desarrolla: 2,
+                ajusta: 1,
+                dominant_bucket: "consolida",
+                summary: "Predominan dictámenes que aplican o confirman criterio previo, lo que sugiere una línea con apoyo jurisprudencial acumulado."
+            },
+            coherence_signals: {
+                cluster_cohesion_score: 0.74,
+                semantic_dispersion: 0.26,
+                outlier_probability: 0.11,
+                descriptor_noise_score: 0.22,
+                fragmentation_risk: 0.19,
+                coherence_status: "cohesiva",
+                summary: "La línea muestra cohesión suficiente entre sus dictámenes visibles."
+            },
             representative_dictamen_id: "012345N21",
             core_dictamen_ids: ["012345N21", "067890N19"],
             key_dictamenes: [
@@ -80,6 +96,22 @@ const DEMO_RESPONSE: DoctrineInsightsResponse = {
             doctrinal_state: "consolidado",
             doctrinal_state_reason: "La línea muestra un núcleo estable y señales de reiteración consistentes.",
             pivot_dictamen: null,
+            relation_dynamics: {
+                consolida: 3,
+                desarrolla: 1,
+                ajusta: 0,
+                dominant_bucket: "consolida",
+                summary: "Predominan dictámenes que aplican o confirman criterio previo, lo que sugiere una línea con apoyo jurisprudencial acumulado."
+            },
+            coherence_signals: {
+                cluster_cohesion_score: 0.63,
+                semantic_dispersion: 0.37,
+                outlier_probability: 0.21,
+                descriptor_noise_score: 0.33,
+                fragmentation_risk: 0.34,
+                coherence_status: "mixta",
+                summary: "La línea mantiene un eje doctrinal visible, pero muestra ruido semántico o dictámenes con encaje débil."
+            },
             representative_dictamen_id: "034567N20",
             core_dictamen_ids: ["034567N20"],
             key_dictamenes: [

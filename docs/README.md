@@ -28,6 +28,8 @@ Bienvenido al centro de conocimiento de **CGR-Platform**. Esta documentación ha
 - **[05 - Roadmap Estratégico (2026-2027)](explicacion/05_roadmap_estrategico.md)**: Extensión conceptual hacia un "Buscador Analítico" y un Worker Predictivo de Compliance.
 - **[06 - Arquitectura de Relaciones Jurídicas (Retro-Update)](explicacion/06_arquitectura_relaciones_juridicas.md)**: El Dependency Graph que sincroniza el ecosistema D1/KV/Pinecone.
 - **[07 - Modelo Canónico de Relaciones entre Dictámenes](explicacion/07_modelo_canonico_relaciones_dictamenes.md)**: Propuesta evidence-first para separar evidencia, afirmaciones y proyecciones doctrinales.
+- **[08 - Hito: Plataforma Doctrinal Agéntica Operativa](explicacion/08_hito_plataforma_doctrinal_agentica_operativa.md)**: Cierre del primer gran hito, capacidades ya operativas, remediación estructural aplicada y criterio para el siguiente ciclo.
+- **[09 - Hito: Evolución Estructural del Corpus Doctrinal](explicacion/09_hito_evolucion_estructural_corpus_doctrinal.md)**: Primera iteración del nuevo hito, con merge estructural conservador sobre fragmentación residual visible en `Confianza legítima`.
 - **[Arquitectura Agéntica de Indubia](agentic_architecture.md)**: Blueprint operativo para skills, MCPs y operación de agentes sobre el sistema doctrinal sin romper el backend actual.
 - **[Auditoría y Modernización Agéntica](agentic_modernization_audit.md)**: Mapa de salud, drift, alineación con proveedores y backlog priorizado para evolución sana.
 - **[Tooling Agéntico de Desarrollo](agents/dev_tooling_stack.md)**: Qué MCPs y herramientas externas sí valen la pena para acelerar frontend, operación y mantenimiento sin inflar el producto.

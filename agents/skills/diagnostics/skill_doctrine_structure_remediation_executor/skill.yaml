@@ -1,0 +1,51 @@
+id: skill_doctrine_structure_remediation_executor
+version: 1
+category: diagnostics
+description: >
+  Selecciona un candidate_action de merge doctrinal, prepara su before/after y puede
+  persistir una remediación derivada de bajo riesgo sobre doctrine-lines/doctrine-search.
+diagnostic_only: false
+inputs:
+  mode:
+    type: string
+    enum: [preview, apply]
+    required: false
+  targetEnvironment:
+    type: string
+    enum: [production, local]
+    required: false
+  limit:
+    type: integer
+    required: false
+  candidateIndex:
+    type: integer
+    required: false
+  backendBaseUrl:
+    type: string
+    required: false
+  query:
+    type: string
+    required: false
+  dryRun:
+    type: boolean
+    required: false
+  confirmRepresentativeIds:
+    type: array
+    required: false
+outputs:
+  summary:
+    type: object
+  selected_candidate:
+    type: object
+  before_state:
+    type: object
+  after_state:
+    type: object
+  safety_checks:
+    type: array
+  write_summary:
+    type: object
+dependencies:
+  - cgr-platform:/api/v1/insights/doctrine-lines
+  - cgr-platform:/api/v1/insights/doctrine-search
+  - d1:doctrine_structure_remediations

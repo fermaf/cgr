@@ -28,6 +28,24 @@ type PivotDictamen = {
   reason: string;
 };
 
+type RelationDynamics = {
+  consolida: number;
+  desarrolla: number;
+  ajusta: number;
+  dominant_bucket: 'consolida' | 'desarrolla' | 'ajusta' | null;
+  summary: string;
+};
+
+type CoherenceSignals = {
+  cluster_cohesion_score: number;
+  semantic_dispersion: number;
+  outlier_probability: number;
+  descriptor_noise_score: number;
+  fragmentation_risk: number;
+  coherence_status: 'cohesiva' | 'mixta' | 'fragmentada';
+  summary: string;
+};
+
 type DoctrineCluster = {
   cluster_label: string;
   representative_dictamen: {
@@ -56,6 +74,8 @@ type DoctrineCluster = {
   doctrinal_state: DoctrinalState;
   doctrinal_state_reason: string;
   pivot_dictamen: PivotDictamen | null;
+  relation_dynamics: RelationDynamics;
+  coherence_signals: CoherenceSignals;
 };
 
 function asString(value: unknown): string {
@@ -119,6 +139,11 @@ const MODIFYING_ACTIONS = new Set([
 const STABILIZING_ACTIONS = new Set([
   'confirmado',
   'aplicado'
+]);
+
+const DEVELOPING_ACTIONS = new Set([
+  'complementado',
+  'aclarado'
 ]);
 
 function countShared(left: string[], right: string[]): number {
@@ -236,7 +261,12 @@ async function aggregateClusterSignals(env: Env, ids: string[]) {
       fuentesByDictamen: {} as Record<string, string[]>,
       relationCountByDictamen: {} as Record<string, number>,
       modifyingActionCountByDictamen: {} as Record<string, number>,
-      stabilizingActionCountByDictamen: {} as Record<string, number>
+      stabilizingActionCountByDictamen: {} as Record<string, number>,
+      relationBucketCounts: {
+        consolida: 0,
+        desarrolla: 0,
+        ajusta: 0
+      }
     };
   }
 
@@ -277,14 +307,24 @@ async function aggregateClusterSignals(env: Env, ids: string[]) {
   const relationCountByDictamen: Record<string, number> = {};
   const modifyingActionCountByDictamen: Record<string, number> = {};
   const stabilizingActionCountByDictamen: Record<string, number> = {};
+  const relationBucketCounts = {
+    consolida: 0,
+    desarrolla: 0,
+    ajusta: 0
+  };
   for (const row of accionesRows.results ?? []) {
     actionCounts.set(row.tipo_accion, (actionCounts.get(row.tipo_accion) ?? 0) + 1);
     relationCountByDictamen[row.dictamen_id] = (relationCountByDictamen[row.dictamen_id] ?? 0) + 1;
     if (MODIFYING_ACTIONS.has(row.tipo_accion)) {
       modifyingActionCountByDictamen[row.dictamen_id] = (modifyingActionCountByDictamen[row.dictamen_id] ?? 0) + 1;
+      relationBucketCounts.ajusta += 1;
     }
     if (STABILIZING_ACTIONS.has(row.tipo_accion)) {
       stabilizingActionCountByDictamen[row.dictamen_id] = (stabilizingActionCountByDictamen[row.dictamen_id] ?? 0) + 1;
+      relationBucketCounts.consolida += 1;
+    }
+    if (DEVELOPING_ACTIONS.has(row.tipo_accion)) {
+      relationBucketCounts.desarrolla += 1;
     }
   }
 
@@ -303,8 +343,114 @@ async function aggregateClusterSignals(env: Env, ids: string[]) {
     fuentesByDictamen,
     relationCountByDictamen,
     modifyingActionCountByDictamen,
-    stabilizingActionCountByDictamen
+    stabilizingActionCountByDictamen,
+    relationBucketCounts
   };
+}
+
+function buildRelationDynamics(params: {
+  relationBucketCounts: {
+    consolida: number;
+    desarrolla: number;
+    ajusta: number;
+  };
+  pivotDictamen: PivotDictamen | null;
+}) {
+  const entries = [
+    ['consolida', params.relationBucketCounts.consolida],
+    ['desarrolla', params.relationBucketCounts.desarrolla],
+    ['ajusta', params.relationBucketCounts.ajusta]
+  ] as const;
+  const dominant = [...entries].sort((a, b) => b[1] - a[1])[0];
+  const dominant_bucket = dominant[1] > 0 ? dominant[0] : null;
+
+  let summary = 'La línea todavía muestra pocas relaciones jurídicas materializadas dentro del corpus visible.';
+  if (dominant_bucket === 'consolida') {
+    summary = 'Predominan dictámenes que aplican o confirman criterio previo, lo que sugiere una línea con apoyo jurisprudencial acumulado.';
+  } else if (dominant_bucket === 'desarrolla') {
+    summary = 'Predominan dictámenes que complementan o aclaran criterio previo, lo que sugiere desarrollo progresivo de la línea.';
+  } else if (dominant_bucket === 'ajusta') {
+    summary = params.pivotDictamen
+      ? `Predominan dictámenes que ajustan criterio previo y el giro más visible se concentra en ${params.pivotDictamen.id}.`
+      : 'Predominan dictámenes que ajustan o reordenan criterio previo, lo que sugiere una línea doctrinal en movimiento.';
+  }
+
+  return {
+    ...params.relationBucketCounts,
+    dominant_bucket,
+    summary
+  } as RelationDynamics;
+}
+
+function safeRatio(numerator: number, denominator: number): number {
+  if (denominator <= 0) return 0;
+  return numerator / denominator;
+}
+
+function buildCoherenceSignals(params: {
+  memberCount: number;
+  clusterDensityScore: number;
+  allDescriptors: string[];
+  topFuentes: Array<{ tipo_norma: string; numero: string | null; count: number }>;
+  relationCountByDictamen: Record<string, number>;
+  influenceEntries: Array<{ id: string; score: number }>;
+  relationDynamics: RelationDynamics;
+}) {
+  const descriptorCounts = new Map<string, number>();
+  for (const descriptor of params.allDescriptors) {
+    descriptorCounts.set(descriptor, (descriptorCounts.get(descriptor) ?? 0) + 1);
+  }
+
+  const sortedDescriptorCounts = [...descriptorCounts.values()].sort((a, b) => b - a);
+  const topDescriptorCount = sortedDescriptorCounts[0] ?? 0;
+  const secondDescriptorCount = sortedDescriptorCounts[1] ?? 0;
+  const descriptorDominance = safeRatio(topDescriptorCount, params.memberCount);
+  const descriptorCompetition = safeRatio(secondDescriptorCount, Math.max(topDescriptorCount, 1));
+  const topFuenteDominance = params.topFuentes.length > 0
+    ? safeRatio(params.topFuentes[0]?.count ?? 0, params.memberCount)
+    : 0;
+  const docsWithRelations = Object.values(params.relationCountByDictamen).filter((count) => count > 0).length;
+  const relationCoverage = safeRatio(docsWithRelations, params.memberCount);
+  const outlierCount = params.influenceEntries.filter((entry) => entry.score < Math.max(params.clusterDensityScore * 0.7, 0.35)).length;
+  const outlierProbability = roundScore(safeRatio(outlierCount, params.memberCount));
+  const descriptorNoiseScore = roundScore(Math.min((1 - descriptorDominance) * 0.7 + descriptorCompetition * 0.3, 1));
+  const cohesion = roundScore(Math.max(Math.min(
+    params.clusterDensityScore * 0.55
+      + descriptorDominance * 0.2
+      + topFuenteDominance * 0.15
+      + relationCoverage * 0.1,
+    1
+  ), 0));
+  const semanticDispersion = roundScore(1 - cohesion);
+
+  const fragmentationRisk = roundScore(Math.min(
+    semanticDispersion * 0.45
+      + outlierProbability * 0.3
+      + descriptorCompetition * 0.15
+      + (params.relationDynamics.dominant_bucket === 'ajusta' ? 0.1 : 0),
+    1
+  ));
+
+  let coherence_status: CoherenceSignals['coherence_status'] = 'cohesiva';
+  let summary = 'La línea muestra cohesión suficiente entre sus dictámenes visibles.';
+
+  if (fragmentationRisk >= 0.62 || (semanticDispersion >= 0.5 && outlierProbability >= 0.3)) {
+    coherence_status = 'fragmentada';
+    summary = 'La línea parece mezclar señales doctrinales distintas o contener outliers relevantes; conviene revisar si debe separarse o depurarse.';
+  } else if (semanticDispersion >= 0.34 || descriptorNoiseScore >= 0.45 || outlierProbability >= 0.22) {
+    coherence_status = 'mixta';
+    summary = 'La línea mantiene un eje doctrinal visible, pero muestra ruido semántico o dictámenes con encaje débil.';
+  }
+
+  return {
+    cluster_cohesion_score: cohesion,
+    semantic_dispersion: semanticDispersion,
+    outlier_probability: outlierProbability,
+    descriptor_noise_score: descriptorNoiseScore,
+    fragmentation_risk: fragmentationRisk,
+    coherence_status,
+    summary
+  } as CoherenceSignals;
 }
 
 function buildClusterSummary(
@@ -733,6 +879,19 @@ async function buildDoctrineClusters(env: Env, options: BuildDoctrineClustersOpt
       temporalSpreadYears: changeRisk.temporalSpreadYears,
       coreCandidateCount: influence.coreCandidates.length
     });
+    const relationDynamics = buildRelationDynamics({
+      relationBucketCounts: aggregates.relationBucketCounts,
+      pivotDictamen
+    });
+    const coherenceSignals = buildCoherenceSignals({
+      memberCount: supportingIds.length,
+      clusterDensityScore: influence.clusterDensityScore,
+      allDescriptors: members.flatMap((member) => member.descriptoresAI),
+      topFuentes: aggregates.topFuentes,
+      relationCountByDictamen: aggregates.relationCountByDictamen,
+      influenceEntries: influence.entries.map((entry) => ({ id: entry.id, score: entry.score })),
+      relationDynamics
+    });
 
     clusters.push({
       cluster_label: clusterLabel,
@@ -761,7 +920,9 @@ async function buildDoctrineClusters(env: Env, options: BuildDoctrineClustersOpt
       cluster_summary: buildClusterSummary(displayMateria, supportingIds.length, topDescriptor, topAction, minDate, maxDate),
       doctrinal_state: doctrinalState.doctrinal_state,
       doctrinal_state_reason: doctrinalState.doctrinal_state_reason,
-      pivot_dictamen: pivotDictamen
+      pivot_dictamen: pivotDictamen,
+      relation_dynamics: relationDynamics,
+      coherence_signals: coherenceSignals
     });
   }
 

@@ -5,6 +5,8 @@
     "agents:test": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runPing.js",
     "agents:scan": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runRepoScan.js",
     "agents:embedding:check": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runEmbeddingConsistencyCheck.js",
+    "agents:doctrine:coherence": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runDoctrineCoherenceAudit.js",
+    "agents:doctrine:structure-remediate": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runDoctrineStructureRemediationExecutor.js",
     "agents:metadata:audit": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runMetadataQualityAudit.js",
     "agents:metadata:plan": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runMetadataRemediationPlanner.js",
     "agents:metadata:auto-normalize": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runMetadataAutoNormalizationExecutor.js",

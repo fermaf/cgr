@@ -13,6 +13,8 @@ export interface SkillRouteResult {
 }
 
 const DEFAULT_SKILL_NAME = 'skill_ping';
+const DOCTRINE_COHERENCE_AUDIT_SKILL_NAME = 'skill_doctrine_coherence_audit';
+const DOCTRINE_STRUCTURE_REMEDIATION_EXECUTOR_SKILL_NAME = 'skill_doctrine_structure_remediation_executor';
 const EMBEDDING_CONSISTENCY_CHECK_SKILL_NAME = 'skill_embedding_consistency_check';
 const METADATA_AUTO_NORMALIZATION_EXECUTOR_SKILL_NAME = 'skill_metadata_auto_normalization_executor';
 const METADATA_BLOCKER_REGENERATION_EXECUTOR_SKILL_NAME = 'skill_metadata_blocker_regeneration_executor';
@@ -52,6 +54,20 @@ export function routeSkill(input: SkillRouteInput): SkillRouteResult {
     return {
       skillName: EMBEDDING_CONSISTENCY_CHECK_SKILL_NAME,
       reason: 'embedding_consistency_check_intent_match'
+    };
+  }
+
+  if (input.intent === 'doctrine_coherence_audit' || input.type === 'doctrine_coherence_audit') {
+    return {
+      skillName: DOCTRINE_COHERENCE_AUDIT_SKILL_NAME,
+      reason: 'doctrine_coherence_audit_intent_match'
+    };
+  }
+
+  if (input.intent === 'doctrine_structure_remediation_executor' || input.type === 'doctrine_structure_remediation_executor') {
+    return {
+      skillName: DOCTRINE_STRUCTURE_REMEDIATION_EXECUTOR_SKILL_NAME,
+      reason: 'doctrine_structure_remediation_executor_intent_match'
     };
   }
 

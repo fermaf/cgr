@@ -108,6 +108,30 @@ type LineageNodeRow = {
   estado: string | null;
 };
 
+type DictamenFuenteLegalRow = {
+  tipo_norma: string | null;
+  numero: string | null;
+  articulo: string | null;
+  extra: string | null;
+  year: string | null;
+  sector: string | null;
+  mentions: number;
+};
+
+type DictamenRelationDetailRow = {
+  related_id: string;
+  tipo_accion: string;
+  fecha_documento: string | null;
+  titulo: string | null;
+};
+
+function relationBucket(tipoAccion: string | null): 'consolida' | 'desarrolla' | 'ajusta' {
+  if (!tipoAccion) return 'ajusta';
+  if (tipoAccion === 'confirmado' || tipoAccion === 'aplicado') return 'consolida';
+  if (tipoAccion === 'complementado' || tipoAccion === 'aclarado') return 'desarrolla';
+  return 'ajusta';
+}
+
 async function getLatestSnapshotDate(db: D1Database, tableName: string): Promise<string | null> {
   const row = await db.prepare(`SELECT MAX(snapshot_date) AS snapshot_date FROM ${tableName}`).first<{ snapshot_date: string | null }>();
   return row?.snapshot_date ?? null;
@@ -663,7 +687,7 @@ app.get('/api/v1/insights/doctrine-lines', async (c) => {
   const limit = parsePositiveInt(c.req.query('limit'), 5, 1, 10);
   const fromDate = isIsoDateYmd(c.req.query('fromDate')) ? c.req.query('fromDate')! : null;
   const toDate = isIsoDateYmd(c.req.query('toDate')) ? c.req.query('toDate')! : null;
-  const cacheKey = `insights:doctrine-lines:v2:m:${materia ?? 'auto'}:l:${limit}:fd:${fromDate ?? 'na'}:td:${toDate ?? 'na'}`;
+  const cacheKey = `insights:doctrine-lines:v3:m:${materia ?? 'auto'}:l:${limit}:fd:${fromDate ?? 'na'}:td:${toDate ?? 'na'}`;
 
   try {
     const cached = await c.env.DICTAMENES_PASO.get(cacheKey, 'json').catch(() => null);
@@ -703,7 +727,7 @@ app.get('/api/v1/insights/doctrine-search', async (c) => {
     return c.json({ error: 'Missing q parameter' }, 400);
   }
 
-  const cacheKey = `insights:doctrine-search:v3:q:${q}:l:${limit}`;
+  const cacheKey = `insights:doctrine-search:v5:q:${q}:l:${limit}`;
 
   try {
     const cached = await c.env.DICTAMENES_PASO.get(cacheKey, 'json').catch(() => null);
@@ -1045,8 +1069,52 @@ app.get('/api/v1/dictamenes/:id', async (c) => {
       raw = rawJson || {};
     }
 
-    const relsIn = await db.prepare("SELECT dictamen_origen_id as origen_id, tipo_accion FROM dictamen_relaciones_juridicas WHERE dictamen_destino_id = ? ORDER BY rowid DESC LIMIT 100").bind(id).all<any>();
-    const relsOut = await db.prepare("SELECT dictamen_destino_id as destino_id, tipo_accion FROM dictamen_relaciones_juridicas WHERE dictamen_origen_id = ? ORDER BY rowid DESC LIMIT 100").bind(id).all<any>();
+    const relsIn = await db.prepare(
+      `SELECT
+         r.dictamen_origen_id AS related_id,
+         r.tipo_accion,
+         COALESCE(d.fecha_documento, d.created_at) AS fecha_documento,
+         e.titulo
+       FROM dictamen_relaciones_juridicas r
+       LEFT JOIN dictamenes d ON d.id = r.dictamen_origen_id
+       LEFT JOIN enriquecimiento e ON e.dictamen_id = r.dictamen_origen_id
+       WHERE r.dictamen_destino_id = ?
+       ORDER BY COALESCE(d.fecha_documento, d.created_at) DESC, r.rowid DESC
+       LIMIT 100`
+    ).bind(id).all<DictamenRelationDetailRow>();
+    const relsOut = await db.prepare(
+      `SELECT
+         r.dictamen_destino_id AS related_id,
+         r.tipo_accion,
+         COALESCE(d.fecha_documento, d.created_at) AS fecha_documento,
+         e.titulo
+       FROM dictamen_relaciones_juridicas r
+       LEFT JOIN dictamenes d ON d.id = r.dictamen_destino_id
+       LEFT JOIN enriquecimiento e ON e.dictamen_id = r.dictamen_destino_id
+       WHERE r.dictamen_origen_id = ?
+       ORDER BY COALESCE(d.fecha_documento, d.created_at) DESC, r.rowid DESC
+       LIMIT 100`
+    ).bind(id).all<DictamenRelationDetailRow>();
+    const fuentes = await db.prepare(
+      `SELECT
+         NULLIF(TRIM(tipo_norma), '') AS tipo_norma,
+         NULLIF(TRIM(numero), '') AS numero,
+         NULLIF(TRIM(articulo), '') AS articulo,
+         NULLIF(TRIM(extra), '') AS extra,
+         NULLIF(TRIM(year), '') AS year,
+         NULLIF(TRIM(sector), '') AS sector,
+         COUNT(*) AS mentions
+       FROM dictamen_fuentes_legales
+       WHERE dictamen_id = ?
+       GROUP BY
+         NULLIF(TRIM(tipo_norma), ''),
+         NULLIF(TRIM(numero), ''),
+         NULLIF(TRIM(articulo), ''),
+         NULLIF(TRIM(extra), ''),
+         NULLIF(TRIM(year), ''),
+         NULLIF(TRIM(sector), '')
+       ORDER BY mentions DESC, tipo_norma ASC, numero ASC, articulo ASC`
+    ).bind(id).all<DictamenFuenteLegalRow>();
 
     return c.json({
       meta: {
@@ -1057,8 +1125,21 @@ app.get('/api/v1/dictamenes/:id', async (c) => {
         materia: doc.materia || 'Sin materia',
         estado: doc.estado,
         division_nombre: 'Contraloría General de la República',
-        relaciones_causa: relsIn.results || [],
-        relaciones_efecto: relsOut.results || []
+        relaciones_causa: (relsIn.results || []).map((relation) => ({
+          origen_id: relation.related_id,
+          tipo_accion: relation.tipo_accion,
+          fecha_documento: relation.fecha_documento,
+          titulo: relation.titulo,
+          bucket: relationBucket(relation.tipo_accion)
+        })),
+        relaciones_efecto: (relsOut.results || []).map((relation) => ({
+          destino_id: relation.related_id,
+          tipo_accion: relation.tipo_accion,
+          fecha_documento: relation.fecha_documento,
+          titulo: relation.titulo,
+          bucket: relationBucket(relation.tipo_accion)
+        })),
+        fuentes_legales: fuentes.results || []
       },
       raw: raw,
       extrae_jurisprudencia: enrichment ? {

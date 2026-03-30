@@ -1,5 +1,6 @@
 import { fetchRecords, queryRecords } from '../clients/pinecone';
 import { buildDoctrineClusters } from './doctrineClusters';
+import { applyDoctrineStructureRemediations } from './doctrineStructureRemediations';
 import type { Env } from '../types';
 
 type InsightLevel = 'low' | 'medium' | 'high';
@@ -250,6 +251,8 @@ function buildDoctrineLinesResponse(
             reason: cluster.pivot_dictamen.reason
           }
         : null,
+      relation_dynamics: cluster.relation_dynamics,
+      coherence_signals: cluster.coherence_signals,
       representative_dictamen_id: cluster.representative_dictamen.id,
       core_dictamen_ids: cluster.core_doctrine_candidates.map((candidate) => candidate.id),
       key_dictamenes: buildKeyDictamenes(cluster, metadataById),
@@ -278,7 +281,7 @@ async function buildDoctrineLines(env: Env, options: BuildDoctrineLinesOptions) 
     topK: 8
   });
   const metadataById = await buildMetadataById(env, clusterResponse.clusters);
-  return buildDoctrineLinesResponse(clusterResponse, metadataById);
+  return applyDoctrineStructureRemediations(env, buildDoctrineLinesResponse(clusterResponse, metadataById));
 }
 
 type BuildDoctrineSearchOptions = {
@@ -486,7 +489,7 @@ async function buildDoctrineSearch(env: Env, options: BuildDoctrineSearchOptions
     ({ hitIds, selectedClusterResponse } = await buildDoctrineSearchFromMatches(env, matches, limit));
   }
   const metadataById = await buildMetadataById(env, selectedClusterResponse.clusters);
-  const response = buildDoctrineLinesResponse(selectedClusterResponse, metadataById);
+  const response = await applyDoctrineStructureRemediations(env, buildDoctrineLinesResponse(selectedClusterResponse, metadataById));
 
   return {
     overview: {

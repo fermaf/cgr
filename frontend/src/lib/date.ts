@@ -2,8 +2,8 @@
  * Formatea una fecha de manera robusta, extrayendo el componente YYYY-MM-DD
  * incluso si el string es irregular o contiene horas no deseadas.
  */
-export function formatRobustDate(dateStr: string | null | undefined): string {
-    if (!dateStr) return 'Fecha no disponible';
+export function formatDisplayDate(dateStr: string | null | undefined, fallback = 'Fecha no disponible'): string {
+    if (!dateStr) return fallback;
 
     // Intenta extraer el patrón YYYY-MM-DD del inicio del string
     const match = dateStr.match(/^(\d{4}-\d{2}-\d{2})/);
@@ -24,4 +24,8 @@ export function formatRobustDate(dateStr: string | null | undefined): string {
     }
 
     return dateStr; // Devolver original como último recurso
+}
+
+export function formatRobustDate(dateStr: string | null | undefined): string {
+    return formatDisplayDate(dateStr);
 }

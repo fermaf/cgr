@@ -2,18 +2,12 @@ import { ArrowUpRight, BookOpenText, ChevronRight, Clock3, GitBranch, Landmark, 
 import { Link } from "react-router-dom";
 import type { DoctrineLine, DoctrineKeyDictamen } from "../../types";
 import { cn } from "../../lib/utils";
+import { formatDisplayDate } from "../../lib/date";
 
 function normalizeDate(value: string | null) {
     if (!value) return null;
     const parsed = new Date(value);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function formatDisplayDate(value: string | null) {
-    if (!value) return "Sin fecha";
-    const normalized = normalizeDate(value);
-    if (!normalized) return value;
-    return normalized.toISOString().split("T")[0];
 }
 
 function sortTimeline(items: DoctrineKeyDictamen[]) {
@@ -53,6 +47,36 @@ function doctrinalStateLabel(state: DoctrineLine["doctrinal_state"]) {
     return "línea en evolución";
 }
 
+function relationBucketLabel(bucket: DoctrineLine["relation_dynamics"]["dominant_bucket"]) {
+    if (bucket === "consolida") return "consolida criterio";
+    if (bucket === "desarrolla") return "desarrolla criterio";
+    if (bucket === "ajusta") return "ajusta criterio";
+    return "sin patrón dominante";
+}
+
+function coherenceLabel(status: DoctrineLine["coherence_signals"]["coherence_status"]) {
+    if (status === "fragmentada") return "coherencia fragmentada";
+    if (status === "mixta") return "coherencia mixta";
+    return "coherencia suficiente";
+}
+
+function coherenceActionHints(line: DoctrineLine) {
+    const hints: string[] = [];
+    if (line.structure_adjustments?.action === "merge_clusters") {
+        hints.push("fusión estructural aplicada");
+    }
+    if (line.coherence_signals.coherence_status === "fragmentada") {
+        hints.push("posible separación de la línea");
+    }
+    if (line.coherence_signals.outlier_probability >= 0.22) {
+        hints.push("posible dictamen mal agrupado");
+    }
+    if (line.coherence_signals.descriptor_noise_score >= 0.4) {
+        hints.push("normalizar descriptores");
+    }
+    return hints.slice(0, 3);
+}
+
 interface DoctrineReadingWorkspaceProps {
     line: DoctrineLine;
     query?: string;
@@ -68,6 +92,7 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
             rol_en_linea: "representativo" as const
         };
     const timeline = sortTimeline(line.key_dictamenes);
+    const coherenceHints = coherenceActionHints(line);
 
     return (
         <div className="space-y-5">
@@ -220,6 +245,84 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                                     Abrir pivote
                                     <ArrowUpRight className="h-4 w-4" />
                                 </Link>
+                            </div>
+                        )}
+                    </section>
+
+                    <section className="rounded-[1.6rem] border border-slate-200 bg-white p-5 shadow-sm">
+                        <div className="flex items-center gap-2">
+                            <ChevronRight className="h-4 w-4 text-cgr-navy" />
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Dinámica jurídica</p>
+                        </div>
+                        <p className="mt-4 text-sm leading-6 text-slate-600">{line.relation_dynamics.summary}</p>
+                        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                            <div className="rounded-[1rem] border border-emerald-200 bg-emerald-50 px-4 py-3">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-700">Consolidan</p>
+                                <p className="mt-2 text-2xl font-semibold text-cgr-navy">{line.relation_dynamics.consolida}</p>
+                            </div>
+                            <div className="rounded-[1rem] border border-amber-200 bg-amber-50 px-4 py-3">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-700">Desarrollan</p>
+                                <p className="mt-2 text-2xl font-semibold text-cgr-navy">{line.relation_dynamics.desarrolla}</p>
+                            </div>
+                            <div className="rounded-[1rem] border border-cgr-red/20 bg-cgr-red/5 px-4 py-3">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cgr-red">Ajustan</p>
+                                <p className="mt-2 text-2xl font-semibold text-cgr-navy">{line.relation_dynamics.ajusta}</p>
+                            </div>
+                        </div>
+                        <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                            Patrón dominante: {relationBucketLabel(line.relation_dynamics.dominant_bucket)}
+                        </p>
+                    </section>
+
+                    <section className="rounded-[1.6rem] border border-slate-200 bg-white p-5 shadow-sm">
+                        <div className="flex items-center gap-2">
+                            <Sparkles className="h-4 w-4 text-cgr-navy" />
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Coherencia del corpus</p>
+                        </div>
+                        <div className="mt-4 flex flex-wrap items-center gap-2">
+                            <span className={cn(
+                                "rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em]",
+                                line.coherence_signals.coherence_status === "fragmentada"
+                                    ? "border-cgr-red/20 bg-cgr-red/10 text-cgr-red"
+                                    : line.coherence_signals.coherence_status === "mixta"
+                                        ? "border-amber-200 bg-amber-50 text-amber-700"
+                                        : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                            )}>
+                                {coherenceLabel(line.coherence_signals.coherence_status)}
+                            </span>
+                        </div>
+                        <p className="mt-4 text-sm leading-6 text-slate-600">{line.coherence_signals.summary}</p>
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                            <div className="rounded-[1rem] border border-slate-200 bg-slate-50 px-4 py-3">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Cohesión</p>
+                                <p className="mt-2 text-2xl font-semibold text-cgr-navy">{line.coherence_signals.cluster_cohesion_score}</p>
+                            </div>
+                            <div className="rounded-[1rem] border border-slate-200 bg-slate-50 px-4 py-3">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Riesgo de fragmentación</p>
+                                <p className="mt-2 text-2xl font-semibold text-cgr-navy">{line.coherence_signals.fragmentation_risk}</p>
+                            </div>
+                        </div>
+                        {line.structure_adjustments && (
+                            <p className="mt-4 text-sm leading-6 text-emerald-800">{line.structure_adjustments.note}</p>
+                        )}
+                        {coherenceHints.length > 0 && (
+                            <div className="mt-4">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Estructura a revisar</p>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                    {coherenceHints.map((hint) => (
+                                        <span
+                                            key={hint}
+                                            className={cn(
+                                                "rounded-full border px-3 py-1.5 text-xs font-medium",
+                                                hint === "fusión estructural aplicada"
+                                                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                                    : "border-cgr-red/15 bg-cgr-red/5 text-cgr-red"
+                                            )}
+                                        >
+                                            {hint}
+                                        </span>
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </section>

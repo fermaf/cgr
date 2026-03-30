@@ -18,11 +18,17 @@ export interface RelacionCausa {
     origen_id: string;
     tipo_accion: string;
     created_at?: string;
+    titulo?: string | null;
+    fecha_documento?: string | null;
+    bucket?: "consolida" | "desarrolla" | "ajusta";
 }
 
 export interface RelacionEfecto {
     destino_id: string;
     tipo_accion: string;
+    titulo?: string | null;
+    fecha_documento?: string | null;
+    bucket?: "consolida" | "desarrolla" | "ajusta";
 }
 
 export interface DictamenMeta {
@@ -40,6 +46,17 @@ export interface DictamenMeta {
     genera_jurisprudencia?: boolean;
     relaciones_causa?: RelacionCausa[];
     relaciones_efecto?: RelacionEfecto[];
+    fuentes_legales?: FuenteLegalDetail[];
+}
+
+export interface FuenteLegalDetail {
+    tipo_norma: string | null;
+    numero: string | null;
+    articulo: string | null;
+    extra: string | null;
+    year: string | null;
+    sector: string | null;
+    mentions: number;
 }
 
 export interface DictamenDetail extends DictamenMeta {
@@ -155,12 +172,39 @@ export interface DoctrineLineTechnical {
     query_match_signals?: string[];
 }
 
+export interface DoctrineRelationDynamics {
+    consolida: number;
+    desarrolla: number;
+    ajusta: number;
+    dominant_bucket: "consolida" | "desarrolla" | "ajusta" | null;
+    summary: string;
+}
+
+export interface DoctrineCoherenceSignals {
+    cluster_cohesion_score: number;
+    semantic_dispersion: number;
+    outlier_probability: number;
+    descriptor_noise_score: number;
+    fragmentation_risk: number;
+    coherence_status: "cohesiva" | "mixta" | "fragmentada";
+    summary: string;
+}
+
 export interface DoctrinePivotDictamen {
     id: string;
     titulo: string;
     fecha: string | null;
     signal: 'pivote_de_cambio' | 'hito_de_evolucion';
     reason: string;
+}
+
+export interface DoctrineStructureAdjustment {
+    action: 'merge_clusters';
+    merged_cluster_count: number;
+    merged_representative_ids: string[];
+    confidence: number;
+    rationale: string;
+    note: string;
 }
 
 export interface DoctrineLine {
@@ -172,6 +216,8 @@ export interface DoctrineLine {
     doctrinal_state: 'consolidado' | 'en_evolucion' | 'bajo_tension';
     doctrinal_state_reason: string;
     pivot_dictamen?: DoctrinePivotDictamen | null;
+    relation_dynamics: DoctrineRelationDynamics;
+    coherence_signals: DoctrineCoherenceSignals;
     representative_dictamen_id: string;
     core_dictamen_ids: string[];
     key_dictamenes: DoctrineKeyDictamen[];
@@ -179,6 +225,7 @@ export interface DoctrineLine {
     top_descriptores_AI: string[];
     time_span: DoctrineTimeSpan;
     technical?: DoctrineLineTechnical;
+    structure_adjustments?: DoctrineStructureAdjustment;
 }
 
 export interface DoctrineInsightsOverview {
