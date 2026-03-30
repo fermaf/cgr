@@ -1,6 +1,7 @@
-import { fetchRecords, queryRecords } from '../clients/pinecone';
+import { fetchRecords } from '../clients/pinecone';
 import { buildDoctrineClusters } from './doctrineClusters';
 import { applyDoctrineStructureRemediations } from './doctrineStructureRemediations';
+import { retrieveDoctrineMatchesWithQueryUnderstanding } from './queryUnderstanding/queryRewrite';
 import type { Env } from '../types';
 
 type InsightLevel = 'low' | 'medium' | 'high';
@@ -612,8 +613,8 @@ async function buildDoctrineSearch(env: Env, options: BuildDoctrineSearchOptions
   let searchMode: "semantic" | "lexical_fallback" = "semantic";
 
   try {
-    const search = await queryRecords(env, q, searchLimit);
-    matches = (search.matches ?? []) as SearchMatch[];
+    const search = await retrieveDoctrineMatchesWithQueryUnderstanding(env, q, searchLimit);
+    matches = search.matches;
   } catch (error) {
     if (!isPineconeQuotaError(error)) throw error;
 
