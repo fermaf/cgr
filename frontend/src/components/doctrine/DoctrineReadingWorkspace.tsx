@@ -1,8 +1,8 @@
-import { ArrowUpRight, BookOpenText, ChevronRight, Clock3, GitBranch, Landmark, LibraryBig, Scale, Sparkles } from "lucide-react";
+import { ArrowUpRight, BookOpenText, ChevronRight, GitBranch, Landmark, LibraryBig, Scale, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { DoctrineLine, DoctrineKeyDictamen } from "../../types";
 import { cn } from "../../lib/utils";
-import { formatDisplayDate } from "../../lib/date";
+import { formatSimpleDate } from "../../lib/date";
 
 function normalizeDate(value: string | null) {
     if (!value) return null;
@@ -43,7 +43,7 @@ function roleHint(index: number, total: number, isRepresentative: boolean) {
 
 function doctrinalStateLabel(state: DoctrineLine["doctrinal_state"]) {
     if (state === "consolidado") return "criterio consolidado";
-    if (state === "bajo_tension") return "línea bajo tensión";
+    if (state === "bajo_tension") return "existen decisiones que aplican el criterio de forma distinta";
     return "el criterio ha cambiado en el tiempo";
 }
 
@@ -75,6 +75,11 @@ function coherenceActionHints(line: DoctrineLine) {
         hints.push("conviene ordenar mejor los descriptores");
     }
     return hints.slice(0, 3);
+}
+
+function pivotLabel(signal: NonNullable<DoctrineLine["pivot_dictamen"]>["signal"]) {
+    if (signal === "pivote_de_cambio") return "decisión que marca un cambio en el criterio";
+    return "decisión que marca un hito visible del criterio";
 }
 
 interface DoctrineReadingWorkspaceProps {
@@ -119,26 +124,34 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                         </Link>
                     </div>
 
-                    <div className="grid gap-3 md:grid-cols-3">
-                        <div className="rounded-[1.2rem] border border-white/10 bg-white/10 p-4">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-100">Representativo</p>
-                            <p className="mt-2 font-mono text-sm text-white">{line.representative_dictamen_id}</p>
-                            <p className="mt-2 text-xs text-blue-100">{representative.titulo}</p>
-                        </div>
-                        <div className="rounded-[1.2rem] border border-white/10 bg-white/10 p-4">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-100">Período visible</p>
-                            <div className="mt-2 flex items-center gap-2 text-sm text-white">
-                                <Clock3 className="h-4 w-4 text-cgr-gold" />
-                                <span>{formatDisplayDate(line.time_span.from, "s/d")} → {formatDisplayDate(line.time_span.to, "s/d")}</span>
+                    <div className="rounded-[1.35rem] border border-white/10 bg-white/10 p-5">
+                        <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
+                            <div>
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-100">Dictamen más cercano a su búsqueda</p>
+                                <p className="mt-2 font-mono text-sm text-cgr-gold">{line.semantic_anchor_dictamen?.id ?? representative.id}</p>
+                                <p className="mt-2 font-serif text-2xl font-semibold text-white">
+                                    {line.semantic_anchor_dictamen?.titulo ?? representative.titulo}
+                                </p>
+                                <p className="mt-3 text-sm leading-6 text-blue-100">
+                                    {line.semantic_anchor_dictamen?.reason ?? "Es el dictamen que conviene leer primero para entender este criterio."}
+                                </p>
                             </div>
-                        </div>
-                        <div className="rounded-[1.2rem] border border-white/10 bg-white/10 p-4">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-100">Estado doctrinal</p>
-                            <div className="mt-2 flex items-center gap-2 text-sm text-white">
-                                <GitBranch className="h-4 w-4 text-cgr-gold" />
-                                <span>{doctrinalStateLabel(line.doctrinal_state)}</span>
+                            <div className="space-y-4 rounded-[1.1rem] border border-white/10 bg-black/10 p-4">
+                                <div>
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-100">Período en que este criterio aparece</p>
+                                    <p className="mt-2 text-sm text-white">
+                                        {formatSimpleDate(line.time_span.from, "s/d")} → {formatSimpleDate(line.time_span.to, "s/d")}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-100">Cómo se comporta el criterio</p>
+                                    <div className="mt-2 flex items-start gap-2 text-sm text-white">
+                                        <GitBranch className="mt-0.5 h-4 w-4 shrink-0 text-cgr-gold" />
+                                        <span>{doctrinalStateLabel(line.doctrinal_state)}</span>
+                                    </div>
+                                    <p className="mt-2 text-xs leading-5 text-blue-100">{line.doctrinal_state_reason}</p>
+                                </div>
                             </div>
-                            <p className="mt-2 text-xs leading-5 text-blue-100">{line.doctrinal_state_reason}</p>
                         </div>
                     </div>
                 </div>
@@ -186,9 +199,9 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
 
                                             <div className="text-right">
                                                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                                                    {isPivot ? "dictamen pivote" : roleHint(index, timeline.length, isRepresentative)}
+                                                    {isPivot ? "decisión que marca un cambio" : roleHint(index, timeline.length, isRepresentative)}
                                                 </p>
-                                                <p className="mt-2 text-sm text-slate-600">{formatDisplayDate(dictamen.fecha)}</p>
+                                                <p className="mt-2 text-sm text-slate-600">{formatSimpleDate(dictamen.fecha)}</p>
                                             </div>
                                         </div>
 
@@ -209,7 +222,7 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                                             {isPivot && (
                                                 <span className="inline-flex items-center gap-2 rounded-full bg-cgr-red/10 px-3 py-2 text-sm font-medium text-cgr-red">
                                                     <GitBranch className="h-4 w-4" />
-                                                    Marca el giro visible de la línea
+                                                    {line.pivot_dictamen ? pivotLabel(line.pivot_dictamen.signal) : "decisión relevante"}
                                                 </span>
                                             )}
                                         </div>
@@ -236,7 +249,7 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                                         <p className="mt-2 font-serif text-lg font-semibold text-cgr-navy">{line.pivot_dictamen.titulo}</p>
                                         <p className="mt-2 text-sm leading-6 text-slate-600">{line.pivot_dictamen.reason}</p>
                                     </div>
-                                    <p className="text-sm text-slate-500">{formatDisplayDate(line.pivot_dictamen.fecha)}</p>
+                                    <p className="text-sm text-slate-500">{formatSimpleDate(line.pivot_dictamen.fecha)}</p>
                                 </div>
                                 <Link
                                     to={`/dictamen/${line.pivot_dictamen.id}`}
@@ -256,7 +269,7 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                                         <p className="mt-2 font-serif text-lg font-semibold text-cgr-navy">{line.semantic_anchor_dictamen.titulo}</p>
                                         <p className="mt-2 text-sm leading-6 text-slate-600">{line.semantic_anchor_dictamen.reason}</p>
                                     </div>
-                                    <p className="text-sm text-slate-500">{formatDisplayDate(line.semantic_anchor_dictamen.fecha, "Sin fecha")}</p>
+                                    <p className="text-sm text-slate-500">{formatSimpleDate(line.semantic_anchor_dictamen.fecha, "Sin fecha")}</p>
                                 </div>
                             </div>
                         )}

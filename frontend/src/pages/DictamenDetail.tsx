@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, Calendar, Building2, Tag, BookOpen, Share2, AlertCircle, Sparkles, Download, FileCheck, Activity, Landmark, ShieldAlert } from "lucide-react";
 import type { DictamenResponse } from "../types";
 import { cn } from "../lib/utils";
-import { formatDisplayDate } from "../lib/date";
+import { formatSimpleDate } from "../lib/date";
 import { describeLegalSource } from "../lib/legalSources";
 import type { RelacionCausa, RelacionEfecto } from "../types";
 
@@ -308,7 +308,7 @@ export function DictamenDetail() {
 
                 <div className="flex flex-wrap gap-x-8 gap-y-4 text-sm text-slate-600 font-sans font-medium">
                     <div className="flex items-center gap-2.5">
-                        <Calendar className="w-4 h-4 text-slate-400" /> {formatDisplayDate(meta.fecha_documento, "Sin fecha")}
+                        <Calendar className="w-4 h-4 text-slate-400" /> {formatSimpleDate(meta.fecha_documento, "Sin fecha")}
                     </div>
                     <div className="flex items-center gap-2.5">
                         <Building2 className="w-4 h-4 text-slate-400" /> {meta.division_nombre || "División no especificada"}
@@ -441,7 +441,7 @@ export function DictamenDetail() {
                                 <p className="mt-2 text-sm text-slate-500 font-sans">{relacionRoleSummary}</p>
                             </div>
 
-                            <div className="grid gap-3 sm:grid-cols-3">
+                            <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
                                 <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
                                     <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-700">Consolidan</p>
                                     <p className="mt-2 text-2xl font-semibold text-cgr-navy">
@@ -480,7 +480,7 @@ export function DictamenDetail() {
                                                 </div>
                                                 <div className="text-right">
                                                     <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Posterior</span>
-                                                    {rel.fecha_documento && <div className="mt-1 text-[11px] text-slate-500">{formatDisplayDate(rel.fecha_documento)}</div>}
+                                                    {rel.fecha_documento && <div className="mt-1 text-[11px] text-slate-500">{formatSimpleDate(rel.fecha_documento)}</div>}
                                                 </div>
                                             </Link>
                                         ))}
@@ -506,7 +506,7 @@ export function DictamenDetail() {
                                                 </div>
                                                 <div className="text-right">
                                                     <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Previo</span>
-                                                    {rel.fecha_documento && <div className="mt-1 text-[11px] text-slate-500">{formatDisplayDate(rel.fecha_documento)}</div>}
+                                                    {rel.fecha_documento && <div className="mt-1 text-[11px] text-slate-500">{formatSimpleDate(rel.fecha_documento)}</div>}
                                                 </div>
                                             </Link>
                                         ))}

@@ -1,8 +1,8 @@
 /**
- * Formatea una fecha de manera robusta, extrayendo el componente YYYY-MM-DD
- * incluso si el string es irregular o contiene horas no deseadas.
+ * Devuelve una fecha simple en formato YYYY-MM-DD.
+ * Elimina horas y offsets para evitar ruido visual en la UI jurídica.
  */
-export function formatDisplayDate(dateStr: string | null | undefined, fallback = 'Fecha no disponible'): string {
+export function formatSimpleDate(dateStr: string | null | undefined, fallback = 'Fecha no disponible'): string {
     if (!dateStr) return fallback;
 
     // Intenta extraer el patrón YYYY-MM-DD del inicio del string
@@ -23,9 +23,13 @@ export function formatDisplayDate(dateStr: string | null | undefined, fallback =
         // Ignorar error
     }
 
-    return dateStr; // Devolver original como último recurso
+    return dateStr;
+}
+
+export function formatDisplayDate(dateStr: string | null | undefined, fallback = 'Fecha no disponible'): string {
+    return formatSimpleDate(dateStr, fallback);
 }
 
 export function formatRobustDate(dateStr: string | null | undefined): string {
-    return formatDisplayDate(dateStr);
+    return formatSimpleDate(dateStr);
 }

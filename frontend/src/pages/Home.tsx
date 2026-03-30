@@ -5,7 +5,7 @@ import type { DoctrineInsightsResponse, DoctrineLine } from "../types";
 import { DOCTRINE_SEARCH_EXAMPLES, fetchDoctrineInsights } from "../lib/doctrineInsights";
 import { cn } from "../lib/utils";
 import { DoctrineReadingWorkspace } from "../components/doctrine/DoctrineReadingWorkspace";
-import { formatDisplayDate } from "../lib/date";
+import { formatSimpleDate } from "../lib/date";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
 
@@ -23,8 +23,8 @@ function levelBadgeTone(level: "low" | "medium" | "high", kind: "importance" | "
 
 function formatDateRange(line: DoctrineLine) {
     if (!line.time_span.from && !line.time_span.to) return "Sin período consolidado";
-    if (line.time_span.from && line.time_span.to) return `${formatDisplayDate(line.time_span.from, "s/d")} → ${formatDisplayDate(line.time_span.to, "s/d")}`;
-    return formatDisplayDate(line.time_span.from ?? line.time_span.to, "Sin período consolidado");
+    if (line.time_span.from && line.time_span.to) return `${formatSimpleDate(line.time_span.from, "s/d")} → ${formatSimpleDate(line.time_span.to, "s/d")}`;
+    return formatSimpleDate(line.time_span.from ?? line.time_span.to, "Sin período consolidado");
 }
 
 function formatFuenteLabel(tipo: string, numero: string | null) {
@@ -38,7 +38,7 @@ function doctrineExplorerTitle(query: string) {
 
 function doctrinalStateLabel(state: DoctrineLine["doctrinal_state"]) {
     if (state === "consolidado") return "criterio consolidado";
-    if (state === "bajo_tension") return "línea bajo tensión";
+    if (state === "bajo_tension") return "existen decisiones que aplican el criterio de forma distinta";
     return "el criterio ha cambiado en el tiempo";
 }
 
@@ -338,7 +338,7 @@ export function Home() {
                                         <p className="mt-1 font-mono text-xs text-cgr-navy">{line.semantic_anchor_dictamen.id}</p>
                                         <p className="mt-2 text-sm leading-6 text-cgr-navy">{line.semantic_anchor_dictamen.titulo}</p>
                                         <p className="mt-2 text-xs text-slate-500">
-                                            {formatDisplayDate(line.semantic_anchor_dictamen.fecha, "Sin fecha")} · score semántico {line.semantic_anchor_dictamen.score}
+                                            {formatSimpleDate(line.semantic_anchor_dictamen.fecha, "Sin fecha")} · score semántico {line.semantic_anchor_dictamen.score}
                                         </p>
                                     </div>
                                 )}
@@ -390,7 +390,7 @@ export function Home() {
                                                             <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{dictamen.rol_en_linea}</span>
                                                         </div>
                                                         <p className="mt-2 text-sm text-slate-700">{dictamen.titulo}</p>
-                                                        {dictamen.fecha && <p className="mt-2 text-xs text-slate-500">{formatDisplayDate(dictamen.fecha, "Sin fecha")}</p>}
+                                                        {dictamen.fecha && <p className="mt-2 text-xs text-slate-500">{formatSimpleDate(dictamen.fecha, "Sin fecha")}</p>}
                                                     </div>
                                                 ))}
                                             </div>
