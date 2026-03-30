@@ -1,112 +1,411 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { SearchBar } from "../components/ui/SearchBar";
-import { DictamenCard } from "../components/dictamen/DictamenCard";
-import type { DictamenMeta, StatsResponse } from "../types";
-import { Activity } from "lucide-react";
+import { BookOpenText, ChevronRight, CircleAlert, CircleDot, LoaderCircle, Search, Sparkles } from "lucide-react";
+import type { DoctrineInsightsResponse, DoctrineLine } from "../types";
+import { DOCTRINE_SEARCH_EXAMPLES, fetchDoctrineInsights } from "../lib/doctrineInsights";
+import { cn } from "../lib/utils";
+import { DoctrineReadingWorkspace } from "../components/doctrine/DoctrineReadingWorkspace";
+
+type LoadState = "idle" | "loading" | "ready" | "error";
+
+function levelBadgeTone(level: "low" | "medium" | "high", kind: "importance" | "risk") {
+    if (kind === "importance") {
+        if (level === "high") return "bg-cgr-navy text-white border-cgr-navy";
+        if (level === "medium") return "bg-cgr-gold/15 text-cgr-navy border-cgr-gold/40";
+        return "bg-white text-slate-600 border-slate-300";
+    }
+
+    if (level === "high") return "bg-cgr-red/10 text-cgr-red border-cgr-red/25";
+    if (level === "medium") return "bg-amber-50 text-amber-700 border-amber-200";
+    return "bg-emerald-50 text-emerald-700 border-emerald-200";
+}
+
+function formatDateRange(line: DoctrineLine) {
+    if (!line.time_span.from && !line.time_span.to) return "Sin período consolidado";
+    if (line.time_span.from && line.time_span.to) return `${line.time_span.from} → ${line.time_span.to}`;
+    return line.time_span.from ?? line.time_span.to ?? "Sin período consolidado";
+}
+
+function formatFuenteLabel(tipo: string, numero: string | null) {
+    return numero ? `${tipo} ${numero}` : tipo;
+}
+
+function doctrineExplorerTitle(query: string) {
+    if (query.trim()) return "Líneas doctrinales relevantes para su consulta";
+    return "Principales líneas doctrinales del corpus";
+}
+
+function doctrinalStateLabel(state: DoctrineLine["doctrinal_state"]) {
+    if (state === "consolidado") return "criterio consolidado";
+    if (state === "bajo_tension") return "línea bajo tensión";
+    return "línea en evolución";
+}
 
 export function Home() {
-    const [results, setResults] = useState<DictamenMeta[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [stats, setStats] = useState<StatsResponse | null>(null);
+    const [query, setQuery] = useState("");
+    const [submittedQuery, setSubmittedQuery] = useState("");
+    const [state, setState] = useState<LoadState>("idle");
+    const [result, setResult] = useState<DoctrineInsightsResponse | null>(null);
+    const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [mode, setMode] = useState<"live" | "demo">("live");
 
-    // Cargar datos iniciales
     useEffect(() => {
-        fetch('/api/v1/stats')
-            .then(res => res.json())
-            .then((data: StatsResponse) => setStats(data))
-            .catch(console.error);
+        let active = true;
 
-        setLoading(true);
-        const params = new URLSearchParams();
-        params.append('limit', '4');
+        async function load() {
+            setState("loading");
+            setResult(null);
+            setSelectedId(null);
+            try {
+                const response = await fetchDoctrineInsights(submittedQuery, 4);
+                if (!active) return;
 
-        fetch(`/api/v1/dictamenes?${params.toString()}`)
-            .then(res => res.json())
-            .then(json => setResults(json.data || []))
-            .catch(console.error)
-            .finally(() => setLoading(false));
-    }, []);
+                setMode(response.mode);
+                setResult(response.data);
+                setSelectedId(response.data.lines[0]?.representative_dictamen_id ?? null);
+                setState("ready");
+            } catch {
+                if (!active) return;
+                setState("error");
+            }
+        }
+
+        void load();
+        return () => {
+            active = false;
+        };
+    }, [submittedQuery]);
+
+    const selectedLine = useMemo(() => (
+        result?.lines.find((line) => line.representative_dictamen_id === selectedId) ?? result?.lines[0] ?? null
+    ), [result, selectedId]);
+
+    const hasActiveQuery = submittedQuery.trim().length > 0;
+    const visibleOverviewQuery = hasActiveQuery ? submittedQuery : result?.overview.query;
+    const visibleOverviewMatter = state === "ready" ? result?.overview.materiaEvaluated : null;
+    const modeLabel = state === "loading"
+        ? "Actualizando resultado"
+        : mode === "live"
+            ? "Usando datos reales de staging"
+            : "Usando ejemplo local de respaldo";
+    const modeTone = state === "loading"
+        ? "text-blue-200"
+        : mode === "live"
+            ? "text-emerald-400"
+            : "text-amber-300";
+
+    function handleSearchSubmit(nextQuery?: string) {
+        const value = typeof nextQuery === "string" ? nextQuery : query;
+        setQuery(value);
+        setSubmittedQuery(value.trim());
+    }
 
     return (
-        <div className="space-y-12 w-full animate-in fade-in duration-700">
-            {/* Premium Institutional Hero Section */}
-            <div className="relative w-full rounded-2xl overflow-hidden bg-cgr-navy shadow-2xl min-h-[450px] flex items-center justify-center p-8 lg:p-16 border border-cgr-navy/20">
-                {/* Background Pattern */}
-                <div className="absolute inset-0 z-0 bg-official opacity-20 pointer-events-none" />
-                <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
-
-                {/* Botón Sobrio Admin */}
-                <div className="absolute top-6 right-6 z-20">
-                    <Link
-                        to="/admin"
-                        className="group flex items-center justify-center w-10 h-10 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-300 backdrop-blur-md"
-                        title="Centro de Comando"
-                    >
-                        <Activity className="w-5 h-5 text-cgr-gold/60 group-hover:text-cgr-gold transition-colors" />
-                    </Link>
-                </div>
-
-                {/* Content */}
-                <div className="relative z-10 text-center space-y-10 w-full max-w-4xl mx-auto">
-                    <div className="space-y-4">
-                        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-cgr-gold/30 bg-black/10 backdrop-blur-md mb-6 text-cgr-gold text-[10px] sm:text-xs font-bold tracking-[0.2em] font-sans uppercase">
-                            <span className="w-2 h-2 rounded-full bg-cgr-gold" />
-                            Motor de Inteligencia Jurídica
+        <div className="space-y-8">
+            <section className="relative overflow-hidden rounded-[2rem] border border-cgr-navy/10 bg-gradient-to-br from-cgr-navy via-[#12355c] to-[#0b223e] px-6 py-8 md:px-10 md:py-12 shadow-2xl">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_30%),linear-gradient(120deg,transparent_0%,rgba(255,255,255,0.04)_100%)] pointer-events-none" />
+                <div className="relative z-10 grid gap-10 lg:grid-cols-[1.3fr_0.7fr]">
+                    <div className="space-y-6">
+                        <div className="inline-flex items-center gap-2 rounded-full border border-cgr-gold/30 bg-white/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-cgr-gold">
+                            <Sparkles className="h-3.5 w-3.5" />
+                            Indubia Doctrine Explorer
                         </div>
-                        <h1 className="text-4xl md:text-6xl lg:text-7xl font-serif font-bold text-white tracking-tight drop-shadow-md leading-[1.1]">
-                            Jurisprudencia <br />
-                            <span className="text-white">
-                                Administrativa
-                            </span>
-                        </h1>
-                        <p className="text-base md:text-xl text-blue-100 font-light max-w-2xl mx-auto leading-relaxed mt-4 drop-shadow-sm">
-                            Acceso a más de <span className="font-bold text-white">{stats?.total?.toLocaleString() || '...'}</span> dictámenes de la <span className="text-white font-semibold italic">Contraloría General de la República</span>, potenciados por análisis neuronal avanzado.
+
+                        <div className="space-y-4">
+                            <h1 className="max-w-4xl font-serif text-4xl font-semibold leading-tight text-white md:text-6xl">
+                                Explore líneas doctrinales sin partir desde cero.
+                            </h1>
+                            <p className="max-w-2xl text-base leading-7 text-blue-100 md:text-lg">
+                                Indubia organiza dictámenes en líneas doctrinales legibles, muestra qué criterio parece más influyente y señala cuándo una materia podría estar cambiando en el tiempo.
+                            </p>
+                        </div>
+
+                        <form
+                            className="space-y-4"
+                            onSubmit={(event) => {
+                                event.preventDefault();
+                                handleSearchSubmit();
+                            }}
+                        >
+                            <div className="flex flex-col gap-3 rounded-[1.5rem] border border-white/15 bg-white/10 p-3 backdrop-blur md:flex-row">
+                                <div className="flex flex-1 items-center gap-3 rounded-[1.15rem] bg-white px-4 py-3 text-slate-700 shadow-inner">
+                                    <Search className="h-5 w-5 text-cgr-navy" />
+                                    <input
+                                        value={query}
+                                        onChange={(event) => setQuery(event.target.value)}
+                                        placeholder="Ej.: contrata confianza legítima"
+                                        className="w-full border-0 bg-transparent text-base text-slate-800 outline-none placeholder:text-slate-400"
+                                    />
+                                </div>
+                                <button
+                                    type="submit"
+                                    className="inline-flex items-center justify-center gap-2 rounded-[1.15rem] bg-cgr-gold px-5 py-3 font-semibold text-cgr-navy transition hover:bg-[#f0cf57]"
+                                >
+                                    Buscar doctrina
+                                    <ChevronRight className="h-4 w-4" />
+                                </button>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                                {DOCTRINE_SEARCH_EXAMPLES.map((example) => (
+                                    <button
+                                        key={example}
+                                        type="button"
+                                        onClick={() => handleSearchSubmit(example)}
+                                        className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-sm text-blue-100 transition hover:border-white/30 hover:bg-white/10 hover:text-white"
+                                    >
+                                        {example}
+                                    </button>
+                                ))}
+                            </div>
+                        </form>
+                    </div>
+
+                    <div className="grid gap-4 self-end">
+                        <div className="rounded-[1.5rem] border border-white/10 bg-black/20 p-5 backdrop-blur">
+                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cgr-gold">Qué verá aquí</p>
+                            <ul className="mt-4 space-y-3 text-sm leading-6 text-blue-100">
+                                <li>La línea doctrinal que conviene leer primero.</li>
+                                <li>Si parece estable o si muestra señales de evolución.</li>
+                                <li>Qué dictámenes concentran mejor el criterio.</li>
+                            </ul>
+                        </div>
+                        <div className="rounded-[1.5rem] border border-white/10 bg-white/10 p-5 backdrop-blur">
+                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cgr-gold">Modo actual</p>
+                            <div className="mt-4 flex items-center gap-3 text-white">
+                                <CircleDot className={cn("h-4 w-4", modeTone)} />
+                                <span className="text-sm font-medium">
+                                    {modeLabel}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+                <div className="space-y-5">
+                    <div className="flex flex-col gap-2 rounded-[1.5rem] border border-slate-200 bg-white px-6 py-5 shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <BookOpenText className="h-5 w-5 text-cgr-navy" />
+                            <h2 className="font-serif text-2xl font-semibold text-cgr-navy">{doctrineExplorerTitle(submittedQuery)}</h2>
+                        </div>
+                        <p className="text-sm leading-6 text-slate-600">
+                            {visibleOverviewQuery
+                                ? `Consulta jurídica: “${visibleOverviewQuery}”.`
+                                : "Sin consulta específica: se muestran las líneas doctrinales más visibles del corpus."}{" "}
+                            {visibleOverviewMatter && `Marco doctrinal evaluado: ${visibleOverviewMatter}.`}
                         </p>
                     </div>
 
-                    <div className="w-full max-w-3xl mx-auto mt-8 relative">
-                        {/* Wrapper for SearchBar with shadow */}
-                        <div className="p-1 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 shadow-xl">
-                            <SearchBar />
+                    {state === "loading" && (
+                        <div className="space-y-4">
+                            <div className="rounded-[1.5rem] border border-cgr-navy/10 bg-white px-6 py-5 shadow-sm">
+                                <div className="flex items-start gap-3">
+                                    <LoaderCircle className="mt-0.5 h-5 w-5 animate-spin text-cgr-navy" />
+                                    <div className="space-y-1">
+                                        <h3 className="font-serif text-xl font-semibold text-cgr-navy">Buscando líneas doctrinales relevantes</h3>
+                                        <p className="text-sm leading-6 text-slate-600">
+                                            Indubia está agrupando dictámenes cercanos y priorizando qué criterio conviene leer primero.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            {[...Array(3)].map((_, index) => (
+                                <div key={index} className="animate-pulse rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm">
+                                    <div className="h-6 w-2/3 rounded bg-slate-200" />
+                                    <div className="mt-4 h-4 w-1/3 rounded bg-slate-100" />
+                                    <div className="mt-4 space-y-2">
+                                        <div className="h-4 rounded bg-slate-100" />
+                                        <div className="h-4 rounded bg-slate-100" />
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                    </div>
+                    )}
+
+                    {state === "error" && (
+                        <div className="rounded-[1.5rem] border border-cgr-red/15 bg-white p-6 shadow-sm">
+                            <div className="flex items-start gap-3">
+                                <CircleAlert className="mt-0.5 h-5 w-5 text-cgr-red" />
+                                <div className="space-y-2">
+                                    <h3 className="font-serif text-xl font-semibold text-cgr-navy">No fue posible completar la búsqueda doctrinal</h3>
+                                    <p className="text-sm leading-6 text-slate-600">
+                                        Indubia no pudo consultar esta búsqueda en el backend de staging. Intente nuevamente en unos segundos o use una consulta distinta.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {state === "ready" && result?.lines.length === 0 && (
+                        <div className="rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm">
+                            <h3 className="font-serif text-xl font-semibold text-cgr-navy">No encontramos una línea doctrinal clara para esta consulta</h3>
+                            <p className="mt-2 text-sm leading-6 text-slate-600">
+                                Pruebe con una materia más amplia o con una combinación más reconocible de términos jurídicos.
+                            </p>
+                            <div className="mt-4 flex flex-wrap gap-2">
+                                {DOCTRINE_SEARCH_EXAMPLES.slice(0, 3).map((example) => (
+                                    <button
+                                        key={example}
+                                        type="button"
+                                        onClick={() => handleSearchSubmit(example)}
+                                        className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-700 transition hover:border-cgr-navy/20 hover:text-cgr-navy"
+                                    >
+                                        Probar: {example}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {state === "ready" && result?.lines.map((line) => {
+                        const isSelected = line.representative_dictamen_id === selectedLine?.representative_dictamen_id;
+                        const visibleFuentes = line.top_fuentes_legales.slice(0, 3);
+                        const visibleKeyDictamenes = line.key_dictamenes.slice(0, 3);
+                        return (
+                            <button
+                                key={line.representative_dictamen_id}
+                                type="button"
+                                onClick={() => setSelectedId(line.representative_dictamen_id)}
+                                className={cn(
+                                    "w-full rounded-[1.6rem] border bg-white p-6 text-left shadow-sm transition",
+                                    isSelected
+                                        ? "border-cgr-navy/25 shadow-lg ring-1 ring-cgr-navy/10"
+                                        : "border-slate-200 hover:border-cgr-navy/20 hover:shadow-md"
+                                )}
+                            >
+                                <div className="flex flex-wrap items-start justify-between gap-4">
+                                    <div className="space-y-3">
+                                        <h3 className="font-serif text-2xl font-semibold text-cgr-navy">{line.title}</h3>
+                                        <div className="flex flex-wrap gap-2">
+                                            <span className={cn("rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]", levelBadgeTone(line.importance_level, "importance"))}>
+                                                importancia {line.importance_level}
+                                            </span>
+                                            <span className={cn("rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]", levelBadgeTone(line.change_risk_level, "risk"))}>
+                                                {doctrinalStateLabel(line.doctrinal_state)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
+                                        {formatDateRange(line)}
+                                    </div>
+                                </div>
+
+                                <p className="mt-4 text-sm leading-7 text-slate-700">{line.summary}</p>
+                                <p className="mt-3 text-sm leading-6 text-slate-500">{line.doctrinal_state_reason}</p>
+
+                                {line.query_match_reason && (
+                                    <div className="mt-4 rounded-2xl border border-cgr-gold/25 bg-cgr-gold/10 px-4 py-3">
+                                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cgr-navy/75">Por qué aparece esta línea</p>
+                                        <p className="mt-1 text-sm leading-6 text-cgr-navy">{line.query_match_reason}</p>
+                                    </div>
+                                )}
+
+                                <div className="mt-5 grid gap-5 md:grid-cols-[1fr_0.85fr]">
+                                    {visibleFuentes.length > 0 && (
+                                        <div>
+                                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Normas dominantes</p>
+                                            <div className="mt-2 flex flex-wrap gap-2">
+                                                {visibleFuentes.map((fuente) => (
+                                                    <span key={`${fuente.tipo_norma}-${fuente.numero ?? "sin-numero"}`} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm text-slate-700">
+                                                        {formatFuenteLabel(fuente.tipo_norma, fuente.numero)}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {visibleKeyDictamenes.length > 0 && (
+                                        <div>
+                                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Dictámenes a leer primero</p>
+                                            <div className="mt-2 space-y-2">
+                                                {visibleKeyDictamenes.map((dictamen) => (
+                                                    <div key={dictamen.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                                                        <div className="flex items-center justify-between gap-3">
+                                                            <span className="font-mono text-xs text-cgr-navy">{dictamen.id}</span>
+                                                            <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{dictamen.rol_en_linea}</span>
+                                                        </div>
+                                                        <p className="mt-2 text-sm text-slate-700">{dictamen.titulo}</p>
+                                                        {dictamen.fecha && <p className="mt-2 text-xs text-slate-500">{dictamen.fecha}</p>}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </button>
+                        );
+                    })}
                 </div>
 
-                {/* Decorative border bottom line gold */}
-                <div className="absolute bottom-0 left-0 w-full h-[3px] bg-gradient-to-r from-cgr-navy via-cgr-gold to-cgr-navy" />
-            </div>
+                <aside className="xl:sticky xl:top-8 xl:self-start">
+                    {selectedLine ? (
+                        <DoctrineReadingWorkspace
+                            line={selectedLine}
+                            query={visibleOverviewQuery ?? undefined}
+                        />
+                    ) : (
+                        <div className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+                            {state === "loading" ? (
+                            <div className="flex min-h-[320px] flex-col items-center justify-center gap-4 text-center">
+                                <LoaderCircle className="h-8 w-8 animate-spin text-cgr-navy" />
+                                <div className="space-y-2">
+                                    <h3 className="font-serif text-2xl font-semibold text-cgr-navy">Actualizando líneas doctrinales</h3>
+                                    <p className="max-w-md text-sm leading-6 text-slate-600">
+                                        Se está limpiando la vista anterior y cargando el nuevo resultado para su consulta.
+                                    </p>
+                                </div>
+                            </div>
+                        ) : state === "ready" && result?.lines.length === 0 ? (
+                            <div className="flex min-h-[320px] flex-col items-center justify-center gap-4 text-center">
+                                <CircleAlert className="h-8 w-8 text-slate-400" />
+                                <div className="space-y-2">
+                                    <h3 className="font-serif text-2xl font-semibold text-cgr-navy">Sin línea seleccionada</h3>
+                                    <p className="max-w-md text-sm leading-6 text-slate-600">
+                                        Esta consulta no devolvió una línea doctrinal clara. Pruebe con una materia más amplia o con otro término jurídico.
+                                    </p>
+                                </div>
+                            </div>
+                        ) : state === "error" ? (
+                            <div className="flex min-h-[320px] flex-col items-center justify-center gap-4 text-center">
+                                <CircleAlert className="h-8 w-8 text-cgr-red" />
+                                <div className="space-y-2">
+                                    <h3 className="font-serif text-2xl font-semibold text-cgr-navy">Detalle temporalmente no disponible</h3>
+                                    <p className="max-w-md text-sm leading-6 text-slate-600">
+                                        La consulta no pudo completar la carga. Vuelva a intentar la búsqueda para reconstruir la línea doctrinal.
+                                    </p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex min-h-[320px] flex-col items-center justify-center gap-4 text-center">
+                                <LoaderCircle className="h-8 w-8 animate-spin text-cgr-navy" />
+                                <div className="space-y-2">
+                                    <h3 className="font-serif text-2xl font-semibold text-cgr-navy">Seleccione una línea doctrinal</h3>
+                                    <p className="max-w-md text-sm leading-6 text-slate-600">
+                                        Aquí verá el dictamen representativo, el núcleo doctrinal y los documentos que conviene leer primero.
+                                    </p>
+                                </div>
+                            </div>
+                            )}
+                        </div>
+                    )}
 
-            <div className="space-y-8">
-                <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-                    <h2 className="text-2xl font-serif font-bold text-cgr-navy tracking-tight flex items-center gap-3">
-                        <span className="w-8 h-[3px] bg-cgr-red rounded-full shadow-sm" />
-                        Últimos Documentos
-                    </h2>
-                    <Link
-                        to="/buscar"
-                        className="text-sm font-semibold text-cgr-navy hover:text-cgr-blue transition-colors group flex items-center gap-2"
-                    >
-                        Ver Todos
-                        <span className="transform transition-transform text-lg group-hover:translate-x-1">&rarr;</span>
-                    </Link>
-                </div>
-
-                {loading ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 animate-pulse">
-                        {[...Array(4)].map((_, i) => (
-                            <div key={i} className="h-48 bg-white border border-slate-200 rounded-2xl shadow-sm"></div>
-                        ))}
+                    <div className="mt-6 rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Siguiente paso sugerido</p>
+                        <p className="mt-3 text-sm leading-6 text-slate-600">
+                            La home ya permite bajar al dictamen guía de cada línea. Use búsqueda avanzada cuando quiera contrastar el criterio doctrinal con más resultados del corpus.
+                        </p>
+                        <Link
+                            to="/buscar"
+                            className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-cgr-navy hover:text-cgr-blue"
+                        >
+                            Ir a búsqueda avanzada
+                            <ChevronRight className="h-4 w-4" />
+                        </Link>
                     </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-                        {results.map((dictamen) => (
-                            <DictamenCard key={dictamen.id} dictamen={dictamen} />
-                        ))}
-                    </div>
-                )}
-            </div>
+                </aside>
+            </section>
         </div>
     );
 }
-

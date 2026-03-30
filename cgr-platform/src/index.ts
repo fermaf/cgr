@@ -25,6 +25,8 @@ import { analyzeDictamen } from './clients/mistral';
 import { fetchDictamenesSearchPage } from './clients/cgr';
 import { ingestDictamen, extractDictamenId } from './lib/ingest';
 import { applyRetroUpdates } from './lib/relations';
+import { buildDoctrineClusters } from './lib/doctrineClusters';
+import { buildDoctrineLines, buildDoctrineSearch } from './lib/doctrineLines';
 import { logInfo, logError, setLogLevel } from './lib/log';
 
 function errorMessage(error: unknown): string {
@@ -612,6 +614,115 @@ app.post('/api/v1/analytics/refresh', async (c) => {
     });
   } catch (e: unknown) {
     logError('ANALYTICS_REFRESH_ERROR', e, { snapshotDate, yearFrom, yearTo, limit });
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+app.get('/api/v1/analytics/doctrine-clusters', async (c) => {
+  const materia = c.req.query('materia')?.trim() || null;
+  const limit = parsePositiveInt(c.req.query('limit'), 5, 1, 10);
+  const topK = parsePositiveInt(c.req.query('topK'), 8, 3, 20);
+  const fromDate = isIsoDateYmd(c.req.query('fromDate')) ? c.req.query('fromDate')! : null;
+  const toDate = isIsoDateYmd(c.req.query('toDate')) ? c.req.query('toDate')! : null;
+  const cacheKey = `analytics:doctrine-clusters:v1:m:${materia ?? 'auto'}:l:${limit}:k:${topK}:fd:${fromDate ?? 'na'}:td:${toDate ?? 'na'}`;
+
+  try {
+    const cached = await c.env.DICTAMENES_PASO.get(cacheKey, 'json').catch(() => null);
+    if (cached && typeof cached === 'object') {
+      logInfo('ANALYTICS_DOCTRINE_CLUSTERS_CACHE_HIT', { cacheKey, materia, limit, topK, fromDate, toDate });
+      return c.json(cached);
+    }
+
+    const response = await buildDoctrineClusters(c.env, {
+      materia,
+      limit,
+      topK,
+      fromDate,
+      toDate
+    });
+
+    await putAnalyticsCache(c, cacheKey, response);
+    logInfo('ANALYTICS_DOCTRINE_CLUSTERS_DONE', {
+      materia: response.materia,
+      limit,
+      topK,
+      fromDate,
+      toDate,
+      totalConsidered: response.stats.total_dictamenes_considerados,
+      totalClusters: response.stats.total_clusters_generados
+    });
+    return c.json(response);
+  } catch (e: unknown) {
+    logError('ANALYTICS_DOCTRINE_CLUSTERS_ERROR', e, { materia, limit, topK, fromDate, toDate });
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+app.get('/api/v1/insights/doctrine-lines', async (c) => {
+  const materia = c.req.query('materia')?.trim() || null;
+  const limit = parsePositiveInt(c.req.query('limit'), 5, 1, 10);
+  const fromDate = isIsoDateYmd(c.req.query('fromDate')) ? c.req.query('fromDate')! : null;
+  const toDate = isIsoDateYmd(c.req.query('toDate')) ? c.req.query('toDate')! : null;
+  const cacheKey = `insights:doctrine-lines:v2:m:${materia ?? 'auto'}:l:${limit}:fd:${fromDate ?? 'na'}:td:${toDate ?? 'na'}`;
+
+  try {
+    const cached = await c.env.DICTAMENES_PASO.get(cacheKey, 'json').catch(() => null);
+    if (cached && typeof cached === 'object') {
+      logInfo('INSIGHTS_DOCTRINE_LINES_CACHE_HIT', { cacheKey, materia, limit, fromDate, toDate });
+      return c.json(cached);
+    }
+
+    const response = await buildDoctrineLines(c.env, {
+      materia,
+      fromDate,
+      toDate,
+      limit
+    });
+
+    await putAnalyticsCache(c, cacheKey, response);
+    logInfo('INSIGHTS_DOCTRINE_LINES_DONE', {
+      materia: response.overview.materiaEvaluated,
+      limit,
+      fromDate,
+      toDate,
+      totalLines: response.overview.totalLines,
+      dominantTheme: response.overview.dominantTheme
+    });
+    return c.json(response);
+  } catch (e: unknown) {
+    logError('INSIGHTS_DOCTRINE_LINES_ERROR', e, { materia, limit, fromDate, toDate });
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+app.get('/api/v1/insights/doctrine-search', async (c) => {
+  const q = c.req.query('q')?.trim() || '';
+  const limit = parsePositiveInt(c.req.query('limit'), 5, 1, 10);
+
+  if (!q) {
+    return c.json({ error: 'Missing q parameter' }, 400);
+  }
+
+  const cacheKey = `insights:doctrine-search:v3:q:${q}:l:${limit}`;
+
+  try {
+    const cached = await c.env.DICTAMENES_PASO.get(cacheKey, 'json').catch(() => null);
+    if (cached && typeof cached === 'object') {
+      logInfo('INSIGHTS_DOCTRINE_SEARCH_CACHE_HIT', { cacheKey, q, limit });
+      return c.json(cached);
+    }
+
+    const response = await buildDoctrineSearch(c.env, { q, limit });
+    await putAnalyticsCache(c, cacheKey, response);
+    logInfo('INSIGHTS_DOCTRINE_SEARCH_DONE', {
+      q,
+      limit,
+      totalLines: response.overview.totalLines,
+      dominantTheme: response.overview.dominantTheme
+    });
+    return c.json(response);
+  } catch (e: unknown) {
+    logError('INSIGHTS_DOCTRINE_SEARCH_ERROR', e, { q, limit });
     return c.json({ error: errorMessage(e) }, 500);
   }
 });

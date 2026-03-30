@@ -20,6 +20,11 @@ export interface RelacionCausa {
     created_at?: string;
 }
 
+export interface RelacionEfecto {
+    destino_id: string;
+    tipo_accion: string;
+}
+
 export interface DictamenMeta {
     id: string;
     numero: string | null;
@@ -34,6 +39,7 @@ export interface DictamenMeta {
     origen_busqueda?: 'vectorial' | 'literal';
     genera_jurisprudencia?: boolean;
     relaciones_causa?: RelacionCausa[];
+    relaciones_efecto?: RelacionEfecto[];
 }
 
 export interface DictamenDetail extends DictamenMeta {
@@ -119,4 +125,71 @@ export interface MigrationInfoResponse {
     evolution: { date: string; count: number; model: string }[];
     events: MigrationEvent[];
     modelTarget: string;
+}
+
+export interface DoctrineKeyDictamen {
+    id: string;
+    titulo: string;
+    fecha: string | null;
+    rol_en_linea: 'representativo' | 'núcleo doctrinal' | 'pivote de cambio' | 'apoyo relevante';
+}
+
+export interface DoctrineFuenteLegal {
+    tipo_norma: string;
+    numero: string | null;
+    count: number;
+}
+
+export interface DoctrineTimeSpan {
+    from: string | null;
+    to: string | null;
+}
+
+export interface DoctrineLineTechnical {
+    representative_score?: number;
+    cluster_density_score?: number;
+    doctrinal_importance_score?: number;
+    doctrinal_change_risk_score?: number;
+    temporal_spread_years?: number;
+    influential_dictamen_ids?: string[];
+    query_match_signals?: string[];
+}
+
+export interface DoctrinePivotDictamen {
+    id: string;
+    titulo: string;
+    fecha: string | null;
+    signal: 'pivote_de_cambio' | 'hito_de_evolucion';
+    reason: string;
+}
+
+export interface DoctrineLine {
+    title: string;
+    importance_level: 'low' | 'medium' | 'high';
+    change_risk_level: 'low' | 'medium' | 'high';
+    summary: string;
+    query_match_reason?: string;
+    doctrinal_state: 'consolidado' | 'en_evolucion' | 'bajo_tension';
+    doctrinal_state_reason: string;
+    pivot_dictamen?: DoctrinePivotDictamen | null;
+    representative_dictamen_id: string;
+    core_dictamen_ids: string[];
+    key_dictamenes: DoctrineKeyDictamen[];
+    top_fuentes_legales: DoctrineFuenteLegal[];
+    top_descriptores_AI: string[];
+    time_span: DoctrineTimeSpan;
+    technical?: DoctrineLineTechnical;
+}
+
+export interface DoctrineInsightsOverview {
+    totalLines: number;
+    dominantTheme: string | null;
+    periodCovered: DoctrineTimeSpan;
+    materiaEvaluated: string | null;
+    query?: string;
+}
+
+export interface DoctrineInsightsResponse {
+    overview: DoctrineInsightsOverview;
+    lines: DoctrineLine[];
 }

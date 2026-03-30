@@ -160,8 +160,11 @@ async function fetchRecords(env: Env, ids: string[]) {
   if (!ids || ids.length === 0) return { vectors: {} };
 
   const baseUrl = env.PINECONE_INDEX_HOST.endsWith('/') ? env.PINECONE_INDEX_HOST.slice(0, -1) : env.PINECONE_INDEX_HOST;
-  const queryString = ids.map(id => `ids=${encodeURIComponent(id)}`).join('&');
-  const url = new URL(`/records/namespaces/${env.PINECONE_NAMESPACE}/records?${queryString}`, baseUrl);
+  const url = new URL('/vectors/fetch', baseUrl);
+  for (const id of ids) {
+    url.searchParams.append('ids', id);
+  }
+  url.searchParams.append('namespace', env.PINECONE_NAMESPACE);
 
   const response = await fetch(url.toString(), {
     method: "GET",
@@ -178,10 +181,17 @@ async function fetchRecords(env: Env, ids: string[]) {
   const data = await response.json() as any;
   const vectors: Record<string, any> = {};
 
-  if (Array.isArray(data.records)) {
+  if (data.vectors && typeof data.vectors === 'object') {
+    for (const [recId, rec] of Object.entries(data.vectors as Record<string, any>)) {
+      vectors[recId] = {
+        id: recId,
+        metadata: rec?.metadata || rec?.fields || {}
+      };
+    }
+  } else if (Array.isArray(data.records)) {
     for (const rec of data.records) {
       const recId = rec._id || rec.id;
-      vectors[recId] = { id: recId, metadata: rec.fields || rec.metadata };
+      vectors[recId] = { id: recId, metadata: rec.fields || rec.metadata || {} };
     }
   }
 
