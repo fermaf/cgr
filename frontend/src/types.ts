@@ -198,6 +198,14 @@ export interface DoctrinePivotDictamen {
     reason: string;
 }
 
+export interface DoctrineSemanticAnchorDictamen {
+    id: string;
+    titulo: string;
+    fecha: string | null;
+    score: number;
+    reason: string;
+}
+
 export interface DoctrineStructureAdjustment {
     action: 'merge_clusters';
     merged_cluster_count: number;
@@ -216,6 +224,7 @@ export interface DoctrineLine {
     doctrinal_state: 'consolidado' | 'en_evolucion' | 'bajo_tension';
     doctrinal_state_reason: string;
     pivot_dictamen?: DoctrinePivotDictamen | null;
+    semantic_anchor_dictamen?: DoctrineSemanticAnchorDictamen | null;
     relation_dynamics: DoctrineRelationDynamics;
     coherence_signals: DoctrineCoherenceSignals;
     representative_dictamen_id: string;

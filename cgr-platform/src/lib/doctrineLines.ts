@@ -6,6 +6,12 @@ import type { Env } from '../types';
 type InsightLevel = 'low' | 'medium' | 'high';
 type KeyDictamenRole = 'representativo' | 'núcleo doctrinal' | 'pivote de cambio' | 'apoyo relevante';
 type SearchMatch = { id: string; score?: number; metadata?: Record<string, unknown> };
+type SearchMatchInfo = {
+  rawScore: number;
+  normalizedScore: number;
+  rank: number;
+  metadata?: Record<string, unknown>;
+};
 
 function toLevel(score: number): InsightLevel {
   if (score >= 0.7) return 'high';
@@ -187,7 +193,8 @@ async function buildMetadataById(
   const keyIds = [...new Set(clusters.flatMap((cluster) => [
     cluster.representative_dictamen.id,
     ...cluster.core_doctrine_candidates.map((candidate) => candidate.id),
-    ...cluster.influential_dictamen_ids
+    ...cluster.influential_dictamen_ids,
+    ...cluster.supporting_dictamen_ids
   ]))];
   const records = keyIds.length > 0 ? await fetchRecords(env, keyIds) : { vectors: {} as Record<string, { metadata?: Record<string, unknown> }> };
   const metadataById = Object.fromEntries(
@@ -268,6 +275,158 @@ function buildDoctrineLinesResponse(
         influential_dictamen_ids: cluster.influential_dictamen_ids
       }
     }))
+  };
+}
+
+function buildSearchMatchInfo(matches: SearchMatch[]): Map<string, SearchMatchInfo> {
+  const maxScore = Math.max(...matches.map((match) => Number(match.score ?? 0)), 0.0001);
+  return new Map(matches.map((match, index) => ([
+    match.id,
+    {
+      rawScore: Number(match.score ?? 0),
+      normalizedScore: roundMatchScore(Number(match.score ?? 0) / maxScore),
+      rank: index,
+      metadata: match.metadata
+    }
+  ])));
+}
+
+function roundMatchScore(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function buildSearchSemanticAnchor(params: {
+  line: ReturnType<typeof buildDoctrineLinesResponse>['lines'][number];
+  cluster: Awaited<ReturnType<typeof buildDoctrineClusters>>['clusters'][number];
+  metadataById: Record<string, Record<string, unknown>>;
+  matchInfoById: Map<string, SearchMatchInfo>;
+}) {
+  const candidateIds = [
+    params.cluster.representative_dictamen.id,
+    ...params.cluster.core_doctrine_candidates.map((candidate) => candidate.id),
+    ...params.cluster.supporting_dictamen_ids
+  ];
+  const uniqueIds = [...new Set(candidateIds)];
+  const ranked = uniqueIds
+    .map((id) => ({ id, info: params.matchInfoById.get(id) }))
+    .filter((entry): entry is { id: string; info: SearchMatchInfo } => Boolean(entry.info))
+    .sort((left, right) => (
+      right.info.rawScore - left.info.rawScore
+      || left.info.rank - right.info.rank
+      || left.id.localeCompare(right.id)
+    ));
+
+  const selected = ranked[0];
+  if (!selected) return null;
+
+  const isRepresentative = selected.id === params.line.representative_dictamen_id;
+  const metadata = params.metadataById[selected.id] ?? {};
+
+  return {
+    id: selected.id,
+    titulo: pickText(metadata.titulo) || pickText(metadata.Resumen ?? metadata.resumen) || params.line.title,
+    fecha: pickText(metadata.fecha) || null,
+    score: roundMatchScore(selected.info.rawScore),
+    reason: isRepresentative
+      ? 'Este dictamen también es el más cercano a su consulta.'
+      : 'Es el dictamen más cercano a su consulta dentro de esta línea.'
+  };
+}
+
+function buildHybridSearchScore(params: {
+  cluster: Awaited<ReturnType<typeof buildDoctrineClusters>>['clusters'][number];
+  matchInfoById: Map<string, SearchMatchInfo>;
+  topHitId: string | null;
+}) {
+  const matchedIds = [
+    params.cluster.representative_dictamen.id,
+    ...params.cluster.core_doctrine_candidates.map((candidate) => candidate.id),
+    ...params.cluster.supporting_dictamen_ids
+  ].filter((id, index, source) => source.indexOf(id) === index && params.matchInfoById.has(id));
+
+  if (matchedIds.length === 0) {
+    return params.cluster.doctrinal_importance_score * 0.2;
+  }
+
+  const semanticScores = matchedIds
+    .map((id) => params.matchInfoById.get(id)!)
+    .sort((left, right) => right.normalizedScore - left.normalizedScore || left.rank - right.rank);
+  const semanticPeak = semanticScores[0]?.normalizedScore ?? 0;
+  const semanticCoverage = semanticScores
+    .slice(0, 3)
+    .reduce((acc, item) => acc + item.normalizedScore, 0);
+  const representativeSemantic = params.matchInfoById.get(params.cluster.representative_dictamen.id)?.normalizedScore ?? 0;
+  const topHitBoost = params.topHitId && matchedIds.includes(params.topHitId) ? 2.4 : 0;
+
+  return (
+    (semanticPeak * 4.2)
+    + (representativeSemantic * 1.6)
+    + (semanticCoverage * 1.25)
+    + topHitBoost
+    + (params.cluster.doctrinal_importance_score * 0.25)
+  );
+}
+
+function promoteSemanticAnchor(params: {
+  line: ReturnType<typeof buildDoctrineLinesResponse>['lines'][number] & {
+    query_match_reason?: string;
+    semantic_anchor_dictamen?: {
+      id: string;
+      titulo: string;
+      fecha: string | null;
+      score: number;
+      reason: string;
+    } | null;
+  };
+  anchor: NonNullable<ReturnType<typeof buildSearchSemanticAnchor>>;
+  metadataById: Record<string, Record<string, unknown>>;
+  matchInfoById: Map<string, SearchMatchInfo>;
+}) {
+  const representativeSemantic = params.matchInfoById.get(params.line.representative_dictamen_id)?.normalizedScore ?? 0;
+  const shouldPromote = params.anchor.id !== params.line.representative_dictamen_id
+    && params.matchInfoById.get(params.anchor.id)?.normalizedScore !== undefined
+    && (
+      (params.matchInfoById.get(params.anchor.id)?.normalizedScore ?? 0) >= 0.9
+      || ((params.matchInfoById.get(params.anchor.id)?.normalizedScore ?? 0) - representativeSemantic) >= 0.18
+    );
+
+  const keyDictamenMap = new Map(
+    params.line.key_dictamenes.map((item) => [item.id, { ...item }])
+  );
+
+  if (shouldPromote) {
+    const previousRepresentative = keyDictamenMap.get(params.line.representative_dictamen_id);
+    if (previousRepresentative) {
+      previousRepresentative.rol_en_linea = previousRepresentative.rol_en_linea === 'representativo'
+        ? 'núcleo doctrinal'
+        : previousRepresentative.rol_en_linea;
+      keyDictamenMap.set(previousRepresentative.id, previousRepresentative);
+    }
+
+    keyDictamenMap.set(params.anchor.id, {
+      id: params.anchor.id,
+      titulo: params.anchor.titulo,
+      fecha: params.anchor.fecha ?? '',
+      rol_en_linea: 'representativo'
+    });
+
+    const promotedKeyDictamenes = [
+      keyDictamenMap.get(params.anchor.id)!,
+      ...[...keyDictamenMap.values()].filter((item) => item.id !== params.anchor.id)
+    ].slice(0, 6);
+
+    return {
+      ...params.line,
+      representative_dictamen_id: params.anchor.id,
+      key_dictamenes: promotedKeyDictamenes,
+      query_match_reason: `${params.line.query_match_reason ?? 'Esta línea se prioriza por cercanía semántica.'} El dictamen más cercano a su consulta es ${params.anchor.id}.`,
+      semantic_anchor_dictamen: params.anchor
+    };
+  }
+
+  return {
+    ...params.line,
+    semantic_anchor_dictamen: params.anchor
   };
 }
 
@@ -475,6 +634,8 @@ async function buildDoctrineSearch(env: Env, options: BuildDoctrineSearchOptions
     };
   }
 
+  const matchInfoById = buildSearchMatchInfo(matches);
+  const topHitId = matches[0]?.id ?? null;
   let { hitIds, selectedClusterResponse } = await buildDoctrineSearchFromMatches(env, matches, limit);
   if (selectedClusterResponse.clusters.length === 0 && searchMode === "semantic") {
     const lexicalMatches = await searchDoctrineLexically(env, q, limit);
@@ -489,7 +650,61 @@ async function buildDoctrineSearch(env: Env, options: BuildDoctrineSearchOptions
     ({ hitIds, selectedClusterResponse } = await buildDoctrineSearchFromMatches(env, matches, limit));
   }
   const metadataById = await buildMetadataById(env, selectedClusterResponse.clusters);
-  const response = await applyDoctrineStructureRemediations(env, buildDoctrineLinesResponse(selectedClusterResponse, metadataById));
+  const baseResponse = buildDoctrineLinesResponse(selectedClusterResponse, metadataById);
+
+  const enrichedLines = baseResponse.lines.map((line, index) => {
+    const cluster = selectedClusterResponse.clusters[index];
+    const representativeMatched = hitIds.has(cluster.representative_dictamen.id);
+    const coreOverlapCount = cluster.core_doctrine_candidates.filter((candidate) => hitIds.has(candidate.id)).length;
+    const supportOverlapCount = cluster.supporting_dictamen_ids.filter((id) => hitIds.has(id)).length;
+    const queryMatch = buildQueryMatchExplanation({
+      query: q,
+      materia: selectedClusterResponse.materia,
+      clusterLabel: cluster.cluster_label,
+      topDescriptoresAI: cluster.top_descriptores_AI,
+      topFuentesLegales: cluster.top_fuentes_legales,
+      representativeMatched,
+      coreOverlapCount,
+      supportOverlapCount
+    });
+    const withQueryMatch = {
+      ...line,
+      query_match_reason: queryMatch.query_match_reason,
+      technical: {
+        ...line.technical,
+        query_match_signals: queryMatch.query_match_signals
+      }
+    };
+    const semanticAnchor = buildSearchSemanticAnchor({
+      line: withQueryMatch,
+      cluster,
+      metadataById,
+      matchInfoById
+    });
+
+    const promoted = semanticAnchor
+      ? promoteSemanticAnchor({
+          line: withQueryMatch,
+          anchor: semanticAnchor,
+          metadataById,
+          matchInfoById
+        })
+      : withQueryMatch;
+
+    return {
+      line: promoted,
+      hybridScore: buildHybridSearchScore({
+        cluster,
+        matchInfoById,
+        topHitId
+      })
+    };
+  }).sort((left, right) => right.hybridScore - left.hybridScore);
+
+  const response = await applyDoctrineStructureRemediations(env, {
+    ...baseResponse,
+    lines: enrichedLines.map((entry) => entry.line)
+  });
 
   return {
     overview: {
@@ -497,31 +712,7 @@ async function buildDoctrineSearch(env: Env, options: BuildDoctrineSearchOptions
       query: q,
       searchMode
     },
-    lines: response.lines.map((line, index) => {
-      const cluster = selectedClusterResponse.clusters[index];
-      const representativeMatched = hitIds.has(cluster.representative_dictamen.id);
-      const coreOverlapCount = cluster.core_doctrine_candidates.filter((candidate) => hitIds.has(candidate.id)).length;
-      const supportOverlapCount = cluster.supporting_dictamen_ids.filter((id) => hitIds.has(id)).length;
-      const queryMatch = buildQueryMatchExplanation({
-        query: q,
-        materia: selectedClusterResponse.materia,
-        clusterLabel: cluster.cluster_label,
-        topDescriptoresAI: cluster.top_descriptores_AI,
-        topFuentesLegales: cluster.top_fuentes_legales,
-        representativeMatched,
-        coreOverlapCount,
-        supportOverlapCount
-      });
-
-      return {
-        ...line,
-        query_match_reason: queryMatch.query_match_reason,
-        technical: {
-          ...line.technical,
-          query_match_signals: queryMatch.query_match_signals
-        }
-      };
-    })
+    lines: response.lines
   };
 }
 

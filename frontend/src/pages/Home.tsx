@@ -39,7 +39,7 @@ function doctrineExplorerTitle(query: string) {
 function doctrinalStateLabel(state: DoctrineLine["doctrinal_state"]) {
     if (state === "consolidado") return "criterio consolidado";
     if (state === "bajo_tension") return "línea bajo tensión";
-    return "línea en evolución";
+    return "el criterio ha cambiado en el tiempo";
 }
 
 function relationDynamicsLabel(line: DoctrineLine) {
@@ -50,16 +50,16 @@ function relationDynamicsLabel(line: DoctrineLine) {
 }
 
 function coherenceSummaryLabel(line: DoctrineLine) {
-    if (line.coherence_signals.coherence_status === "fragmentada") return "posible fragmentación";
-    if (line.coherence_signals.coherence_status === "mixta") return "línea con ruido";
+    if (line.coherence_signals.coherence_status === "fragmentada") return "agrupación posiblemente mezclada";
+    if (line.coherence_signals.coherence_status === "mixta") return "algunos dictámenes tratan temas relacionados";
     return "coherencia suficiente";
 }
 
 function structureHintLabel(line: DoctrineLine) {
     if (line.structure_adjustments?.action === "merge_clusters") return "línea consolidada";
-    if (line.coherence_signals.coherence_status === "fragmentada") return "revisar posible separación";
-    if (line.coherence_signals.outlier_probability >= 0.22) return "revisar posible mal agrupado";
-    if (line.coherence_signals.descriptor_noise_score >= 0.4) return "revisar descriptores";
+    if (line.coherence_signals.coherence_status === "fragmentada") return "podría refinarse esta agrupación";
+    if (line.coherence_signals.outlier_probability >= 0.22) return "hay dictámenes que podrían revisarse";
+    if (line.coherence_signals.descriptor_noise_score >= 0.4) return "conviene ordenar mejor los descriptores";
     return null;
 }
 
@@ -332,6 +332,16 @@ export function Home() {
                                 <p className="mt-3 text-sm leading-6 text-slate-500">{line.doctrinal_state_reason}</p>
                                 <p className="mt-2 text-sm leading-6 text-slate-500">{line.relation_dynamics.summary}</p>
                                 <p className="mt-2 text-sm leading-6 text-slate-500">{line.coherence_signals.summary}</p>
+                                {line.semantic_anchor_dictamen && (
+                                    <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3">
+                                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cgr-navy/75">Más cercano a su búsqueda</p>
+                                        <p className="mt-1 font-mono text-xs text-cgr-navy">{line.semantic_anchor_dictamen.id}</p>
+                                        <p className="mt-2 text-sm leading-6 text-cgr-navy">{line.semantic_anchor_dictamen.titulo}</p>
+                                        <p className="mt-2 text-xs text-slate-500">
+                                            {formatDisplayDate(line.semantic_anchor_dictamen.fecha, "Sin fecha")} · score semántico {line.semantic_anchor_dictamen.score}
+                                        </p>
+                                    </div>
+                                )}
                                 {line.structure_adjustments && (
                                     <p className="mt-2 text-sm leading-6 text-emerald-800">{line.structure_adjustments.note}</p>
                                 )}

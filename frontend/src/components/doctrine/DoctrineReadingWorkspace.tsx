@@ -44,7 +44,7 @@ function roleHint(index: number, total: number, isRepresentative: boolean) {
 function doctrinalStateLabel(state: DoctrineLine["doctrinal_state"]) {
     if (state === "consolidado") return "criterio consolidado";
     if (state === "bajo_tension") return "línea bajo tensión";
-    return "línea en evolución";
+    return "el criterio ha cambiado en el tiempo";
 }
 
 function relationBucketLabel(bucket: DoctrineLine["relation_dynamics"]["dominant_bucket"]) {
@@ -55,8 +55,8 @@ function relationBucketLabel(bucket: DoctrineLine["relation_dynamics"]["dominant
 }
 
 function coherenceLabel(status: DoctrineLine["coherence_signals"]["coherence_status"]) {
-    if (status === "fragmentada") return "coherencia fragmentada";
-    if (status === "mixta") return "coherencia mixta";
+    if (status === "fragmentada") return "agrupación posiblemente mezclada";
+    if (status === "mixta") return "hay temas relacionados, pero no idénticos";
     return "coherencia suficiente";
 }
 
@@ -66,13 +66,13 @@ function coherenceActionHints(line: DoctrineLine) {
         hints.push("fusión estructural aplicada");
     }
     if (line.coherence_signals.coherence_status === "fragmentada") {
-        hints.push("posible separación de la línea");
+        hints.push("podría refinarse esta agrupación");
     }
     if (line.coherence_signals.outlier_probability >= 0.22) {
-        hints.push("posible dictamen mal agrupado");
+        hints.push("hay dictámenes que podrían revisarse");
     }
     if (line.coherence_signals.descriptor_noise_score >= 0.4) {
-        hints.push("normalizar descriptores");
+        hints.push("conviene ordenar mejor los descriptores");
     }
     return hints.slice(0, 3);
 }
@@ -129,7 +129,7 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-100">Período visible</p>
                             <div className="mt-2 flex items-center gap-2 text-sm text-white">
                                 <Clock3 className="h-4 w-4 text-cgr-gold" />
-                                <span>{line.time_span.from ?? "s/d"} → {line.time_span.to ?? "s/d"}</span>
+                                <span>{formatDisplayDate(line.time_span.from, "s/d")} → {formatDisplayDate(line.time_span.to, "s/d")}</span>
                             </div>
                         </div>
                         <div className="rounded-[1.2rem] border border-white/10 bg-white/10 p-4">
@@ -247,6 +247,19 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                                 </Link>
                             </div>
                         )}
+                        {line.semantic_anchor_dictamen && (
+                            <div className="mt-4 rounded-[1.2rem] border border-blue-200 bg-blue-50 p-4">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cgr-navy">Más cercano a su búsqueda</p>
+                                <div className="mt-2 flex items-start justify-between gap-3">
+                                    <div>
+                                        <p className="font-mono text-xs text-cgr-navy">{line.semantic_anchor_dictamen.id}</p>
+                                        <p className="mt-2 font-serif text-lg font-semibold text-cgr-navy">{line.semantic_anchor_dictamen.titulo}</p>
+                                        <p className="mt-2 text-sm leading-6 text-slate-600">{line.semantic_anchor_dictamen.reason}</p>
+                                    </div>
+                                    <p className="text-sm text-slate-500">{formatDisplayDate(line.semantic_anchor_dictamen.fecha, "Sin fecha")}</p>
+                                </div>
+                            </div>
+                        )}
                     </section>
 
                     <section className="rounded-[1.6rem] border border-slate-200 bg-white p-5 shadow-sm">
@@ -298,7 +311,7 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                                 <p className="mt-2 text-2xl font-semibold text-cgr-navy">{line.coherence_signals.cluster_cohesion_score}</p>
                             </div>
                             <div className="rounded-[1rem] border border-slate-200 bg-slate-50 px-4 py-3">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Riesgo de fragmentación</p>
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Riesgo de mezcla</p>
                                 <p className="mt-2 text-2xl font-semibold text-cgr-navy">{line.coherence_signals.fragmentation_risk}</p>
                             </div>
                         </div>
@@ -307,7 +320,7 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                         )}
                         {coherenceHints.length > 0 && (
                             <div className="mt-4">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Estructura a revisar</p>
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Qué podría refinarse</p>
                                 <div className="mt-2 flex flex-wrap gap-2">
                                     {coherenceHints.map((hint) => (
                                         <span

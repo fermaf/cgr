@@ -30,6 +30,13 @@ export interface DoctrineLineLike {
     signal: 'pivote_de_cambio' | 'hito_de_evolucion';
     reason: string;
   } | null;
+  semantic_anchor_dictamen?: {
+    id: string;
+    titulo: string;
+    fecha: string | null;
+    score: number;
+    reason: string;
+  } | null;
   relation_dynamics: {
     consolida: number;
     desarrolla: number;
@@ -316,6 +323,11 @@ function mergeDoctrineLines(
   );
   const mergedInfluentialIds = uniqueStrings(lines.flatMap((line) => line.technical?.influential_dictamen_ids ?? []));
   const querySignals = uniqueStrings(lines.flatMap((line) => line.technical?.query_match_signals ?? []));
+  const semanticAnchor = lines
+    .map((line) => line.semantic_anchor_dictamen)
+    .filter((value): value is NonNullable<DoctrineLineLike['semantic_anchor_dictamen']> => Boolean(value))
+    .sort((left, right) => right.score - left.score || (parseDate(right.fecha) ?? 0) - (parseDate(left.fecha) ?? 0))[0]
+    ?? null;
 
   return {
     ...canonicalLine,
@@ -337,6 +349,7 @@ function mergeDoctrineLines(
         .filter((value): value is NonNullable<DoctrineLineLike['pivot_dictamen']> => Boolean(value))
         .sort((left, right) => (parseDate(right.fecha) ?? 0) - (parseDate(left.fecha) ?? 0))[0]
       ?? null,
+    semantic_anchor_dictamen: semanticAnchor,
     relation_dynamics: {
       consolida: mergedRelationCounts.consolida,
       desarrolla: mergedRelationCounts.desarrolla,
