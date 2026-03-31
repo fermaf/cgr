@@ -1,5 +1,26 @@
 import type { DoctrineInsightsResponse } from "../types";
 
+const KNOWN_QUERY_CORRECTIONS: Record<string, string> = {
+    cofirnza: "confianza",
+    confirnza: "confianza",
+    confanza: "confianza",
+    legitma: "legitima",
+    legitmia: "legitima",
+    adminsitrativa: "administrativa",
+    invalidacon: "invalidacion",
+    invaldiacion: "invalidacion",
+    subrogasion: "subrogacion",
+    renobacion: "renovacion",
+};
+
+function normalizeQueryForRequest(query: string) {
+    return query
+        .trim()
+        .split(/\s+/)
+        .map((token) => KNOWN_QUERY_CORRECTIONS[token.toLowerCase()] ?? token)
+        .join(" ");
+}
+
 export const DOCTRINE_SEARCH_EXAMPLES = [
     "contrata confianza legítima",
     "responsabilidad administrativa sumario",
@@ -154,9 +175,10 @@ const DEMO_RESPONSE: DoctrineInsightsResponse = {
 
 export async function fetchDoctrineInsights(query: string, limit = 4) {
     const trimmed = query.trim();
+    const normalized = normalizeQueryForRequest(trimmed);
     const versionTag = "web-v2";
     const endpoint = trimmed.length > 0
-        ? `/api/v1/insights/doctrine-search?q=${encodeURIComponent(trimmed)}&limit=${limit}&client=${versionTag}`
+        ? `/api/v1/insights/doctrine-search?q=${encodeURIComponent(normalized)}&limit=${limit}&client=${versionTag}`
         : `/api/v1/insights/doctrine-lines?limit=${limit}&client=${versionTag}`;
 
     try {
