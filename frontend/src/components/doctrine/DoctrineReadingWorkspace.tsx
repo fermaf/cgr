@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import type { DoctrineLine, DoctrineKeyDictamen } from "../../types";
 import { cn } from "../../lib/utils";
 import { formatSimpleDate } from "../../lib/date";
-import { doctrinalStateNarrative, lineClarityLabel, relationPatternNarrative, simplifyDoctrineLanguage } from "../../lib/doctrineLanguage";
+import { doctrinalStateNarrative, graphStatusNarrative, lineClarityLabel, relationPatternNarrative, simplifyDoctrineLanguage } from "../../lib/doctrineLanguage";
 
 function normalizeDate(value: string | null) {
     if (!value) return null;
@@ -130,9 +130,9 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-100">Cómo se comporta el criterio</p>
                                 <div className="mt-2 flex items-start gap-2 text-sm text-white">
                                     <GitBranch className="mt-0.5 h-4 w-4 shrink-0 text-cgr-gold" />
-                                    <span>{doctrinalStateNarrative(line.doctrinal_state)}</span>
+                                    <span>{graphStatusNarrative(line) || doctrinalStateNarrative(line.doctrinal_state)}</span>
                                 </div>
-                                <p className="mt-2 text-xs leading-5 text-blue-100">{simplifyDoctrineLanguage(line.doctrinal_state_reason)}</p>
+                                <p className="mt-2 text-xs leading-5 text-blue-100">{simplifyDoctrineLanguage(line.graph_doctrinal_status?.summary ?? line.doctrinal_state_reason)}</p>
                             </div>
                         </div>
                     </div>
@@ -221,7 +221,7 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                             <GitBranch className="h-4 w-4 text-cgr-navy" />
                             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Cómo se aplica este criterio</p>
                         </div>
-                        <p className="mt-4 text-sm leading-6 text-slate-600">{simplifyDoctrineLanguage(line.doctrinal_state_reason)}</p>
+                        <p className="mt-4 text-sm leading-6 text-slate-600">{simplifyDoctrineLanguage(line.graph_doctrinal_status?.summary ?? line.doctrinal_state_reason)}</p>
                         {line.reading_priority_reason && (
                             <p className="mt-3 text-sm leading-6 text-slate-600">{simplifyDoctrineLanguage(line.reading_priority_reason)}</p>
                         )}

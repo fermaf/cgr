@@ -26,6 +26,7 @@ function outgoingRelationPhrase(tipoAccion: string) {
     if (tipoAccion === "aclarado") return "Este dictamen aclara criterio de";
     if (tipoAccion === "alterado") return "Este dictamen altera criterio de";
     if (tipoAccion === "reconsiderado") return "Este dictamen reconsidera criterio de";
+    if (tipoAccion === "reconsiderado_parcialmente") return "Este dictamen limita parcialmente criterio de";
     if (tipoAccion === "reactivado") return "Este dictamen reactiva criterio de";
     return "Este dictamen se relaciona con";
 }
@@ -37,6 +38,7 @@ function incomingRelationPhrase(tipoAccion: string) {
     if (tipoAccion === "aclarado") return "Fue usado después para aclarar su criterio";
     if (tipoAccion === "alterado") return "Fue usado después para ajustar o alterar su criterio";
     if (tipoAccion === "reconsiderado") return "Fue usado después para reconsiderar su criterio";
+    if (tipoAccion === "reconsiderado_parcialmente") return "Fue usado después para limitar parcialmente su criterio";
     if (tipoAccion === "reactivado") return "Fue usado después para reactivar su criterio";
     return "Fue utilizado por un dictamen posterior";
 }

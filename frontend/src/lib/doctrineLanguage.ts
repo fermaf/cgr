@@ -24,6 +24,16 @@ export function doctrinalStateNarrative(state: DoctrineLine["doctrinal_state"]) 
     return "el criterio ha cambiado en el tiempo";
 }
 
+export function graphStatusNarrative(line: DoctrineLine) {
+    const status = line.graph_doctrinal_status?.status;
+    if (status === "criterio_en_revision") return "hay decisiones posteriores que están revisando o desplazando el criterio";
+    if (status === "criterio_tensionado") return "el criterio sigue vigente, pero recibe ajustes recientes";
+    if (status === "criterio_fragmentado") return "la línea parece mezclar criterios distintos";
+    if (status === "criterio_en_evolucion") return "el criterio se ha desarrollado en el tiempo";
+    if (status === "criterio_estable") return "el criterio sigue una línea bastante estable";
+    return doctrinalStateNarrative(line.doctrinal_state);
+}
+
 export function relationPatternNarrative(line: DoctrineLine) {
     if (line.relation_dynamics.dominant_bucket === "consolida") return "predominan decisiones que reafirman este criterio";
     if (line.relation_dynamics.dominant_bucket === "desarrolla") return "predominan decisiones que desarrollan este criterio";

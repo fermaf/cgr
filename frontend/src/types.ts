@@ -198,6 +198,19 @@ export interface DoctrinePivotDictamen {
     reason: string;
 }
 
+export interface DoctrineGraphDoctrinalStatus {
+    status: "criterio_estable" | "criterio_en_evolucion" | "criterio_fragmentado" | "criterio_tensionado" | "criterio_en_revision";
+    summary: string;
+    relation_inventory: {
+        fortalece: number;
+        desarrolla: number;
+        ajusta: number;
+        limita: number;
+        desplaza: number;
+    };
+    recent_destabilizing_count: number;
+}
+
 export interface DoctrineSemanticAnchorDictamen {
     id: string;
     titulo: string;
@@ -223,6 +236,7 @@ export interface DoctrineLine {
     query_match_reason?: string;
     doctrinal_state: 'consolidado' | 'en_evolucion' | 'bajo_tension';
     doctrinal_state_reason: string;
+    graph_doctrinal_status?: DoctrineGraphDoctrinalStatus | null;
     reading_priority_reason?: string;
     pivot_dictamen?: DoctrinePivotDictamen | null;
     semantic_anchor_dictamen?: DoctrineSemanticAnchorDictamen | null;

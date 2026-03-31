@@ -6,7 +6,7 @@ import { DOCTRINE_SEARCH_EXAMPLES, fetchDoctrineInsights } from "../lib/doctrine
 import { cn } from "../lib/utils";
 import { DoctrineReadingWorkspace } from "../components/doctrine/DoctrineReadingWorkspace";
 import { formatSimpleDate } from "../lib/date";
-import { doctrinalStateNarrative, groupingHint, lineClarityLabel, relationPatternNarrative, simplifyDoctrineLanguage } from "../lib/doctrineLanguage";
+import { doctrinalStateNarrative, graphStatusNarrative, groupingHint, lineClarityLabel, relationPatternNarrative, simplifyDoctrineLanguage } from "../lib/doctrineLanguage";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
 
@@ -299,7 +299,7 @@ export function Home() {
                                                 importancia {line.importance_level}
                                             </span>
                                             <span className={cn("rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]", levelBadgeTone(line.change_risk_level, "risk"))}>
-                                                {doctrinalStateNarrative(line.doctrinal_state)}
+                                                {graphStatusNarrative(line) || doctrinalStateNarrative(line.doctrinal_state)}
                                             </span>
                                             <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
                                                 {relationPatternNarrative(line)}
@@ -322,7 +322,7 @@ export function Home() {
                                 </div>
 
                                 <p className="mt-4 text-sm leading-7 text-slate-700">{simplifyDoctrineLanguage(line.summary)}</p>
-                                <p className="mt-3 text-sm leading-6 text-slate-500">{simplifyDoctrineLanguage(line.doctrinal_state_reason)}</p>
+                                <p className="mt-3 text-sm leading-6 text-slate-500">{simplifyDoctrineLanguage(line.graph_doctrinal_status?.summary ?? line.doctrinal_state_reason)}</p>
                                 {line.reading_priority_reason && (
                                     <p className="mt-2 text-sm leading-6 text-slate-500">{simplifyDoctrineLanguage(line.reading_priority_reason)}</p>
                                 )}

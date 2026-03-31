@@ -33,6 +33,7 @@ Bienvenido al centro de conocimiento de **CGR-Platform**. Esta documentación ha
 - **[Query Understanding Pipeline](explicacion/query_understanding_pipeline.md)**: Capa conservadora de rewrite con `mistral-large-2411` y dual retrieval para mejorar recall semántico sin tocar enrichment ni embeddings.
 - **[Query Intent Layer](explicacion/query_intent_layer.md)**: Detección ligera de intención jurídica y boosting contextual sin usar LLM ni tocar el pipeline de enrichment.
 - **[Prioridad Jurídica y Vigencia Doctrinal](explicacion/prioridad_juridica_y_vigencia_doctrinal.md)**: Cómo Indubia endurece normas citadas, reancla la posición doctrinal a relaciones reales y prioriza la lectura por vigencia visible.
+- **[Explotación del Grafo Doctrinal](explicacion/doctrinal_graph_exploitation.md)**: Cómo el sistema pasa de usar relaciones como apoyo a usarlas como señal principal del estado actual del criterio jurídico.
 - **[Arquitectura Agéntica de Indubia](agentic_architecture.md)**: Blueprint operativo para skills, MCPs y operación de agentes sobre el sistema doctrinal sin romper el backend actual.
 - **[Auditoría y Modernización Agéntica](agentic_modernization_audit.md)**: Mapa de salud, drift, alineación con proveedores y backlog priorizado para evolución sana.
 - **[Tooling Agéntico de Desarrollo](agents/dev_tooling_stack.md)**: Qué MCPs y herramientas externas sí valen la pena para acelerar frontend, operación y mantenimiento sin inflar el producto.
