@@ -154,9 +154,10 @@ const DEMO_RESPONSE: DoctrineInsightsResponse = {
 
 export async function fetchDoctrineInsights(query: string, limit = 4) {
     const trimmed = query.trim();
+    const versionTag = "web-v2";
     const endpoint = trimmed.length > 0
-        ? `/api/v1/insights/doctrine-search?q=${encodeURIComponent(trimmed)}&limit=${limit}`
-        : `/api/v1/insights/doctrine-lines?limit=${limit}`;
+        ? `/api/v1/insights/doctrine-search?q=${encodeURIComponent(trimmed)}&limit=${limit}&client=${versionTag}`
+        : `/api/v1/insights/doctrine-lines?limit=${limit}&client=${versionTag}`;
 
     try {
         const response = await fetch(endpoint);
