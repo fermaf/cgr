@@ -8,6 +8,19 @@ type SearchMatch = { id: string; score?: number; metadata?: Record<string, unkno
 const QUERY_REWRITE_MODEL = 'mistral-large-2411';
 const QUERY_REWRITE_TIMEOUT_MS = 3500;
 
+const KNOWN_QUERY_CORRECTIONS: Record<string, string> = {
+  cofirnza: 'confianza',
+  confirnza: 'confianza',
+  confanza: 'confianza',
+  legitma: 'legitima',
+  legitmia: 'legitima',
+  adminsitrativa: 'administrativa',
+  invalidacon: 'invalidacion',
+  invaldiacion: 'invalidacion',
+  subrogasion: 'subrogacion',
+  renobacion: 'renovacion'
+};
+
 export type QueryRewriteDecision = {
   originalQuery: string;
   normalizedQuery: string;
@@ -42,6 +55,9 @@ export function normalizeQueryLight(query: string): string {
     .normalize('NFC')
     .replace(/[_/]+/g, ' ')
     .replace(/\s+/g, ' ')
+    .split(' ')
+    .map((token) => KNOWN_QUERY_CORRECTIONS[token.toLowerCase()] ?? token)
+    .join(' ')
     .trim();
 }
 

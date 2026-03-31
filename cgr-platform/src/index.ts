@@ -727,7 +727,7 @@ app.get('/api/v1/insights/doctrine-search', async (c) => {
     return c.json({ error: 'Missing q parameter' }, 400);
   }
 
-  const cacheKey = `insights:doctrine-search:v10:q:${q}:l:${limit}`;
+  const cacheKey = `insights:doctrine-search:v11:q:${q}:l:${limit}`;
 
   try {
     const cached = await c.env.DICTAMENES_PASO.get(cacheKey, 'json').catch(() => null);
