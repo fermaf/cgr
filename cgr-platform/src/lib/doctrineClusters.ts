@@ -76,6 +76,8 @@ type DoctrineCluster = {
   pivot_dictamen: PivotDictamen | null;
   relation_dynamics: RelationDynamics;
   coherence_signals: CoherenceSignals;
+  juridical_priority_map: Record<string, number>;
+  reading_priority_reason: string;
 };
 
 function asString(value: unknown): string {
@@ -266,8 +268,12 @@ async function aggregateClusterSignals(env: Env, ids: string[]) {
       topAcciones: [] as string[],
       fuentesByDictamen: {} as Record<string, string[]>,
       relationCountByDictamen: {} as Record<string, number>,
+      incomingRelationCountByDictamen: {} as Record<string, number>,
       modifyingActionCountByDictamen: {} as Record<string, number>,
       stabilizingActionCountByDictamen: {} as Record<string, number>,
+      incomingModifyingActionCountByDictamen: {} as Record<string, number>,
+      incomingStabilizingActionCountByDictamen: {} as Record<string, number>,
+      latestIncomingRelationTsByDictamen: {} as Record<string, number>,
       relationBucketCounts: {
         consolida: 0,
         desarrolla: 0,
@@ -294,6 +300,15 @@ async function aggregateClusterSignals(env: Env, ids: string[]) {
      WHERE dictamen_origen_id IN (${placeholders})
     `
   ).bind(...ids).all<{ dictamen_id: string; tipo_accion: string }>();
+  const incomingRows = await env.DB.prepare(
+    `SELECT
+       r.dictamen_destino_id AS dictamen_id,
+       r.tipo_accion,
+       COALESCE(d.fecha_documento, d.created_at) AS fecha_documento
+     FROM dictamen_relaciones_juridicas r
+     LEFT JOIN dictamenes d ON d.id = r.dictamen_origen_id
+     WHERE r.dictamen_destino_id IN (${placeholders})`
+  ).bind(...ids).all<{ dictamen_id: string; tipo_accion: string; fecha_documento: string | null }>();
 
   const fuenteCounts = new Map<string, { tipo_norma: string; numero: string | null; count: number }>();
   const fuentesByDictamen: Record<string, string[]> = {};
@@ -311,8 +326,12 @@ async function aggregateClusterSignals(env: Env, ids: string[]) {
 
   const actionCounts = new Map<string, number>();
   const relationCountByDictamen: Record<string, number> = {};
+  const incomingRelationCountByDictamen: Record<string, number> = {};
   const modifyingActionCountByDictamen: Record<string, number> = {};
   const stabilizingActionCountByDictamen: Record<string, number> = {};
+  const incomingModifyingActionCountByDictamen: Record<string, number> = {};
+  const incomingStabilizingActionCountByDictamen: Record<string, number> = {};
+  const latestIncomingRelationTsByDictamen: Record<string, number> = {};
   const relationBucketCounts = {
     consolida: 0,
     desarrolla: 0,
@@ -333,6 +352,23 @@ async function aggregateClusterSignals(env: Env, ids: string[]) {
       relationBucketCounts.desarrolla += 1;
     }
   }
+  for (const row of incomingRows.results ?? []) {
+    incomingRelationCountByDictamen[row.dictamen_id] = (incomingRelationCountByDictamen[row.dictamen_id] ?? 0) + 1;
+    relationCountByDictamen[row.dictamen_id] = (relationCountByDictamen[row.dictamen_id] ?? 0) + 1;
+    if (MODIFYING_ACTIONS.has(row.tipo_accion)) {
+      incomingModifyingActionCountByDictamen[row.dictamen_id] = (incomingModifyingActionCountByDictamen[row.dictamen_id] ?? 0) + 1;
+    }
+    if (STABILIZING_ACTIONS.has(row.tipo_accion)) {
+      incomingStabilizingActionCountByDictamen[row.dictamen_id] = (incomingStabilizingActionCountByDictamen[row.dictamen_id] ?? 0) + 1;
+    }
+    const parsedTs = parseDateToTs(row.fecha_documento ?? '');
+    if (parsedTs !== null) {
+      latestIncomingRelationTsByDictamen[row.dictamen_id] = Math.max(
+        latestIncomingRelationTsByDictamen[row.dictamen_id] ?? 0,
+        parsedTs
+      );
+    }
+  }
 
   const topFuentes = [...fuenteCounts.values()]
     .sort((a, b) => b.count - a.count || a.tipo_norma.localeCompare(b.tipo_norma))
@@ -348,8 +384,12 @@ async function aggregateClusterSignals(env: Env, ids: string[]) {
     topAcciones,
     fuentesByDictamen,
     relationCountByDictamen,
+    incomingRelationCountByDictamen,
     modifyingActionCountByDictamen,
     stabilizingActionCountByDictamen,
+    incomingModifyingActionCountByDictamen,
+    incomingStabilizingActionCountByDictamen,
+    latestIncomingRelationTsByDictamen,
     relationBucketCounts
   };
 }
@@ -548,7 +588,10 @@ function buildInfluenceScores(
   members: CandidateMetadata[],
   neighborIds: Set<string>,
   fuentesByDictamen: Record<string, string[]>,
-  relationCountByDictamen: Record<string, number>
+  relationCountByDictamen: Record<string, number>,
+  incomingModifyingActionCountByDictamen: Record<string, number>,
+  incomingStabilizingActionCountByDictamen: Record<string, number>,
+  latestIncomingRelationTsByDictamen: Record<string, number>
 ) {
   const timestamps = members.map((member) => parseDateToTs(member.fecha)).filter((value): value is number => value !== null).sort((a, b) => a - b);
   const medianTs = timestamps.length > 0 ? timestamps[Math.floor(timestamps.length / 2)] : null;
@@ -569,14 +612,26 @@ function buildInfluenceScores(
     const fuenteScore = Math.min(sharedFuentes / Math.max(others.length, 1), 1);
     const neighborScore = neighborIds.has(member.id) ? 1 : 0;
     const relationScore = Math.min((relationCountByDictamen[member.id] ?? 0) / 3, 1);
+    const incomingAdjustments = incomingModifyingActionCountByDictamen[member.id] ?? 0;
+    const incomingStabilizations = incomingStabilizingActionCountByDictamen[member.id] ?? 0;
 
     let temporalScore = 0.5;
+    let recencyScore = 0.5;
     if (medianTs !== null && dateRange !== null) {
       const currentTs = parseDateToTs(member.fecha);
       if (currentTs !== null) {
         temporalScore = 1 - Math.min(Math.abs(currentTs - medianTs) / dateRange, 1);
+        if (minTs !== null && maxTs !== null && maxTs > minTs) {
+          recencyScore = Math.min(Math.max((currentTs - minTs) / (maxTs - minTs), 0), 1);
+        }
       }
     }
+
+    const laterStabilityBonus = Math.min(incomingStabilizations / 3, 1);
+    const obsolescencePenalty = Math.min(incomingAdjustments / 2, 1);
+    const latestIncomingTs = latestIncomingRelationTsByDictamen[member.id] ?? 0;
+    const latestMemberTs = parseDateToTs(member.fecha) ?? 0;
+    const laterActivityScore = latestIncomingTs > latestMemberTs ? 1 : 0;
 
     const score = (descriptorScore * 0.35)
       + (fuenteScore * 0.2)
@@ -585,37 +640,65 @@ function buildInfluenceScores(
       + (relationScore * 0.1)
       + (temporalScore * 0.05);
 
+    const juridicalPriority = Math.max(Math.min(
+      (score * 0.48)
+      + (recencyScore * 0.18)
+      + (laterStabilityBonus * 0.16)
+      + (relationScore * 0.08)
+      + (laterActivityScore * 0.06)
+      - (obsolescencePenalty * 0.2),
+      1
+    ), 0);
+
     return {
       id: member.id,
       score,
+      juridicalPriority,
       descriptorScore,
       fuenteScore,
       neighborScore,
       booleanScore,
       relationScore,
       temporalScore,
+      recencyScore,
+      laterStabilityBonus,
+      obsolescencePenalty,
       member
     };
-  }).sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
+  }).sort((a, b) => b.juridicalPriority - a.juridicalPriority || b.score - a.score || a.id.localeCompare(b.id));
 
   const representative = scores[0];
   const clusterDensityScore = scores.length > 0
     ? scores.reduce((acc, entry) => acc + entry.score, 0) / scores.length
     : 0;
-  const representativeScore = representative ? roundScore(representative.score) : 0;
-  const minCoreScore = Math.max(clusterDensityScore, representative?.score ? representative.score * 0.8 : 0);
+  const representativeScore = representative ? roundScore(representative.juridicalPriority) : 0;
+  const minCoreScore = Math.max(clusterDensityScore, representative?.juridicalPriority ? representative.juridicalPriority * 0.78 : 0);
   const coreCandidates = scores
     .filter((entry) => (
-      entry.score >= minCoreScore
+      entry.juridicalPriority >= minCoreScore
       && entry.relationScore >= 0.34
       && entry.fuenteScore >= 0.25
       && entry.temporalScore >= 0.2
+      && entry.obsolescencePenalty < 0.8
     ))
     .slice(0, 2)
     .map((entry) => ({
       id: entry.id,
-      score: roundScore(entry.score)
+      score: roundScore(entry.juridicalPriority)
     }));
+
+  const juridicalPriorityById = Object.fromEntries(
+    scores.map((entry) => [entry.id, roundScore(entry.juridicalPriority)])
+  );
+  const readingPriorityReason = representative
+    ? representative.obsolescencePenalty >= 0.5
+      ? 'Se prioriza la lectura de los dictámenes menos desplazados por decisiones posteriores visibles.'
+      : representative.laterStabilityBonus >= 0.34
+        ? 'Se prioriza la lectura de los dictámenes que siguen siendo retomados por decisiones posteriores de la línea.'
+        : representative.recencyScore >= 0.55
+          ? 'Se prioriza la lectura de los dictámenes más recientes que conservan peso dentro del criterio visible.'
+          : 'Se prioriza la lectura de los dictámenes que mejor concentran el criterio y su continuidad visible.'
+    : 'Se prioriza la lectura de los dictámenes que mejor concentran el criterio visible.';
 
   return {
     entries: scores,
@@ -623,7 +706,9 @@ function buildInfluenceScores(
     influentialIds: scores.slice(0, Math.min(3, scores.length)).map((entry) => entry.id),
     coreCandidates,
     representativeScore,
-    clusterDensityScore: roundScore(clusterDensityScore)
+    clusterDensityScore: roundScore(clusterDensityScore),
+    juridicalPriorityById,
+    readingPriorityReason
   };
 }
 
@@ -631,6 +716,7 @@ function buildPivotDictamen(params: {
   entries: Array<{
     id: string;
     relationScore: number;
+    juridicalPriority: number;
     temporalScore: number;
     member: CandidateMetadata;
   }>;
@@ -656,6 +742,7 @@ function buildPivotDictamen(params: {
       right.modifyingCount - left.modifyingCount
       || right.stabilizingCount - left.stabilizingCount
       || right.recencyTs - left.recencyTs
+      || right.entry.juridicalPriority - left.entry.juridicalPriority
       || right.entry.relationScore - left.entry.relationScore
       || left.entry.id.localeCompare(right.entry.id)
     ));
@@ -665,8 +752,8 @@ function buildPivotDictamen(params: {
 
   const signal = selected.modifyingCount > 0 ? 'pivote_de_cambio' : 'hito_de_evolucion';
   const reason = selected.modifyingCount > 0
-    ? 'Concentra acciones jurídicas que sugieren ajuste o tensión del criterio.'
-    : 'Aparece como hito reciente que consolida o proyecta la línea.';
+    ? 'Marca un ajuste visible del criterio y aparece entre los hitos posteriores con mayor impacto.'
+    : 'Aparece como hito reciente que todavía consolida o proyecta la línea visible.';
 
   return {
     id: selected.entry.id,
@@ -847,7 +934,15 @@ async function buildDoctrineClusters(env: Env, options: BuildDoctrineClustersOpt
     const minDate = members.map((member) => member.fecha).filter(Boolean).sort()[0] ?? null;
     const maxDate = members.map((member) => member.fecha).filter(Boolean).sort().slice(-1)[0] ?? null;
     const aggregates = await aggregateClusterSignals(env, supportingIds);
-    const influence = buildInfluenceScores(members, neighborIds, aggregates.fuentesByDictamen, aggregates.relationCountByDictamen);
+    const influence = buildInfluenceScores(
+      members,
+      neighborIds,
+      aggregates.fuentesByDictamen,
+      aggregates.relationCountByDictamen,
+      aggregates.incomingModifyingActionCountByDictamen,
+      aggregates.incomingStabilizingActionCountByDictamen,
+      aggregates.latestIncomingRelationTsByDictamen
+    );
     const topDescriptor = topDescriptors[0] ?? null;
     const topAction = aggregates.topAcciones[0] ?? null;
     const displayMateria = normalizeDisplayMateria(clusterMateria, topDescriptor || topAction);
@@ -930,7 +1025,9 @@ async function buildDoctrineClusters(env: Env, options: BuildDoctrineClustersOpt
       doctrinal_state_reason: doctrinalState.doctrinal_state_reason,
       pivot_dictamen: pivotDictamen,
       relation_dynamics: relationDynamics,
-      coherence_signals: coherenceSignals
+      coherence_signals: coherenceSignals,
+      juridical_priority_map: influence.juridicalPriorityById,
+      reading_priority_reason: influence.readingPriorityReason
     });
   }
 

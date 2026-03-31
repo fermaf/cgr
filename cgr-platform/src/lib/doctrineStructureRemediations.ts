@@ -23,6 +23,7 @@ export interface DoctrineLineLike {
   query_match_reason?: string;
   doctrinal_state: DoctrinalState;
   doctrinal_state_reason: string;
+  reading_priority_reason?: string;
   pivot_dictamen?: {
     id: string;
     titulo: string;
@@ -343,6 +344,7 @@ function mergeDoctrineLines(
       || canonicalLine.query_match_reason,
     doctrinal_state: doctrinalState,
     doctrinal_state_reason: `${canonicalLine.doctrinal_state_reason} ${note}`,
+    reading_priority_reason: firstNonEmpty(lines.map((line) => line.reading_priority_reason)) ?? canonicalLine.reading_priority_reason,
     pivot_dictamen: canonicalLine.pivot_dictamen
       ?? lines
         .map((line) => line.pivot_dictamen)

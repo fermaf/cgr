@@ -39,6 +39,12 @@ function formatSimpleDate(value: string | null | undefined): string | null {
   return match ? match[1] : null;
 }
 
+function parseDateToTs(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function looksNoisyDisplayLabel(value: string): boolean {
   const compact = compactDisplayText(value);
   if (!compact) return true;
@@ -96,7 +102,28 @@ function buildKeyDictamenes(
     }
   }
 
-  return [...keyed.entries()].slice(0, 5).map(([id, rol_en_linea]) => {
+  const roleOrder: Record<KeyDictamenRole, number> = {
+    representativo: 0,
+    'pivote de cambio': 1,
+    'núcleo doctrinal': 2,
+    'apoyo relevante': 3
+  };
+
+  return [...keyed.entries()]
+    .sort((left, right) => {
+      const leftPriority = cluster.juridical_priority_map[left[0]] ?? 0;
+      const rightPriority = cluster.juridical_priority_map[right[0]] ?? 0;
+      const leftDate = parseDateToTs(pickText(metadataById[left[0]]?.fecha) || (left[0] === cluster.representative_dictamen.id ? cluster.representative_dictamen.fecha : '')) ?? 0;
+      const rightDate = parseDateToTs(pickText(metadataById[right[0]]?.fecha) || (right[0] === cluster.representative_dictamen.id ? cluster.representative_dictamen.fecha : '')) ?? 0;
+      return (
+        roleOrder[left[1]] - roleOrder[right[1]]
+        || rightPriority - leftPriority
+        || rightDate - leftDate
+        || left[0].localeCompare(right[0])
+      );
+    })
+    .slice(0, 5)
+    .map(([id, rol_en_linea]) => {
     const metadata = metadataById[id] ?? {};
     const isRepresentative = id === cluster.representative_dictamen.id;
     return {
@@ -259,6 +286,7 @@ function buildDoctrineLinesResponse(
       }),
       doctrinal_state: cluster.doctrinal_state,
       doctrinal_state_reason: cluster.doctrinal_state_reason,
+      reading_priority_reason: cluster.reading_priority_reason,
       pivot_dictamen: cluster.pivot_dictamen
         ? {
             id: cluster.pivot_dictamen.id,
@@ -367,6 +395,7 @@ function buildHybridSearchScore(params: {
     .slice(0, 3)
     .reduce((acc, item) => acc + item.normalizedScore, 0);
   const representativeSemantic = params.matchInfoById.get(params.cluster.representative_dictamen.id)?.normalizedScore ?? 0;
+  const juridicalPriority = params.cluster.juridical_priority_map[params.cluster.representative_dictamen.id] ?? 0;
   const topHitBoost = params.topHitId && matchedIds.includes(params.topHitId) ? 2.4 : 0;
 
   return (
@@ -375,6 +404,7 @@ function buildHybridSearchScore(params: {
     + (semanticCoverage * 1.25)
     + topHitBoost
     + params.intentBoost
+    + (juridicalPriority * 0.55)
     + (params.cluster.doctrinal_importance_score * 0.25)
   );
 }
