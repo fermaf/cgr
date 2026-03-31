@@ -5,6 +5,7 @@ type DoctrinalState = 'consolidado' | 'en_evolucion' | 'bajo_tension';
 type CoherenceStatus = 'cohesiva' | 'mixta' | 'fragmentada';
 type RelationBucket = 'consolida' | 'desarrolla' | 'ajusta';
 type KeyDictamenRole = 'representativo' | 'núcleo doctrinal' | 'pivote de cambio' | 'apoyo relevante';
+type GraphDoctrinalStatus = 'criterio_estable' | 'criterio_en_evolucion' | 'criterio_fragmentado' | 'criterio_tensionado' | 'criterio_en_revision';
 
 export interface DoctrineLineStructureAdjustment {
   action: 'merge_clusters';
@@ -23,6 +24,18 @@ export interface DoctrineLineLike {
   query_match_reason?: string;
   doctrinal_state: DoctrinalState;
   doctrinal_state_reason: string;
+  graph_doctrinal_status?: {
+    status: GraphDoctrinalStatus;
+    summary: string;
+    relation_inventory: {
+      fortalece: number;
+      desarrolla: number;
+      ajusta: number;
+      limita: number;
+      desplaza: number;
+    };
+    recent_destabilizing_count: number;
+  };
   reading_priority_reason?: string;
   pivot_dictamen?: {
     id: string;
@@ -128,6 +141,25 @@ function stateRank(state: DoctrinalState): number {
 
 function pickHigherState(left: DoctrinalState, right: DoctrinalState): DoctrinalState {
   return stateRank(right) > stateRank(left) ? right : left;
+}
+
+function graphStatusRank(status: GraphDoctrinalStatus): number {
+  switch (status) {
+    case 'criterio_en_revision':
+      return 5;
+    case 'criterio_tensionado':
+      return 4;
+    case 'criterio_fragmentado':
+      return 3;
+    case 'criterio_en_evolucion':
+      return 2;
+    default:
+      return 1;
+  }
+}
+
+function pickHigherGraphStatus(left: GraphDoctrinalStatus, right: GraphDoctrinalStatus): GraphDoctrinalStatus {
+  return graphStatusRank(right) > graphStatusRank(left) ? right : left;
 }
 
 function parseDate(value: string | null | undefined): number | null {
@@ -348,6 +380,16 @@ function mergeDoctrineLines(
       || canonicalLine.query_match_reason,
     doctrinal_state: doctrinalState,
     doctrinal_state_reason: `${canonicalLine.doctrinal_state_reason} ${note}`,
+    graph_doctrinal_status: (() => {
+      const statuses = lines
+        .map((line) => line.graph_doctrinal_status)
+        .filter((value): value is NonNullable<DoctrineLineLike['graph_doctrinal_status']> => Boolean(value));
+      if (statuses.length === 0) return canonicalLine.graph_doctrinal_status;
+      return statuses.reduce((current, status) => {
+        const higherStatus = pickHigherGraphStatus(current.status, status.status);
+        return higherStatus === current.status ? current : status;
+      }, statuses[0]);
+    })(),
     reading_priority_reason: firstNonEmpty(lines.map((line) => line.reading_priority_reason)) ?? canonicalLine.reading_priority_reason,
     pivot_dictamen: canonicalLine.pivot_dictamen
       ?? lines

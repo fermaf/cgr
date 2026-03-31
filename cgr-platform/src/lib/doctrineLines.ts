@@ -286,6 +286,7 @@ function buildDoctrineLinesResponse(
       }),
       doctrinal_state: cluster.doctrinal_state,
       doctrinal_state_reason: cluster.doctrinal_state_reason,
+      graph_doctrinal_status: cluster.graph_doctrinal_status,
       reading_priority_reason: cluster.reading_priority_reason,
       pivot_dictamen: cluster.pivot_dictamen
         ? {

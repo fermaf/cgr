@@ -1,4 +1,5 @@
 import { fetchRecords, queryRecords } from '../clients/pinecone';
+import { classifyRelationEffect, type GraphDoctrinalStatus, type RelationEffectCategory } from './doctrinalGraph';
 import type { Env } from '../types';
 
 type CandidateRow = {
@@ -46,6 +47,21 @@ type CoherenceSignals = {
   summary: string;
 };
 
+type GraphRelationInventory = {
+  fortalece: number;
+  desarrolla: number;
+  ajusta: number;
+  limita: number;
+  desplaza: number;
+};
+
+type GraphDoctrinalStatusSignal = {
+  status: GraphDoctrinalStatus;
+  summary: string;
+  relation_inventory: GraphRelationInventory;
+  recent_destabilizing_count: number;
+};
+
 type DoctrineCluster = {
   cluster_label: string;
   representative_dictamen: {
@@ -76,6 +92,7 @@ type DoctrineCluster = {
   pivot_dictamen: PivotDictamen | null;
   relation_dynamics: RelationDynamics;
   coherence_signals: CoherenceSignals;
+  graph_doctrinal_status: GraphDoctrinalStatusSignal;
   juridical_priority_map: Record<string, number>;
   reading_priority_reason: string;
 };
@@ -135,25 +152,6 @@ function countTopStrings(values: string[], limit: number): string[] {
     .map(([value]) => value);
 }
 
-const MODIFYING_ACTIONS = new Set([
-  'alterado',
-  'reconsiderado',
-  'reconsideradoParcialmente',
-  'reactivado',
-  'complementado',
-  'aclarado'
-]);
-
-const STABILIZING_ACTIONS = new Set([
-  'confirmado',
-  'aplicado'
-]);
-
-const DEVELOPING_ACTIONS = new Set([
-  'complementado',
-  'aclarado'
-]);
-
 function countShared(left: string[], right: string[]): number {
   if (left.length === 0 || right.length === 0) return 0;
   const rightSet = new Set(right);
@@ -162,6 +160,16 @@ function countShared(left: string[], right: string[]): number {
 
 function roundScore(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function emptyGraphRelationInventory(): GraphRelationInventory {
+  return {
+    fortalece: 0,
+    desarrolla: 0,
+    ajusta: 0,
+    limita: 0,
+    desplaza: 0
+  };
 }
 
 function parseDateToTs(value: string): number | null {
@@ -274,6 +282,8 @@ async function aggregateClusterSignals(env: Env, ids: string[]) {
       incomingModifyingActionCountByDictamen: {} as Record<string, number>,
       incomingStabilizingActionCountByDictamen: {} as Record<string, number>,
       latestIncomingRelationTsByDictamen: {} as Record<string, number>,
+      relationCategoryCounts: emptyGraphRelationInventory(),
+      incomingCategoryCountByDictamen: {} as Record<string, GraphRelationInventory>,
       relationBucketCounts: {
         consolida: 0,
         desarrolla: 0,
@@ -332,6 +342,8 @@ async function aggregateClusterSignals(env: Env, ids: string[]) {
   const incomingModifyingActionCountByDictamen: Record<string, number> = {};
   const incomingStabilizingActionCountByDictamen: Record<string, number> = {};
   const latestIncomingRelationTsByDictamen: Record<string, number> = {};
+  const relationCategoryCounts = emptyGraphRelationInventory();
+  const incomingCategoryCountByDictamen: Record<string, GraphRelationInventory> = {};
   const relationBucketCounts = {
     consolida: 0,
     desarrolla: 0,
@@ -340,26 +352,30 @@ async function aggregateClusterSignals(env: Env, ids: string[]) {
   for (const row of accionesRows.results ?? []) {
     actionCounts.set(row.tipo_accion, (actionCounts.get(row.tipo_accion) ?? 0) + 1);
     relationCountByDictamen[row.dictamen_id] = (relationCountByDictamen[row.dictamen_id] ?? 0) + 1;
-    if (MODIFYING_ACTIONS.has(row.tipo_accion)) {
-      modifyingActionCountByDictamen[row.dictamen_id] = (modifyingActionCountByDictamen[row.dictamen_id] ?? 0) + 1;
-      relationBucketCounts.ajusta += 1;
-    }
-    if (STABILIZING_ACTIONS.has(row.tipo_accion)) {
+    const effect = classifyRelationEffect(row.tipo_accion);
+    relationCategoryCounts[effect] += 1;
+    if (effect === 'fortalece') {
       stabilizingActionCountByDictamen[row.dictamen_id] = (stabilizingActionCountByDictamen[row.dictamen_id] ?? 0) + 1;
       relationBucketCounts.consolida += 1;
-    }
-    if (DEVELOPING_ACTIONS.has(row.tipo_accion)) {
+    } else if (effect === 'desarrolla') {
       relationBucketCounts.desarrolla += 1;
+      modifyingActionCountByDictamen[row.dictamen_id] = (modifyingActionCountByDictamen[row.dictamen_id] ?? 0) + 1;
+    } else {
+      modifyingActionCountByDictamen[row.dictamen_id] = (modifyingActionCountByDictamen[row.dictamen_id] ?? 0) + 1;
+      relationBucketCounts.ajusta += 1;
     }
   }
   for (const row of incomingRows.results ?? []) {
     incomingRelationCountByDictamen[row.dictamen_id] = (incomingRelationCountByDictamen[row.dictamen_id] ?? 0) + 1;
     relationCountByDictamen[row.dictamen_id] = (relationCountByDictamen[row.dictamen_id] ?? 0) + 1;
-    if (MODIFYING_ACTIONS.has(row.tipo_accion)) {
-      incomingModifyingActionCountByDictamen[row.dictamen_id] = (incomingModifyingActionCountByDictamen[row.dictamen_id] ?? 0) + 1;
-    }
-    if (STABILIZING_ACTIONS.has(row.tipo_accion)) {
+    const effect = classifyRelationEffect(row.tipo_accion);
+    const incomingInventory = incomingCategoryCountByDictamen[row.dictamen_id] ?? emptyGraphRelationInventory();
+    incomingInventory[effect] += 1;
+    incomingCategoryCountByDictamen[row.dictamen_id] = incomingInventory;
+    if (effect === 'fortalece' || effect === 'desarrolla') {
       incomingStabilizingActionCountByDictamen[row.dictamen_id] = (incomingStabilizingActionCountByDictamen[row.dictamen_id] ?? 0) + 1;
+    } else {
+      incomingModifyingActionCountByDictamen[row.dictamen_id] = (incomingModifyingActionCountByDictamen[row.dictamen_id] ?? 0) + 1;
     }
     const parsedTs = parseDateToTs(row.fecha_documento ?? '');
     if (parsedTs !== null) {
@@ -390,6 +406,8 @@ async function aggregateClusterSignals(env: Env, ids: string[]) {
     incomingModifyingActionCountByDictamen,
     incomingStabilizingActionCountByDictamen,
     latestIncomingRelationTsByDictamen,
+    relationCategoryCounts,
+    incomingCategoryCountByDictamen,
     relationBucketCounts
   };
 }
@@ -426,6 +444,49 @@ function buildRelationDynamics(params: {
     dominant_bucket,
     summary
   } as RelationDynamics;
+}
+
+function buildGraphDoctrinalStatus(params: {
+  relationCategoryCounts: GraphRelationInventory;
+  coherenceSignals: CoherenceSignals;
+  pivotDictamen: PivotDictamen | null;
+  temporalSpreadYears: number;
+}) {
+  const recentDestabilizingCount = params.relationCategoryCounts.ajusta
+    + params.relationCategoryCounts.limita
+    + params.relationCategoryCounts.desplaza;
+
+  let status: GraphDoctrinalStatus = 'criterio_estable';
+  let summary = 'Predominan decisiones posteriores que mantienen o fortalecen el criterio visible.';
+
+  if (params.coherenceSignals.coherence_status === 'fragmentada') {
+    status = 'criterio_fragmentado';
+    summary = 'La línea mezcla señales doctrinales distintas y conviene revisar si contiene criterios separados.';
+  } else if (params.relationCategoryCounts.desplaza > 0 || params.relationCategoryCounts.limita >= 2) {
+    status = 'criterio_en_revision';
+    summary = params.pivotDictamen
+      ? `Existen decisiones posteriores que revisan o desplazan el criterio, y el hito más visible es ${params.pivotDictamen.id}.`
+      : 'Existen decisiones posteriores que revisan o desplazan el criterio visible.';
+  } else if (recentDestabilizingCount >= Math.max(params.relationCategoryCounts.fortalece, 1) * 0.35) {
+    status = 'criterio_tensionado';
+    summary = params.pivotDictamen
+      ? `El criterio sigue operativo, pero muestra ajustes recientes y uno de los más visibles es ${params.pivotDictamen.id}.`
+      : 'El criterio sigue operativo, pero muestra ajustes recientes entre decisiones posteriores.';
+  } else if (
+    params.relationCategoryCounts.desarrolla > 0
+    || params.relationCategoryCounts.ajusta > 0
+    || params.temporalSpreadYears >= 3
+  ) {
+    status = 'criterio_en_evolucion';
+    summary = 'El criterio mantiene una base reconocible, pero ha sido desarrollado o ajustado en el tiempo.';
+  }
+
+  return {
+    status,
+    summary,
+    relation_inventory: params.relationCategoryCounts,
+    recent_destabilizing_count: recentDestabilizingCount
+  } as GraphDoctrinalStatusSignal;
 }
 
 function safeRatio(numerator: number, denominator: number): number {
@@ -589,6 +650,7 @@ function buildInfluenceScores(
   neighborIds: Set<string>,
   fuentesByDictamen: Record<string, string[]>,
   relationCountByDictamen: Record<string, number>,
+  incomingCategoryCountByDictamen: Record<string, GraphRelationInventory>,
   incomingModifyingActionCountByDictamen: Record<string, number>,
   incomingStabilizingActionCountByDictamen: Record<string, number>,
   latestIncomingRelationTsByDictamen: Record<string, number>
@@ -612,6 +674,7 @@ function buildInfluenceScores(
     const fuenteScore = Math.min(sharedFuentes / Math.max(others.length, 1), 1);
     const neighborScore = neighborIds.has(member.id) ? 1 : 0;
     const relationScore = Math.min((relationCountByDictamen[member.id] ?? 0) / 3, 1);
+    const incomingInventory = incomingCategoryCountByDictamen[member.id] ?? emptyGraphRelationInventory();
     const incomingAdjustments = incomingModifyingActionCountByDictamen[member.id] ?? 0;
     const incomingStabilizations = incomingStabilizingActionCountByDictamen[member.id] ?? 0;
 
@@ -627,8 +690,8 @@ function buildInfluenceScores(
       }
     }
 
-    const laterStabilityBonus = Math.min(incomingStabilizations / 3, 1);
-    const obsolescencePenalty = Math.min(incomingAdjustments / 2, 1);
+    const laterStabilityBonus = Math.min((incomingInventory.fortalece + incomingInventory.desarrolla * 0.65) / 3, 1);
+    const obsolescencePenalty = Math.min((incomingInventory.limita * 0.8 + incomingInventory.desplaza * 1.2 + incomingInventory.ajusta * 0.45) / 2, 1);
     const latestIncomingTs = latestIncomingRelationTsByDictamen[member.id] ?? 0;
     const latestMemberTs = parseDateToTs(member.fecha) ?? 0;
     const laterActivityScore = latestIncomingTs > latestMemberTs ? 1 : 0;
@@ -663,6 +726,7 @@ function buildInfluenceScores(
       recencyScore,
       laterStabilityBonus,
       obsolescencePenalty,
+      incomingInventory,
       member
     };
   }).sort((a, b) => b.juridicalPriority - a.juridicalPriority || b.score - a.score || a.id.localeCompare(b.id));
@@ -767,24 +831,25 @@ function buildPivotDictamen(params: {
 function buildDoctrinalState(params: {
   doctrinalChangeRiskScore: number;
   clusterDensityScore: number;
-  topActions: string[];
+  relationCategoryCounts: GraphRelationInventory;
   pivotDictamen: PivotDictamen | null;
   temporalSpreadYears: number;
   coreCandidateCount: number;
 }) {
-  const modifyingSignals = params.topActions.filter((action) => MODIFYING_ACTIONS.has(action)).length;
-  const stabilizingSignals = params.topActions.filter((action) => STABILIZING_ACTIONS.has(action)).length;
+  const modifyingSignals = params.relationCategoryCounts.ajusta + params.relationCategoryCounts.limita + params.relationCategoryCounts.desplaza;
+  const stabilizingSignals = params.relationCategoryCounts.fortalece;
 
   if (
     params.doctrinalChangeRiskScore >= 0.72
     || modifyingSignals >= 2
+    || params.relationCategoryCounts.desplaza > 0
     || params.pivotDictamen?.signal === 'pivote_de_cambio'
   ) {
     return {
       doctrinal_state: 'bajo_tension' as const,
       doctrinal_state_reason: params.pivotDictamen
-        ? `Existen decisiones que aplican el criterio de forma distinta y una de las más visibles es ${params.pivotDictamen.id}.`
-        : 'Existen decisiones que aplican el criterio de forma distinta dentro del corpus visible.'
+        ? `Existen decisiones posteriores que ajustan o revisan el criterio, y una de las más visibles es ${params.pivotDictamen.id}.`
+        : 'Existen decisiones posteriores que ajustan o revisan el criterio dentro del corpus visible.'
     };
   }
 
@@ -796,8 +861,8 @@ function buildDoctrinalState(params: {
     return {
       doctrinal_state: 'en_evolucion' as const,
       doctrinal_state_reason: params.pivotDictamen
-        ? `La línea evoluciona en el tiempo y su hito más visible es ${params.pivotDictamen.id}.`
-        : 'La línea parece evolucionar en el tiempo, aunque sin una ruptura doctrinal evidente.'
+        ? `La línea evoluciona en el tiempo y uno de sus hitos visibles es ${params.pivotDictamen.id}.`
+        : 'La línea parece evolucionar en el tiempo, aunque sin una revisión doctrinal fuerte.'
     };
   }
 
@@ -939,6 +1004,7 @@ async function buildDoctrineClusters(env: Env, options: BuildDoctrineClustersOpt
       neighborIds,
       aggregates.fuentesByDictamen,
       aggregates.relationCountByDictamen,
+      aggregates.incomingCategoryCountByDictamen,
       aggregates.incomingModifyingActionCountByDictamen,
       aggregates.incomingStabilizingActionCountByDictamen,
       aggregates.latestIncomingRelationTsByDictamen
@@ -977,7 +1043,7 @@ async function buildDoctrineClusters(env: Env, options: BuildDoctrineClustersOpt
     const doctrinalState = buildDoctrinalState({
       doctrinalChangeRiskScore: changeRisk.doctrinalChangeRiskScore,
       clusterDensityScore: influence.clusterDensityScore,
-      topActions: aggregates.topAcciones,
+      relationCategoryCounts: aggregates.relationCategoryCounts,
       pivotDictamen,
       temporalSpreadYears: changeRisk.temporalSpreadYears,
       coreCandidateCount: influence.coreCandidates.length
@@ -994,6 +1060,12 @@ async function buildDoctrineClusters(env: Env, options: BuildDoctrineClustersOpt
       relationCountByDictamen: aggregates.relationCountByDictamen,
       influenceEntries: influence.entries.map((entry) => ({ id: entry.id, score: entry.score })),
       relationDynamics
+    });
+    const graphDoctrinalStatus = buildGraphDoctrinalStatus({
+      relationCategoryCounts: aggregates.relationCategoryCounts,
+      coherenceSignals,
+      pivotDictamen,
+      temporalSpreadYears: changeRisk.temporalSpreadYears
     });
 
     clusters.push({
@@ -1023,6 +1095,7 @@ async function buildDoctrineClusters(env: Env, options: BuildDoctrineClustersOpt
       cluster_summary: buildClusterSummary(displayMateria, supportingIds.length, topDescriptor, topAction, minDate, maxDate),
       doctrinal_state: doctrinalState.doctrinal_state,
       doctrinal_state_reason: doctrinalState.doctrinal_state_reason,
+      graph_doctrinal_status: graphDoctrinalStatus,
       pivot_dictamen: pivotDictamen,
       relation_dynamics: relationDynamics,
       coherence_signals: coherenceSignals,
