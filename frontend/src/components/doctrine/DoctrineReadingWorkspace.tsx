@@ -115,7 +115,7 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                                     {line.semantic_anchor_dictamen?.titulo ?? representative.titulo}
                                 </p>
                                 <p className="mt-3 text-sm leading-6 text-blue-100">
-                                    {simplifyDoctrineLanguage(line.semantic_anchor_dictamen?.reason ?? "Es el dictamen que conviene leer primero para entender este criterio.")}
+                                    {simplifyDoctrineLanguage(line.reading_priority_reason ?? line.semantic_anchor_dictamen?.reason ?? "Es el dictamen que conviene leer primero para entender este criterio.")}
                                 </p>
                             </div>
 
@@ -222,6 +222,9 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Cómo se aplica este criterio</p>
                         </div>
                         <p className="mt-4 text-sm leading-6 text-slate-600">{simplifyDoctrineLanguage(line.doctrinal_state_reason)}</p>
+                        {line.reading_priority_reason && (
+                            <p className="mt-3 text-sm leading-6 text-slate-600">{simplifyDoctrineLanguage(line.reading_priority_reason)}</p>
+                        )}
                         {line.pivot_dictamen && (
                             <div className="mt-4 rounded-[1.2rem] border border-cgr-red/15 bg-cgr-red/5 p-4">
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cgr-red">Dictamen pivote</p>

@@ -4,7 +4,7 @@ import { ArrowLeft, Calendar, Building2, Tag, BookOpen, Share2, AlertCircle, Spa
 import type { DictamenResponse } from "../types";
 import { cn } from "../lib/utils";
 import { formatSimpleDate } from "../lib/date";
-import { describeLegalSource } from "../lib/legalSources";
+import { buildLegalSourceCards } from "../lib/legalSources";
 import type { RelacionCausa, RelacionEfecto } from "../types";
 
 function relationBucket(tipoAccion: string): "consolida" | "desarrolla" | "ajusta" {
@@ -58,6 +58,34 @@ function summarizeRelationRole(relacionesCausa: RelacionCausa[], relacionesEfect
         return "Este dictamen ya funciona como apoyo doctrinal para decisiones posteriores.";
     }
     return "Este dictamen aún muestra pocas relaciones jurídicas materializadas en la red visible.";
+}
+
+function buildDoctrinalPositionSummary(relacionesCausa: RelacionCausa[], relacionesEfecto: RelacionEfecto[]) {
+    const outgoingAdjust = relacionesEfecto.filter((relation) => relationBucket(relation.tipo_accion) === "ajusta");
+    const outgoingDevelop = relacionesEfecto.filter((relation) => relationBucket(relation.tipo_accion) === "desarrolla");
+    const outgoingConsolidate = relacionesEfecto.filter((relation) => relationBucket(relation.tipo_accion) === "consolida");
+    const incomingAdjust = relacionesCausa.filter((relation) => relationBucket(relation.tipo_accion) === "ajusta");
+    const incomingConsolidate = relacionesCausa.filter((relation) => relationBucket(relation.tipo_accion) === "consolida");
+
+    if (outgoingAdjust.length > 0) {
+        return "Este dictamen toma criterio anterior y lo ajusta frente a decisiones previas visibles.";
+    }
+    if (outgoingDevelop.length > 0) {
+        return "Este dictamen toma criterio anterior y lo desarrolla mediante aclaraciones o complementos.";
+    }
+    if (outgoingConsolidate.length > 0) {
+        return "Este dictamen aplica criterio previo y ayuda a consolidar una línea ya existente.";
+    }
+    if (incomingAdjust.length > 0) {
+        return "Este dictamen fue retomado después para ajustar o reordenar el criterio.";
+    }
+    if (incomingConsolidate.length > 0) {
+        return "Este dictamen sigue siendo usado por decisiones posteriores para sostener el criterio.";
+    }
+    if (relacionesCausa.length > 0 || relacionesEfecto.length > 0) {
+        return "Este dictamen ya forma parte de una secuencia visible de criterio entre decisiones relacionadas.";
+    }
+    return "Este dictamen todavía tiene pocas relaciones jurídicas visibles dentro de la red actual.";
 }
 
 function NervioCentral({ lineage, currentId }: { lineage: any, currentId: string }) {
@@ -257,6 +285,13 @@ export function DictamenDetail() {
     const relacionesCausa = meta.relaciones_causa || [];
     const relacionesEfecto = meta.relaciones_efecto || [];
     const relacionRoleSummary = summarizeRelationRole(relacionesCausa, relacionesEfecto);
+    const doctrinalPositionSummary = buildDoctrinalPositionSummary(relacionesCausa, relacionesEfecto);
+    const doctrinalPositionCounts = {
+        consolida: [...relacionesCausa, ...relacionesEfecto].filter((rel) => relationBucket(rel.tipo_accion) === "consolida").length,
+        desarrolla: [...relacionesCausa, ...relacionesEfecto].filter((rel) => relationBucket(rel.tipo_accion) === "desarrolla").length,
+        ajusta: [...relacionesCausa, ...relacionesEfecto].filter((rel) => relationBucket(rel.tipo_accion) === "ajusta").length
+    };
+    const legalSourceCards = buildLegalSourceCards(meta.fuentes_legales || []);
 
     return (
         <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700 relative z-10 pb-20">
@@ -368,7 +403,7 @@ export function DictamenDetail() {
                         <NervioCentral lineage={lineage} currentId={id || ""} />
                     </div>
 
-                    {meta.fuentes_legales && meta.fuentes_legales.length > 0 && (
+                    {legalSourceCards.length > 0 && (
                         <div className="pt-8 border-t border-slate-200 space-y-4 print:hidden">
                             <div className="flex items-start gap-3">
                                 <div className="rounded-xl bg-slate-50 p-2 text-cgr-navy border border-slate-200">
@@ -377,41 +412,40 @@ export function DictamenDetail() {
                                 <div>
                                     <h3 className="font-bold text-cgr-navy font-sans uppercase tracking-wide text-sm">Normativa citada</h3>
                                     <p className="mt-1 text-sm leading-6 text-slate-600">
-                                        Indubia ya no muestra solo una sigla o número. Destaca año y órgano emisor cuando la norma no se identifica con seguridad por sí sola.
+                                        Indubia muestra solo el detalle normativo que parece jurídicamente confiable. Si la identificación es parcial, prioriza número, año y órgano emisor antes que una precisión dudosa.
                                     </p>
                                 </div>
                             </div>
                             <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {meta.fuentes_legales.map((source, idx) => {
-                                    const detail = describeLegalSource(source);
+                                {legalSourceCards.map((source) => {
                                     return (
-                                    <li key={idx}>
+                                    <li key={source.key}>
                                         <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4 hover:bg-white hover:border-cgr-blue hover:shadow-sm transition-all">
                                             <div className="flex items-start justify-between gap-3">
                                                 <div>
-                                                    <p className="text-sm font-semibold text-cgr-navy">{detail.primary}</p>
-                                                    {detail.secondary && (
-                                                        <p className="mt-1 text-sm text-slate-600">{detail.secondary}</p>
+                                                    <p className="text-sm font-semibold text-cgr-navy">{source.primary}</p>
+                                                    {source.secondary && (
+                                                        <p className="mt-1 text-sm text-slate-600">{source.secondary}</p>
                                                     )}
                                                 </div>
                                                 <span className={cn(
                                                     "shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em]",
-                                                    detail.contextCompleteness === "alta"
+                                                    source.contextCompleteness === "alta"
                                                         ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                                        : detail.contextCompleteness === "media"
+                                                        : source.contextCompleteness === "media"
                                                             ? "border-amber-200 bg-amber-50 text-amber-700"
                                                             : "border-cgr-red/20 bg-cgr-red/10 text-cgr-red"
                                                 )}>
-                                                    identificación {detail.contextCompleteness}
+                                                    identificación {source.contextCompleteness}
                                                 </span>
                                             </div>
 
                                             <div className="mt-3 flex flex-wrap gap-2">
-                                                {detail.articleLabel && (
-                                                    <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700">
-                                                        {detail.articleLabel}
+                                                {source.articleLabels.map((label) => (
+                                                    <span key={label} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700">
+                                                        {label}
                                                     </span>
-                                                )}
+                                                ))}
                                                 {source.mentions > 1 && (
                                                     <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700">
                                                         {source.mentions} menciones
@@ -419,10 +453,10 @@ export function DictamenDetail() {
                                                 )}
                                             </div>
 
-                                            {detail.caution && (
+                                            {source.caution && (
                                                 <div className="mt-3 flex items-start gap-2 rounded-xl border border-cgr-red/15 bg-cgr-red/5 px-3 py-2 text-xs leading-5 text-cgr-red">
                                                     <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                                                    <span>{detail.caution}</span>
+                                                    <span>{source.caution}</span>
                                                 </div>
                                             )}
                                         </div>
@@ -438,27 +472,22 @@ export function DictamenDetail() {
                         <div className="bg-white p-7 rounded-2xl border border-slate-200 shadow-sm space-y-5">
                             <div>
                                 <h3 className="font-bold text-slate-400 text-[10px] uppercase tracking-widest">Posición doctrinal</h3>
-                                <p className="mt-2 text-sm text-slate-500 font-sans">{relacionRoleSummary}</p>
+                                <p className="mt-2 text-sm text-slate-500 font-sans">{doctrinalPositionSummary}</p>
+                                <p className="mt-3 text-xs leading-5 text-slate-500">{relacionRoleSummary}</p>
                             </div>
 
-                            <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
-                                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-                                    <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-700">Consolidan</p>
-                                    <p className="mt-2 text-2xl font-semibold text-cgr-navy">
-                                        {[...relacionesCausa, ...relacionesEfecto].filter((rel) => relationBucket(rel.tipo_accion) === "consolida").length}
-                                    </p>
-                                </div>
-                                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-                                    <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-amber-700">Desarrollan</p>
-                                    <p className="mt-2 text-2xl font-semibold text-cgr-navy">
-                                        {[...relacionesCausa, ...relacionesEfecto].filter((rel) => relationBucket(rel.tipo_accion) === "desarrolla").length}
-                                    </p>
-                                </div>
-                                <div className="rounded-xl border border-cgr-red/20 bg-cgr-red/5 px-4 py-3">
-                                    <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-cgr-red">Ajustan</p>
-                                    <p className="mt-2 text-2xl font-semibold text-cgr-navy">
-                                        {[...relacionesCausa, ...relacionesEfecto].filter((rel) => relationBucket(rel.tipo_accion) === "ajusta").length}
-                                    </p>
+                            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 space-y-3">
+                                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Cómo se ve en la red visible</p>
+                                <div className="flex flex-wrap gap-2">
+                                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+                                        {doctrinalPositionCounts.consolida} decisiones consolidan este criterio
+                                    </span>
+                                    <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+                                        {doctrinalPositionCounts.desarrolla} decisiones lo desarrollan
+                                    </span>
+                                    <span className="rounded-full border border-cgr-red/20 bg-cgr-red/5 px-3 py-1 text-xs font-medium text-cgr-red">
+                                        {doctrinalPositionCounts.ajusta} decisiones lo ajustan
+                                    </span>
                                 </div>
                             </div>
 

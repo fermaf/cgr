@@ -54,6 +54,7 @@ const DEMO_RESPONSE: DoctrineInsightsResponse = {
             query_match_reason: "Esta línea aparece porque concentra dictámenes sobre contrata y confianza legítima dentro del empleo público.",
             doctrinal_state: "en_evolucion",
             doctrinal_state_reason: "La línea evoluciona en el tiempo y su hito más visible es 045612N22.",
+            reading_priority_reason: "Se prioriza la lectura de los dictámenes que siguen siendo retomados por decisiones posteriores de la línea.",
             pivot_dictamen: {
                 id: "045612N22",
                 titulo: "Confirmación de criterio en término de contrata",
@@ -122,6 +123,7 @@ const DEMO_RESPONSE: DoctrineInsightsResponse = {
             query_match_reason: "Se prioriza por coincidencia alta con descriptores AI y por la reiteración de la normativa estatutaria aplicable.",
             doctrinal_state: "consolidado",
             doctrinal_state_reason: "La línea muestra un núcleo estable y señales de reiteración consistentes.",
+            reading_priority_reason: "Se prioriza la lectura de los dictámenes que mejor concentran el criterio visible.",
             pivot_dictamen: null,
             relation_dynamics: {
                 consolida: 3,

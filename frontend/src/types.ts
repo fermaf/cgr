@@ -223,6 +223,7 @@ export interface DoctrineLine {
     query_match_reason?: string;
     doctrinal_state: 'consolidado' | 'en_evolucion' | 'bajo_tension';
     doctrinal_state_reason: string;
+    reading_priority_reason?: string;
     pivot_dictamen?: DoctrinePivotDictamen | null;
     semantic_anchor_dictamen?: DoctrineSemanticAnchorDictamen | null;
     relation_dynamics: DoctrineRelationDynamics;

@@ -323,6 +323,9 @@ export function Home() {
 
                                 <p className="mt-4 text-sm leading-7 text-slate-700">{simplifyDoctrineLanguage(line.summary)}</p>
                                 <p className="mt-3 text-sm leading-6 text-slate-500">{simplifyDoctrineLanguage(line.doctrinal_state_reason)}</p>
+                                {line.reading_priority_reason && (
+                                    <p className="mt-2 text-sm leading-6 text-slate-500">{simplifyDoctrineLanguage(line.reading_priority_reason)}</p>
+                                )}
                                 <p className="mt-2 text-sm leading-6 text-slate-500">{simplifyDoctrineLanguage(line.relation_dynamics.summary)}</p>
                                 <p className="mt-2 text-sm leading-6 text-slate-500">{simplifyDoctrineLanguage(line.coherence_signals.summary)}</p>
                                 {line.semantic_anchor_dictamen && (
