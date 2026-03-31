@@ -6,7 +6,6 @@ export const onRequest: PagesFunction = async (context) => {
     const remoteUrl = `https://cgr-platform.abogado.workers.dev${url.pathname}${url.search}`;
 
     const modifiedRequest = new Request(remoteUrl, request);
-    modifiedRequest.headers.set("X-Forwarded-Host", url.hostname);
 
     try {
         const response = await fetch(modifiedRequest, {
