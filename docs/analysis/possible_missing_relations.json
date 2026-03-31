@@ -1,0 +1,755 @@
+[
+  {
+    "dictamen_origen": "021536N19",
+    "dictamen_destino": "020445N19",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.47,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Confianza legítima\"; comparten descriptores como confianza legitima., jurisprudencia administrativa., contratas administrativas.; el dictamen posterior agrega contratas publicas., jefatura de departamento., fundamentacion administrativa.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce ley:18834:art:8, ley:18834:art:87.",
+    "line_title": "Confianza legítima",
+    "line_status": "criterio_en_revision",
+    "source_queries": [
+      "confianza legitima contrata diciembre",
+      "termino contrata confianza legitima"
+    ]
+  },
+  {
+    "dictamen_origen": "008243N20",
+    "dictamen_destino": "020445N19",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.46,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Confianza legítima\"; comparten descriptores como confianza legitima., jurisprudencia administrativa.; el dictamen posterior agrega renovacion de contratas., responsabilidad administrativa., contratas publicas.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce constitucion politica:art:6, constitucion politica:art:7.",
+    "line_title": "Confianza legítima",
+    "line_status": "criterio_en_revision",
+    "source_queries": [
+      "confianza legitima contrata diciembre",
+      "termino contrata confianza legitima"
+    ]
+  },
+  {
+    "dictamen_origen": "020445N19",
+    "dictamen_destino": "018663N19",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.42,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Confianza legítima\"; comparten descriptores como confianza legitima.; el dictamen posterior agrega contratas., acto administrativo., estatuto administrativo.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce ley:18834:art:10, ley:18834:art:153.",
+    "line_title": "Confianza legítima",
+    "line_status": "criterio_en_revision",
+    "source_queries": [
+      "confianza legitima contrata diciembre",
+      "termino contrata confianza legitima"
+    ]
+  },
+  {
+    "dictamen_origen": "002638N20",
+    "dictamen_destino": "044317N16",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.4,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Competencia administrativa\"; comparten descriptores como competencia administrativa.; el dictamen posterior agrega incompetencia., sancion disciplinaria., proceso sumarial.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce ley:18.834:art:14, ley:18.834:art:140.",
+    "line_title": "Competencia administrativa",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "competencia administrativa organo incompetente"
+    ]
+  },
+  {
+    "dictamen_origen": "044317N16",
+    "dictamen_destino": "043420N16",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.4,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Competencia administrativa\"; comparten descriptores como competencia administrativa.; el dictamen posterior agrega sanciones disciplinarias., procedimiento sumarial., responsabilidad estatutaria.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce ley:18575:art:24, ley:18834:art:126.",
+    "line_title": "Competencia administrativa",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "competencia administrativa organo incompetente"
+    ]
+  },
+  {
+    "dictamen_origen": "E420454N23",
+    "dictamen_destino": "E240652N22",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.4,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Competencia administrativa\"; comparten descriptores como competencia administrativa., principio de legalidad.; el dictamen posterior agrega inger., senama., residencias para adultos mayores.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce dfl:1:art:31, dto:49:art:3.",
+    "line_title": "Competencia administrativa",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "competencia administrativa organo incompetente"
+    ]
+  },
+  {
+    "dictamen_origen": "D130N26",
+    "dictamen_destino": "D82N26",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.39,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Acoso laboral\"; comparten descriptores como traspaso, daem, slep; el dictamen posterior agrega traspaso personal slep, daem, asistentes educacion; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce ley:21040:art:trigesimo octavo, ctr:art:159.",
+    "line_title": "Acoso laboral",
+    "line_status": "criterio_en_revision",
+    "source_queries": [
+      "invalidacion administrativa plazo razonable"
+    ]
+  },
+  {
+    "dictamen_origen": "D130N26",
+    "dictamen_destino": "D83N26",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.39,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Asistentes de la educación\"; comparten descriptores como traspaso, slep, como; el dictamen posterior agrega traspaso personal slep, daem, asistentes educacion; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce ley:21040:art:trigesimo octavo, ctr:art:159.",
+    "line_title": "Asistentes de la educación",
+    "line_status": "criterio_en_revision",
+    "source_queries": [
+      "empleo publico contrata renovacion arbitraria"
+    ]
+  },
+  {
+    "dictamen_origen": "OF32919N26",
+    "dictamen_destino": "E420454N23",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.39,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Competencia administrativa\"; comparten descriptores como competencia administrativa., principio de legalidad.; el dictamen posterior agrega concesiones de obras publicas., reserva legal., convenio de mandato.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce dto:900:art:39, ley:18785:art:1.",
+    "line_title": "Competencia administrativa",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "competencia administrativa organo incompetente"
+    ]
+  },
+  {
+    "dictamen_origen": "D129N26",
+    "dictamen_destino": "D83N26",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.38,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Asistentes de la educación\"; comparten descriptores como traspaso, presente, dictamen; el dictamen posterior agrega remuneraciones municipales, traspaso honorarios a contrata, asignacion mejoramiento gestion; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce ley:21526:art:74, ley:18883.",
+    "line_title": "Asistentes de la educación",
+    "line_status": "criterio_en_revision",
+    "source_queries": [
+      "empleo publico contrata renovacion arbitraria"
+    ]
+  },
+  {
+    "dictamen_origen": "031079N19",
+    "dictamen_destino": "044317N16",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.38,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Competencia administrativa\"; comparten descriptores como competencia administrativa.; el dictamen posterior agrega procedimiento disciplinario., evaluacion de desempeno., ley n° 19.880.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce ley:19880:art:13.",
+    "line_title": "Competencia administrativa",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "competencia administrativa organo incompetente"
+    ]
+  },
+  {
+    "dictamen_origen": "D127N26",
+    "dictamen_destino": "D107N26",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.38,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Competencia administrativa\"; comparten descriptores como control, legalidad, administrativos; el dictamen posterior agrega control de legalidad, toma de razon, empresas publicas; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce res:36:art:17, ley:10336:art:10.",
+    "line_title": "Competencia administrativa",
+    "line_status": "criterio_en_revision",
+    "source_queries": [
+      "potestad invalidatoria plazo dos años"
+    ]
+  },
+  {
+    "dictamen_origen": "D97N26",
+    "dictamen_destino": "D91N26",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.38,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Competencia administrativa\"; comparten descriptores como facultad, este, dictamen; el dictamen posterior agrega pensiones de gracia., facultades presidenciales., discrecionalidad administrativa.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce ley:21395, ley:18056:art:1.",
+    "line_title": "Competencia administrativa",
+    "line_status": "criterio_en_revision",
+    "source_queries": [
+      "caso fortuito subsidio incendio forestal"
+    ]
+  },
+  {
+    "dictamen_origen": "008243N20",
+    "dictamen_destino": "021536N19",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.38,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Confianza legítima\"; comparten descriptores como confianza legitima., jurisprudencia administrativa., contratas publicas.; el dictamen posterior agrega renovacion de contratas., responsabilidad administrativa., jurisprudencia contralora.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce constitucion politica:art:6, constitucion politica:art:7.",
+    "line_title": "Confianza legítima",
+    "line_status": "criterio_en_revision",
+    "source_queries": [
+      "confianza legitima contrata diciembre",
+      "termino contrata confianza legitima"
+    ]
+  },
+  {
+    "dictamen_origen": "E540893N24",
+    "dictamen_destino": "E79690N21",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.38,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Confianza legítima\"; comparten descriptores como confianza legitima.; el dictamen posterior agrega designacion a contrata., fundamentacion de actos administrativos., revision de actos administrativos.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce ley:18575:art:2, ley:18883:art:2.",
+    "line_title": "Confianza legítima",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "confianza legitima contrata diciembre",
+      "termino contrata confianza legitima"
+    ]
+  },
+  {
+    "dictamen_origen": "OF3720N26",
+    "dictamen_destino": "024308N19",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.37,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Actos administrativos\"; comparten descriptores como actos administrativos.; el dictamen posterior agrega toma de razon., competencia administrativa., licitacion publica.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce constitucion:art:7, ley:18575.",
+    "line_title": "Actos administrativos",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "competencia administrativa organo incompetente"
+    ]
+  },
+  {
+    "dictamen_origen": "E354916N23",
+    "dictamen_destino": "013734N19",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.37,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Confianza legítima\"; comparten descriptores como fundamentacion de actos administrativos.; el dictamen posterior agrega confianza legitima., contratas de personal en retiro., jurisprudencia administrativa.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce pol:art:8, cc:art:3.",
+    "line_title": "Confianza legítima",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "confianza legitima contrata diciembre"
+    ]
+  },
+  {
+    "dictamen_origen": "001298N21",
+    "dictamen_destino": "062730N10",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.37,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Control de legalidad\"; comparten descriptores como sumario administrativo.; el dictamen posterior agrega medida disciplinaria., reconsideracion., procedimiento administrativo.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce ley:10336:art:1, ley:10336:art:16.",
+    "line_title": "Control de legalidad",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "competencia administrativa organo incompetente"
+    ]
+  },
+  {
+    "dictamen_origen": "E30059N25",
+    "dictamen_destino": "009553N20",
+    "tipo_relacion_sugerida": "complementado",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.37,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Coordinación interinstitucional\"; comparten descriptores como coordinacion interinstitucional.; el dictamen posterior agrega competencias municipales., gestion de riesgos de desastres., cortafuegos..",
+    "razon_normativa": "el dictamen posterior introduce ley:18695:art:15, ley:18695:art:4.",
+    "line_title": "Coordinación interinstitucional",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "responsabilidad servicio falta servicio incendio"
+    ]
+  },
+  {
+    "dictamen_origen": "E393404N23",
+    "dictamen_destino": "016585N19",
+    "tipo_relacion_sugerida": "complementado",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.36,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Confianza legítima\"; comparten descriptores como contrata.; el dictamen posterior agrega termino de contrata., cargos de confianza., concursabilidad..",
+    "razon_normativa": "el dictamen posterior introduce dfl:1, dfl:32.",
+    "line_title": "Confianza legítima",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "termino contrata confianza legitima"
+    ]
+  },
+  {
+    "dictamen_origen": "E540893N24",
+    "dictamen_destino": "E222855N22",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.36,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Confianza legítima\"; comparten descriptores como confianza legitima.; el dictamen posterior agrega designacion a contrata., fundamentacion de actos administrativos., revision de actos administrativos.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce ley:18575:art:2, ley:18883:art:2.",
+    "line_title": "Confianza legítima",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "confianza legitima contrata diciembre",
+      "termino contrata confianza legitima"
+    ]
+  },
+  {
+    "dictamen_origen": "E533963N24",
+    "dictamen_destino": "009553N20",
+    "tipo_relacion_sugerida": "complementado",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.36,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Coordinación interinstitucional\"; comparten descriptores como coordinacion interinstitucional.; el dictamen posterior agrega carabineros de chile., senapred., telecomunicaciones..",
+    "razon_normativa": "el dictamen posterior introduce ley:18575:art:3, ley:18575:art:5.",
+    "line_title": "Coordinación interinstitucional",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "responsabilidad servicio falta servicio incendio"
+    ]
+  },
+  {
+    "dictamen_origen": "E29036N25",
+    "dictamen_destino": "002533N18",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.36,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Cuerpos de Bomberos\"; comparten descriptores como transferencia, recursos, bomberos; el dictamen posterior agrega transferencia de recursos., bomberos., reintegro de fondos.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce constitucion politica:art:8, ley:18575:art:3.",
+    "line_title": "Cuerpos de Bomberos",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "responsabilidad servicio falta servicio incendio"
+    ]
+  },
+  {
+    "dictamen_origen": "E26296N20",
+    "dictamen_destino": "019281N19",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.36,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Responsabilidad administrativa\"; comparten descriptores como responsabilidad administrativa.; el dictamen posterior agrega sanciones., mantenimiento de instalaciones electricas., fiscalizacion.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce dfl:4:art:139, dfl:4:art:223.",
+    "line_title": "Responsabilidad administrativa",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "responsabilidad servicio falta servicio incendio"
+    ]
+  },
+  {
+    "dictamen_origen": "E509605N24",
+    "dictamen_destino": "000087N21",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.36,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"SAMU\"; comparten descriptores como samu.; el dictamen posterior agrega codigo del trabajo., bomberos voluntarios., emergencias.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce ctr:art:66, ctr:art:66 quater.",
+    "line_title": "SAMU",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "responsabilidad servicio falta servicio incendio"
+    ]
+  },
+  {
+    "dictamen_origen": "025714N19",
+    "dictamen_destino": "013734N19",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.35,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Confianza legítima\"; comparten descriptores como confianza, contratas, aborda; el dictamen posterior agrega confianza legitima., motivacion acto administrativo., personal a contrata.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce dfl:1:art:101, dfl:1:art:105.",
+    "line_title": "Confianza legítima",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "confianza legitima contrata diciembre"
+    ]
+  },
+  {
+    "dictamen_origen": "E156769N21",
+    "dictamen_destino": "008243N20",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.35,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Confianza legítima\"; comparten descriptores como confianza legitima., jurisprudencia administrativa.; el dictamen posterior agrega contratas administrativas., acto administrativo fundado., notificacion.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce ley:19880:art:3, res:6:art:12.",
+    "line_title": "Confianza legítima",
+    "line_status": "criterio_en_revision",
+    "source_queries": [
+      "confianza legitima contrata diciembre",
+      "termino contrata confianza legitima"
+    ]
+  },
+  {
+    "dictamen_origen": "E23622N25",
+    "dictamen_destino": "002533N18",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.35,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Cuerpos de Bomberos\"; comparten descriptores como carro, para, bomberos; el dictamen posterior agrega financiamiento publico., cuerpo de bomberos., presupuesto.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce dl:1263, pol:art:100.",
+    "line_title": "Cuerpos de Bomberos",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "responsabilidad servicio falta servicio incendio"
+    ]
+  },
+  {
+    "dictamen_origen": "E213398N22",
+    "dictamen_destino": "024308N19",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.34,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Actos administrativos\"; comparten descriptores como legal, administrativos, aborda; el dictamen posterior agrega sucesion legal., competencia sumarial., proteccion a la ninez.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce ley:18834:art:141, ley:21302:art:1.",
+    "line_title": "Actos administrativos",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "competencia administrativa organo incompetente"
+    ]
+  },
+  {
+    "dictamen_origen": "008243N20",
+    "dictamen_destino": "018663N19",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.34,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Confianza legítima\"; comparten descriptores como confianza legitima., jurisprudencia contralora.; el dictamen posterior agrega renovacion de contratas., responsabilidad administrativa., jurisprudencia administrativa.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce constitucion politica:art:6, constitucion politica:art:7.",
+    "line_title": "Confianza legítima",
+    "line_status": "criterio_en_revision",
+    "source_queries": [
+      "confianza legitima contrata diciembre",
+      "termino contrata confianza legitima"
+    ]
+  },
+  {
+    "dictamen_origen": "0E2370N25",
+    "dictamen_destino": "002533N18",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.34,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Cuerpos de Bomberos\"; comparten descriptores como para, emergencia, aborda; el dictamen posterior agrega emergencia forestal., direccion de vialidad., delegaciones presidenciales.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce dfl:22:art:20, dfl:850:art:18.",
+    "line_title": "Cuerpos de Bomberos",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "responsabilidad servicio falta servicio incendio"
+    ]
+  },
+  {
+    "dictamen_origen": "025714N19",
+    "dictamen_destino": "016585N19",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.33,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Confianza legítima\"; comparten descriptores como confianza, contratas, aborda; el dictamen posterior agrega confianza legitima., motivacion acto administrativo., personal a contrata.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce dfl:1:art:101, dfl:1:art:105.",
+    "line_title": "Confianza legítima",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "termino contrata confianza legitima"
+    ]
+  },
+  {
+    "dictamen_origen": "E156769N21",
+    "dictamen_destino": "018663N19",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.33,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Confianza legítima\"; comparten descriptores como confianza legitima., confianza_legitima.; el dictamen posterior agrega contratas administrativas., acto administrativo fundado., notificacion.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce ley:19880:art:3, res:6:art:12.",
+    "line_title": "Confianza legítima",
+    "line_status": "criterio_en_revision",
+    "source_queries": [
+      "confianza legitima contrata diciembre",
+      "termino contrata confianza legitima"
+    ]
+  },
+  {
+    "dictamen_origen": "E309987N23",
+    "dictamen_destino": "062730N10",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.33,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Control de legalidad\"; comparten descriptores como aborda, conflicto, donde; el dictamen posterior agrega organizacion ministerial., educacion militar., potestad reglamentaria.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce dto:248:art:22, dto:248:art:25.",
+    "line_title": "Control de legalidad",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "competencia administrativa organo incompetente"
+    ]
+  },
+  {
+    "dictamen_origen": "021536N19",
+    "dictamen_destino": "018663N19",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.32,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Confianza legítima\"; comparten descriptores como confianza legitima.; el dictamen posterior agrega contratas publicas., jefatura de departamento., fundamentacion administrativa.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce ley:18834:art:8, ley:18834:art:87.",
+    "line_title": "Confianza legítima",
+    "line_status": "criterio_en_revision",
+    "source_queries": [
+      "confianza legitima contrata diciembre",
+      "termino contrata confianza legitima"
+    ]
+  },
+  {
+    "dictamen_origen": "E393404N23",
+    "dictamen_destino": "013734N19",
+    "tipo_relacion_sugerida": "complementado",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.32,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Confianza legítima\"; comparten descriptores como contrata., carrera funcionaria.; el dictamen posterior agrega termino de contrata., cargos de confianza., concursabilidad..",
+    "razon_normativa": "ambos remiten a ley:18834:art:10; el dictamen posterior introduce dfl:1, dfl:32.",
+    "line_title": "Confianza legítima",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "termino contrata confianza legitima"
+    ]
+  },
+  {
+    "dictamen_origen": "E30059N25",
+    "dictamen_destino": "E533963N24",
+    "tipo_relacion_sugerida": "complementado",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.31,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Coordinación interinstitucional\"; comparten descriptores como gestion de riesgos de desastres., coordinacion interinstitucional.; el dictamen posterior agrega competencias municipales., cortafuegos., planificacion territorial..",
+    "razon_normativa": "el dictamen posterior introduce ley:18695:art:15, ley:18695:art:4.",
+    "line_title": "Coordinación interinstitucional",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "responsabilidad servicio falta servicio incendio"
+    ]
+  },
+  {
+    "dictamen_origen": "OF3720N26",
+    "dictamen_destino": "E406589N23",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.3,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Actos administrativos\"; comparten descriptores como competencia administrativa.; el dictamen posterior agrega toma de razon., licitacion publica., nulidad de acto administrativo.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "ambos remiten a ley:18575; el dictamen posterior introduce constitucion:art:7, ley:19880:art:13.",
+    "line_title": "Actos administrativos",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "competencia administrativa organo incompetente"
+    ]
+  },
+  {
+    "dictamen_origen": "OF32919N26",
+    "dictamen_destino": "E240652N22",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.3,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Competencia administrativa\"; comparten descriptores como competencia administrativa., principio de legalidad.; el dictamen posterior agrega concesiones de obras publicas., reserva legal., convenio de mandato.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce dto:900:art:39, ley:18785:art:1.",
+    "line_title": "Competencia administrativa",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "competencia administrativa organo incompetente"
+    ]
+  },
+  {
+    "dictamen_origen": "031079N19",
+    "dictamen_destino": "043420N16",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.28,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Competencia administrativa\"; comparten descriptores como competencia administrativa.; el dictamen posterior agrega procedimiento disciplinario., evaluacion de desempeno., ley n° 19.880.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce ley:19880:art:13.",
+    "line_title": "Competencia administrativa",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "competencia administrativa organo incompetente"
+    ]
+  },
+  {
+    "dictamen_origen": "002638N20",
+    "dictamen_destino": "043420N16",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.27,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Competencia administrativa\"; comparten descriptores como competencia administrativa.; el dictamen posterior agrega incompetencia., sancion disciplinaria., proceso sumarial.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce ley:18.834:art:14, ley:18.834:art:140.",
+    "line_title": "Competencia administrativa",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "competencia administrativa organo incompetente"
+    ]
+  },
+  {
+    "dictamen_origen": "002638N20",
+    "dictamen_destino": "031079N19",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.27,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Competencia administrativa\"; comparten descriptores como competencia administrativa.; el dictamen posterior agrega incompetencia., sancion disciplinaria., proceso sumarial.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce ley:18.834:art:14, ley:18.834:art:140.",
+    "line_title": "Competencia administrativa",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "competencia administrativa organo incompetente"
+    ]
+  },
+  {
+    "dictamen_origen": "E222855N22",
+    "dictamen_destino": "E79690N21",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.27,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Confianza legítima\"; comparten descriptores como confianza legitima.; el dictamen posterior agrega estatuto academico., evaluacion de desempeno., universidad de chile.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce dfl:3:art:12, dfl:3:art:13.",
+    "line_title": "Confianza legítima",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "confianza legitima contrata diciembre",
+      "termino contrata confianza legitima"
+    ]
+  },
+  {
+    "dictamen_origen": "E309987N23",
+    "dictamen_destino": "001298N21",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.27,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Control de legalidad\"; comparten descriptores como control de legalidad.; el dictamen posterior agrega organizacion ministerial., educacion militar., potestad reglamentaria.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce dto:248:art:22, dto:248:art:25.",
+    "line_title": "Control de legalidad",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "competencia administrativa organo incompetente"
+    ]
+  },
+  {
+    "dictamen_origen": "007019N20",
+    "dictamen_destino": "043420N16",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.26,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Competencia administrativa\"; comparten descriptores como competencia administrativa.; el dictamen posterior agrega competencia de comisiones medicas., irrecuperabilidad de funcionarios., afp.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce ley:18834:art:112, ley:18834:art:152.",
+    "line_title": "Competencia administrativa",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "competencia administrativa organo incompetente"
+    ]
+  },
+  {
+    "dictamen_origen": "007019N20",
+    "dictamen_destino": "031079N19",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.26,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Competencia administrativa\"; comparten descriptores como competencia administrativa.; el dictamen posterior agrega competencia de comisiones medicas., irrecuperabilidad de funcionarios., afp.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce ley:18834:art:112, ley:18834:art:152.",
+    "line_title": "Competencia administrativa",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "competencia administrativa organo incompetente"
+    ]
+  },
+  {
+    "dictamen_origen": "E527522N24",
+    "dictamen_destino": "001298N21",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.26,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Control de legalidad\"; comparten descriptores como jurisprudencia administrativa.; el dictamen posterior agrega compin., salud irrecuperable., incompatibilidad de salud.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce ley:18883:art:148, ley:18883:art:147.",
+    "line_title": "Control de legalidad",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "competencia administrativa organo incompetente"
+    ]
+  },
+  {
+    "dictamen_origen": "E29036N25",
+    "dictamen_destino": "E23622N25",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.26,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Cuerpos de Bomberos\"; comparten descriptores como cuerpos de bomberos.; el dictamen posterior agrega transferencia de recursos., bomberos., reintegro de fondos.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce constitucion politica:art:8, ley:18575:art:3.",
+    "line_title": "Cuerpos de Bomberos",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "responsabilidad servicio falta servicio incendio"
+    ]
+  },
+  {
+    "dictamen_origen": "001345N21",
+    "dictamen_destino": "E26296N20",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.26,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Responsabilidad administrativa\"; comparten descriptores como responsabilidad administrativa.; el dictamen posterior agrega transparencia., solicitud de informacion., municipalidad.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce ley:18.695:art:2, ley:18.695:art:56.",
+    "line_title": "Responsabilidad administrativa",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "responsabilidad servicio falta servicio incendio"
+    ]
+  },
+  {
+    "dictamen_origen": "025714N19",
+    "dictamen_destino": "013734N19",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.25,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Confianza legítima\"; comparten descriptores como confianza, contratas, aborda; el dictamen posterior agrega confianza legitima., motivacion acto administrativo., personal a contrata.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce dfl:1:art:101, dfl:1:art:105.",
+    "line_title": "Confianza legítima",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "termino contrata confianza legitima"
+    ]
+  },
+  {
+    "dictamen_origen": "E23622N25",
+    "dictamen_destino": "0E2370N25",
+    "tipo_relacion_sugerida": "reconsiderado_parcialmente",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.25,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Cuerpos de Bomberos\"; comparten descriptores como principio de legalidad.; el dictamen posterior agrega financiamiento publico., cuerpo de bomberos., presupuesto.; el análisis posterior introduce condiciones o distinciones de alcance.",
+    "razon_normativa": "el dictamen posterior introduce dl:1263, pol:art:100.",
+    "line_title": "Cuerpos de Bomberos",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "responsabilidad servicio falta servicio incendio"
+    ]
+  },
+  {
+    "dictamen_origen": "E30059N25",
+    "dictamen_destino": "E510047N24",
+    "tipo_relacion_sugerida": "complementado",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.24,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Coordinación interinstitucional\"; comparten descriptores como ejecucion, gestion, riesgos; el dictamen posterior agrega competencias municipales., gestion de riesgos de desastres., cortafuegos..",
+    "razon_normativa": "el dictamen posterior introduce ley:18695:art:15, ley:18695:art:4.",
+    "line_title": "Coordinación interinstitucional",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "responsabilidad servicio falta servicio incendio"
+    ]
+  },
+  {
+    "dictamen_origen": "E533963N24",
+    "dictamen_destino": "E510047N24",
+    "tipo_relacion_sugerida": "complementado",
+    "nivel_confianza": "baja",
+    "confidence_score": 0.23,
+    "razon_semantica": "Ambos dictámenes aparecen dentro de la línea \"Coordinación interinstitucional\"; comparten descriptores como para, dictamen, aborda; el dictamen posterior agrega carabineros de chile., senapred., telecomunicaciones..",
+    "razon_normativa": "el dictamen posterior introduce ley:18575:art:3, ley:18575:art:5.",
+    "line_title": "Coordinación interinstitucional",
+    "line_status": "criterio_en_evolucion",
+    "source_queries": [
+      "responsabilidad servicio falta servicio incendio"
+    ]
+  }
+]
