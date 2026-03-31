@@ -1,6 +1,7 @@
 import { fetchRecords } from '../clients/pinecone';
 import { buildDoctrineClusters } from './doctrineClusters';
 import { applyDoctrineStructureRemediations } from './doctrineStructureRemediations';
+import { buildIntentBoost, detectQueryIntent } from './queryUnderstanding/queryIntent';
 import { retrieveDoctrineMatchesWithQueryUnderstanding } from './queryUnderstanding/queryRewrite';
 import type { Env } from '../types';
 
@@ -346,6 +347,7 @@ function buildHybridSearchScore(params: {
   cluster: Awaited<ReturnType<typeof buildDoctrineClusters>>['clusters'][number];
   matchInfoById: Map<string, SearchMatchInfo>;
   topHitId: string | null;
+  intentBoost: number;
 }) {
   const matchedIds = [
     params.cluster.representative_dictamen.id,
@@ -372,6 +374,7 @@ function buildHybridSearchScore(params: {
     + (representativeSemantic * 1.6)
     + (semanticCoverage * 1.25)
     + topHitBoost
+    + params.intentBoost
     + (params.cluster.doctrinal_importance_score * 0.25)
   );
 }
@@ -611,10 +614,14 @@ async function buildDoctrineSearch(env: Env, options: BuildDoctrineSearchOptions
   const searchLimit = Math.min(Math.max(limit * 8, 12), 30);
   let matches: SearchMatch[] = [];
   let searchMode: "semantic" | "lexical_fallback" = "semantic";
+  let rewrittenQuery: string | null = null;
+  let rewriteAccepted = false;
 
   try {
     const search = await retrieveDoctrineMatchesWithQueryUnderstanding(env, q, searchLimit);
     matches = search.matches;
+    rewrittenQuery = search.rewrite.rewrittenQuery;
+    rewriteAccepted = search.rewrite.accepted;
   } catch (error) {
     if (!isPineconeQuotaError(error)) throw error;
 
@@ -637,6 +644,8 @@ async function buildDoctrineSearch(env: Env, options: BuildDoctrineSearchOptions
         periodCovered: { from: null, to: null },
         materiaEvaluated: null,
         query: q,
+        query_interpreted: null,
+        query_intent: null,
         searchMode
       },
       lines: []
@@ -659,6 +668,15 @@ async function buildDoctrineSearch(env: Env, options: BuildDoctrineSearchOptions
     ({ hitIds, selectedClusterResponse } = await buildDoctrineSearchFromMatches(env, matches, limit));
   }
   const metadataById = await buildMetadataById(env, selectedClusterResponse.clusters);
+  const queryIntent = detectQueryIntent({
+    query: q,
+    rewrittenQuery: rewriteAccepted ? rewrittenQuery : null,
+    matches,
+    clusters: selectedClusterResponse.clusters.map((cluster) => ({
+      cluster_label: cluster.cluster_label,
+      top_descriptores_AI: cluster.top_descriptores_AI
+    }))
+  });
   const baseResponse = buildDoctrineLinesResponse(selectedClusterResponse, metadataById);
 
   const enrichedLines = baseResponse.lines.map((line, index) => {
@@ -705,7 +723,13 @@ async function buildDoctrineSearch(env: Env, options: BuildDoctrineSearchOptions
       hybridScore: buildHybridSearchScore({
         cluster,
         matchInfoById,
-        topHitId
+        topHitId,
+        intentBoost: buildIntentBoost({
+          intent: queryIntent,
+          clusterLabel: cluster.cluster_label,
+          materia: selectedClusterResponse.materia,
+          topDescriptors: cluster.top_descriptores_AI
+        })
       })
     };
   }).sort((left, right) => right.hybridScore - left.hybridScore);
@@ -719,6 +743,8 @@ async function buildDoctrineSearch(env: Env, options: BuildDoctrineSearchOptions
     overview: {
       ...response.overview,
       query: q,
+      query_interpreted: rewriteAccepted && rewrittenQuery ? rewrittenQuery : null,
+      query_intent: queryIntent,
       searchMode
     },
     lines: response.lines
