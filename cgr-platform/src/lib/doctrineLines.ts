@@ -1,6 +1,7 @@
 import { fetchRecords } from '../clients/pinecone';
 import { buildDoctrineClusters } from './doctrineClusters';
 import { applyDoctrineStructureRemediations } from './doctrineStructureRemediations';
+import { formatCanonicalLegalSourceLabel } from './legalSourcesCanonical';
 import { buildIntentBoost, detectQueryIntent } from './queryUnderstanding/queryIntent';
 import { retrieveDoctrineMatchesWithQueryUnderstanding } from './queryUnderstanding/queryRewrite';
 import type { Env } from '../types';
@@ -22,7 +23,7 @@ function toLevel(score: number): InsightLevel {
 }
 
 function formatFuenteLegal(fuente: { tipo_norma: string; numero: string | null }): string {
-  return fuente.numero ? `${fuente.tipo_norma} ${fuente.numero}` : fuente.tipo_norma;
+  return formatCanonicalLegalSourceLabel(fuente) ?? (fuente.numero ? `${fuente.tipo_norma} ${fuente.numero}` : fuente.tipo_norma);
 }
 
 function pickText(value: unknown): string {

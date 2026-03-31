@@ -1,5 +1,6 @@
 import { fetchRecords, queryRecords } from '../clients/pinecone';
 import { classifyRelationEffect, type GraphDoctrinalStatus, type RelationEffectCategory } from './doctrinalGraph';
+import { normalizeLegalSourceForStorage } from './legalSourcesCanonical';
 import type { Env } from '../types';
 
 type CandidateRow = {
@@ -323,11 +324,15 @@ async function aggregateClusterSignals(env: Env, ids: string[]) {
   const fuenteCounts = new Map<string, { tipo_norma: string; numero: string | null; count: number }>();
   const fuentesByDictamen: Record<string, string[]> = {};
   for (const row of fuentesRows.results ?? []) {
-    const key = `${row.tipo_norma}::${row.numero ?? ''}`;
+    const normalizedFuente = normalizeLegalSourceForStorage({
+      tipo_norma: row.tipo_norma,
+      numero: row.numero
+    });
+    const key = `${normalizedFuente.tipo_norma ?? row.tipo_norma}::${normalizedFuente.numero ?? ''}`;
     const existing = fuenteCounts.get(key);
     fuenteCounts.set(key, {
-      tipo_norma: row.tipo_norma,
-      numero: row.numero,
+      tipo_norma: normalizedFuente.tipo_norma ?? row.tipo_norma,
+      numero: normalizedFuente.numero ?? row.numero,
       count: (existing?.count ?? 0) + 1
     });
     if (!fuentesByDictamen[row.dictamen_id]) fuentesByDictamen[row.dictamen_id] = [];

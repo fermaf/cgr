@@ -44,6 +44,12 @@ function normalizeNormType(value: string | null | undefined): string | null {
     return titleCaseLabel(normalized);
 }
 
+function formatLawNumber(value: string | null | undefined): string | null {
+    const normalized = compact(value);
+    if (!normalized || !/^\d+$/.test(normalized) || normalized.length <= 4) return normalized;
+    return `${normalized.slice(0, normalized.length - 3)}.${normalized.slice(-3)}`;
+}
+
 function isSelfIdentifyingNorm(normType: string | null): boolean {
     if (!normType) return false;
     const normalized = normType.toLowerCase();
@@ -82,8 +88,10 @@ function maybeDisplayNote(source: FuenteLegalDetail, normType: string | null, ar
 }
 
 function buildPrimaryLabel(source: FuenteLegalDetail, normType: string | null, note: string | null): string {
+    if (compact(source.display_label)) return compact(source.display_label)!;
+    if (compact(source.canonical_name)) return compact(source.canonical_name)!;
     const number = compact(source.numero);
-    if (normType && number) return `${normType} ${number}`;
+    if (normType && number) return `${normType} ${normType === "Ley" ? formatLawNumber(number) ?? number : number}`;
     if (normType) return normType;
     if (note) return note;
     return "Referencia normativa";
@@ -111,10 +119,11 @@ export function buildLegalSourceCards(sources: FuenteLegalDetail[]): LegalSource
                 : contextParts.length === 1 || note
                     ? "media"
                     : "baja";
-        const caution = contextCompleteness === "baja"
+        const caution = source.review_status === "revisar" || contextCompleteness === "baja"
             ? "Identificación parcial: conviene revisar año y órgano emisor."
             : null;
         const key = [
+            compact(source.canonical_key) ?? "",
             normType ?? "",
             compact(source.numero) ?? "",
             compact(source.year) ?? "",

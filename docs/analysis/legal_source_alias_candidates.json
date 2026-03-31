@@ -1,0 +1,37 @@
+[
+  {
+    "alias_observado": "ctr",
+    "nombre_canonico_sugerido": "Código del Trabajo",
+    "nivel_confianza": "alta",
+    "evidencia_contextual": "Aparece sin número, con artículos 194 a 206 y 325, patrón consistente con el Código del Trabajo.",
+    "dictamenes_ejemplo": ["002746N20", "E20264N25", "E339272N23", "E559795N24"]
+  },
+  {
+    "alias_observado": "cci",
+    "nombre_canonico_sugerido": "Código Civil",
+    "nivel_confianza": "alta",
+    "evidencia_contextual": "Se observa con artículos como 2515, consistentes con referencias al Código Civil.",
+    "dictamenes_ejemplo": ["010991N19"]
+  },
+  {
+    "alias_observado": "cag",
+    "nombre_canonico_sugerido": "Código de Aguas",
+    "nivel_confianza": "alta",
+    "evidencia_contextual": "La sigla coincide con el nombre abreviado usual y ya convive con referencias explícitas al Código de Aguas en el corpus.",
+    "dictamenes_ejemplo": ["E339272N23"]
+  },
+  {
+    "alias_observado": "csa",
+    "nombre_canonico_sugerido": "Código Sanitario",
+    "nivel_confianza": "alta",
+    "evidencia_contextual": "La sigla aparece con artículos propios del Código Sanitario y sin conflicto visible con otras normas frecuentes.",
+    "dictamenes_ejemplo": ["E584710N24"]
+  },
+  {
+    "alias_observado": "pol",
+    "nombre_canonico_sugerido": "Constitución Política de la República",
+    "nivel_confianza": "alta",
+    "evidencia_contextual": "Se observa sin número y con artículos típicos de la Constitución, como 19, 76, 98 y 118.",
+    "dictamenes_ejemplo": ["E26303N20", "E31878N20", "E339272N23", "E548580N24"]
+  }
+]

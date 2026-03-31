@@ -27,6 +27,7 @@ import { ingestDictamen, extractDictamenId } from './lib/ingest';
 import { applyRetroUpdates } from './lib/relations';
 import { buildDoctrineClusters } from './lib/doctrineClusters';
 import { buildDoctrineLines, buildDoctrineSearch } from './lib/doctrineLines';
+import { normalizeLegalSourceForPresentation } from './lib/legalSourcesCanonical';
 import { logInfo, logError, setLogLevel } from './lib/log';
 
 function errorMessage(error: unknown): string {
@@ -1139,7 +1140,7 @@ app.get('/api/v1/dictamenes/:id', async (c) => {
           titulo: relation.titulo,
           bucket: relationBucket(relation.tipo_accion)
         })),
-        fuentes_legales: fuentes.results || []
+        fuentes_legales: (fuentes.results || []).map((source) => normalizeLegalSourceForPresentation(source))
       },
       raw: raw,
       extrae_jurisprudencia: enrichment ? {

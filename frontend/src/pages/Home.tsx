@@ -29,7 +29,16 @@ function formatDateRange(line: DoctrineLine) {
 }
 
 function formatFuenteLabel(tipo: string, numero: string | null) {
-    return numero ? `${tipo} ${numero}` : tipo;
+    const normalizedNumber = numero && /^\d+$/.test(numero) && numero.length > 4
+        ? `${numero.slice(0, numero.length - 3)}.${numero.slice(-3)}`
+        : numero;
+
+    if (tipo === "Ley" && numero === "18834") return "Estatuto Administrativo";
+    if (tipo === "Ley" && numero === "18883") return "Estatuto Administrativo Municipal";
+    if (tipo === "Ley" && numero === "19880") return "Ley de Procedimiento Administrativo";
+    if (tipo === "Ley" && numero === "18575") return "Ley de Bases de la Administración";
+
+    return normalizedNumber ? `${tipo} ${normalizedNumber}` : tipo;
 }
 
 function doctrineExplorerTitle(query: string) {

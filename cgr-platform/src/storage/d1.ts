@@ -456,6 +456,7 @@ async function updateEnrichmentFuentes(db: D1Database, dictamenId: string, fuent
 // ─── Tablas M:N (etiquetas, booleanos, fuentes, referencias) ─────────
 
 import { findSemanticMatch, normalizeDisplay } from '../lib/stringMatch';
+import { normalizeLegalSourceForStorage } from '../lib/legalSourcesCanonical';
 
 async function insertDictamenEtiquetaLLM(db: D1Database, dictamenId: string, etiqueta: string): Promise<void> {
   const displayTerm = normalizeDisplay(etiqueta);
@@ -468,17 +469,26 @@ async function insertDictamenEtiquetaLLM(db: D1Database, dictamenId: string, eti
 }
 
 async function insertDictamenFuenteLegal(db: D1Database, dictamenId: string, fuente: any): Promise<void> {
+  const normalized = normalizeLegalSourceForStorage({
+    tipo_norma: fuente.nombre || fuente.tipo_norma || 'Desconocido',
+    numero: fuente.numero || null,
+    articulo: fuente.articulo || null,
+    extra: fuente.extra || null,
+    year: fuente.year || null,
+    sector: fuente.sector || null
+  });
+
   await db.prepare(
     `INSERT INTO dictamen_fuentes_legales (dictamen_id, tipo_norma, numero, articulo, extra, year, sector)
      VALUES (?, ?, ?, ?, ?, ?, ?)`
   ).bind(
     dictamenId,
-    fuente.nombre || fuente.tipo_norma || 'Desconocido',
-    fuente.numero || null,
-    fuente.articulo || null,
-    fuente.extra || null,
-    fuente.year || null,
-    fuente.sector || null
+    normalized.tipo_norma || 'Desconocido',
+    normalized.numero || null,
+    normalized.articulo || null,
+    normalized.extra || null,
+    normalized.year || null,
+    normalized.sector || null
   ).run();
 }
 

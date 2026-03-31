@@ -2,6 +2,7 @@
 import OpenAI from 'openai';
 import type { Env, DictamenRaw, DictamenSource } from '../types';
 import { logError, logWarn, setLogLevel } from '../lib/log';
+import { normalizeLegalSourceForStorage } from '../lib/legalSourcesCanonical';
 
 function getMistralClient(env: Env) {
   setLogLevel(env.LOG_LEVEL);
@@ -170,13 +171,21 @@ function normalizeFuentesLegales(input?: unknown[]) {
   if (!Array.isArray(input)) return void 0;
   return input.map((item) => {
     const entry = item as any;
-    return {
-      nombre: entry.nombre ? String(entry.nombre).trim() : null,
-      articulo: entry.articulo ? String(entry.articulo).trim() : null,
+    const normalized = normalizeLegalSourceForStorage({
+      tipo_norma: entry.tipo_norma ?? entry.nombre ?? null,
       numero: entry.numero ? String(entry.numero).trim() : null,
+      articulo: entry.articulo ? String(entry.articulo).trim() : null,
       year: entry.year === null || entry.year === void 0 ? null : Number(entry.year),
       sector: entry.sector ? String(entry.sector).trim() : null,
       extra: entry.extra ? String(entry.extra).trim() : null
+    });
+    return {
+      nombre: normalized.tipo_norma,
+      articulo: normalized.articulo,
+      numero: normalized.numero,
+      year: normalized.year,
+      sector: normalized.sector,
+      extra: normalized.extra
     };
   });
 }

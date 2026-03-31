@@ -57,6 +57,11 @@ export interface FuenteLegalDetail {
     year: string | null;
     sector: string | null;
     mentions: number;
+    canonical_name?: string | null;
+    display_label?: string | null;
+    confidence?: "alta" | "media" | "baja";
+    review_status?: "alta_confianza" | "media_confianza" | "revisar";
+    canonical_key?: string;
 }
 
 export interface DictamenDetail extends DictamenMeta {
