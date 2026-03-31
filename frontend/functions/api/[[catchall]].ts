@@ -9,11 +9,17 @@ export const onRequest: PagesFunction = async (context) => {
     modifiedRequest.headers.set("X-Forwarded-Host", url.hostname);
 
     try {
-        const response = await fetch(modifiedRequest);
+        const response = await fetch(modifiedRequest, {
+            cf: {
+                cacheEverything: false,
+                cacheTtl: 0
+            }
+        });
 
         // We recreate the response to ensure CORS is preserved or clean, if needed
         const newResponse = new Response(response.body, response);
         newResponse.headers.set('Access-Control-Allow-Origin', '*');
+        newResponse.headers.set('Cache-Control', 'no-store');
 
         return newResponse;
     } catch (err: any) {
