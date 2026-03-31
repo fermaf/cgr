@@ -1,5 +1,6 @@
 {
   "scripts": {
+    "evaluate:queries": "node ./scripts/evaluate_queries.mjs",
     "agents:build": "node ./cgr-platform/node_modules/typescript/bin/tsc -p tsconfig.agents.json",
     "agents:check": "npm run agents:build -- --pretty false && node ./.agents-dist/scripts/validate_agents_structure.js",
     "agents:test": "npm run agents:build -- --pretty false && node ./.agents-dist/agents/examples/runPing.js",

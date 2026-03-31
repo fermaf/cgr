@@ -31,6 +31,7 @@ Bienvenido al centro de conocimiento de **CGR-Platform**. Esta documentación ha
 - **[08 - Hito: Plataforma Doctrinal Agéntica Operativa](explicacion/08_hito_plataforma_doctrinal_agentica_operativa.md)**: Cierre del primer gran hito, capacidades ya operativas, remediación estructural aplicada y criterio para el siguiente ciclo.
 - **[09 - Hito: Evolución Estructural del Corpus Doctrinal](explicacion/09_hito_evolucion_estructural_corpus_doctrinal.md)**: Primera iteración del nuevo hito, con merge estructural conservador sobre fragmentación residual visible en `Confianza legítima`.
 - **[Query Understanding Pipeline](explicacion/query_understanding_pipeline.md)**: Capa conservadora de rewrite con `mistral-large-2411` y dual retrieval para mejorar recall semántico sin tocar enrichment ni embeddings.
+- **[Query Intent Layer](explicacion/query_intent_layer.md)**: Detección ligera de intención jurídica y boosting contextual sin usar LLM ni tocar el pipeline de enrichment.
 - **[Arquitectura Agéntica de Indubia](agentic_architecture.md)**: Blueprint operativo para skills, MCPs y operación de agentes sobre el sistema doctrinal sin romper el backend actual.
 - **[Auditoría y Modernización Agéntica](agentic_modernization_audit.md)**: Mapa de salud, drift, alineación con proveedores y backlog priorizado para evolución sana.
 - **[Tooling Agéntico de Desarrollo](agents/dev_tooling_stack.md)**: Qué MCPs y herramientas externas sí valen la pena para acelerar frontend, operación y mantenimiento sin inflar el producto.
