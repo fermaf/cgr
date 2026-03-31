@@ -1,0 +1,12 @@
+# Adaptador mínimo para runtimes que consuman metadatos OpenAI-style.
+# La fuente de verdad del proyecto vive en ../context/ y ../AGENTS.md.
+version: 1
+context_files:
+  - ../context/project_constitution.md
+  - ../context/project_context.md
+  - ../context/architecture_map.md
+  - ../context/current_priorities.md
+  - ../context/glossary.md
+defaults:
+  documentation_language: es
+  commit_language: es
