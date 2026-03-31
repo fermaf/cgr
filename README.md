@@ -344,18 +344,18 @@ Cómo esto consolida la arquitectura:
 
 ---
 
-## 📚 Documentación Maestra (El Librero v2)
+## 📚 Documentación Maestra
 
-Toda la inteligencia técnica y estratégica ha sido consolidada en la versión 2.
+Toda la inteligencia técnica y estratégica vigente está consolidada en la estructura actual del repositorio.
 
 > [!IMPORTANT]
-> **Punto de Entrada Maestro**: [**docs/README.md**](docs/README.md) -> [**docs/v2/platform/index.md**](docs/v2/platform/index.md)
+> **Punto de Entrada Maestro**: [**AGENTS.md**](AGENTS.md) -> [**context/README.md**](context/README.md) -> [**docs/README.md**](docs/README.md)
 
 ### Atajos Estratégicos
-- **[Visión Ejecutiva](docs/v2/platform/01_vision_ejecutiva.md)**: Valor de negocio y ROI.
-- **[Arquitectura C4](docs/v2/platform/02_arquitectura_c4.md)**: Flujos de datos e ingeniería inversa de CGR.
-- **[Referencia de API](docs/v2/platform/03_referencia_api.md)**: Guía total de los 14 endpoints productivos.
-- **[Roadmap 2026-2027](docs/v2/platform/08_roadmap.md)**: Fases de explotación de grafos normativos.
+- **[Visión Ejecutiva](docs/explicacion/02_vision_ejecutiva.md)**: Valor de negocio y enfoque del producto.
+- **[Arquitectura C4](docs/explicacion/01_arquitectura_c4_y_flujos.md)**: Flujos de datos e ingeniería doctrinal del sistema.
+- **[Referencia de API](docs/referencia/01_referencia_api_completa.md)**: Guía de endpoints productivos y ejemplos de validación.
+- **[Roadmap Estratégico](docs/explicacion/05_roadmap_estrategico.md)**: Prioridades y extensión conceptual del proyecto.
 
 > [!TIP]
 > **Roadmap en ejecución (2026-02-27)**:

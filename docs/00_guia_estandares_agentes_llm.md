@@ -1,70 +1,98 @@
 # 00 - Guía de Estándares para Agentes LLM y Onboarding (El Librero)
 
-Esta guía constituye el **Punto de Entrada Único** y las directivas obligatorias para cualquier agente LLM o desarrollador que intervenga en el proyecto **CGR-Platform**. Tu misión es organizar, preservar y expandir el conocimiento técnico con un nivel de detalle extremo, didáctico y exhaustivo.
+Esta guía es la referencia de documentación, onboarding técnico y estándares de explicación para cualquier agente LLM o desarrollador que intervenga en **Indubia / CGR-Platform**.
+
+No reemplaza la constitución del proyecto. Las reglas de producto, arquitectura y operación diaria viven en:
+
+- `AGENTS.md`
+- `context/project_constitution.md`
+- `context/project_context.md`
+
+Aquí el foco es otro: documentar bien, explicar bien y mantener trazabilidad técnica útil.
 
 ---
 
-## � 1. Onboarding y Primeros Pasos (Quick Start)
+## 1. Onboarding y Primeros Pasos
 
-Si eres un nuevo agente o desarrollador, sigue este flujo para entender la plataforma:
+Si eres un nuevo agente o desarrollador, sigue este flujo:
 
-1.  **Explora el Código**: El archivo `cgr-platform/src/index.ts` es el corazón de la API. Revisa `cgr-platform/src/workflows/` para entender la lógica de ingesta y backfill.
-2.  **Entiende la Infraestructura**: Usamos Cloudflare Workers, D1 (SQL), KV (Storage) y Pinecone (Vectores). Todo se configura en `wrangler.jsonc`.
-3.  **Consulta la Arquitectura**: El documento `docs/explicacion/01_arquitectura_c4_y_flujos.md` detalla cómo fluyen los datos.
-4.  **Prueba los Endpoints**: Usa los ejemplos CURL en `docs/referencia/01_referencia_api_completa.md` para validar el estado actual de la API en producción.
-
----
-
-## 📖 2. Filosofía de "El Librero"
-- **Exhaustividad sobre Simplicidad**: Nada es "obvio". Si una función tiene un parámetro opcional, documéntalo. Si un endpoint tiene un fallback, explica por qué existe y cómo se activa.
-- **Source of Truth**: El código (`src/`) es la verdad absoluta. Si la documentación dice X y el código hace Y, actualiza la documentación inmediatamente.
-- **Enriquecimiento Extensivo**: No resumas. Al actualizar un documento, integra el contenido anterior y expándelo con nuevos hallazgos del código o logs de Git.
-- **Didáctica para Nerds**: Escribe como un experto hablando con otros expertos, pero estructuralo para que un junior pueda seguir el flujo sin perderse.
-
-### Contexto Basal Unificado
-Para operar correctamente, tu contexto de referencia debe ser:
-- **Este Documento**: `docs/v2/platform/00_guia_estandares_agentes_llm.md` (Directrices y Onboarding).
-- **Infraestructura**: `cloudflare-docs/workerPromtContext.txt`.
-- **Referencia Técnica**: `docs/referencia/` (APIs, DB, Variables).
-- **Mapa de Navegación**: `docs/README.md`.
+1. **Carga el contexto portable**: lee `AGENTS.md` y luego `context/README.md`.
+2. **Explora el código**: `cgr-platform/src/index.ts` es el corazón de la API. Revisa `cgr-platform/src/workflows/` para entender ingesta y backfill.
+3. **Entiende la infraestructura**: usamos Cloudflare Workers, D1, KV y Pinecone. La configuración real vive en `cgr-platform/wrangler.jsonc`.
+4. **Consulta la arquitectura**: `docs/explicacion/01_arquitectura_c4_y_flujos.md` detalla flujos y componentes.
+5. **Prueba los endpoints**: usa los ejemplos CURL en `docs/referencia/01_referencia_api_completa.md` para validar el estado actual de la API en producción.
 
 ---
 
-## 🏗 3. Marco de Trabajo: Diátaxis
-Toda documentación debe clasificarse en uno de estos cuatro pilares:
-1.  **Tutoriales**: Aprendizaje guiado paso a paso (ej: Onboarding).
-2.  **Guías de Tareas**: Resolución de problemas específicos (ej: "Cómo re-procesar un dictamen con `?force=true`").
-3.  **Explicación**: Conceptos, arquitectura y "por qué" de las decisiones (ej: Arquitectura C4, Estrategia AI).
-4.  **Referencia**: Datos técnicos puros, esquemas de API, diccionarios de base de datos.
+## 2. Filosofía de "El Librero"
+
+- **Exhaustividad con criterio**: si una función tiene fallback, explica por qué. Si un endpoint tiene ramas, documenta cuándo ocurre cada una.
+- **Source of truth**: el código es la verdad. Si la documentación discrepa, actualízala.
+- **Expansión útil**: no se trata de escribir por escribir. Se trata de dejar contexto suficiente para que otro agente o desarrollador no tenga que reconstruir el sistema desde cero.
+- **Didáctica técnica**: escribe para expertos, pero con estructura suficiente para que el flujo se siga sin adivinar.
+
+### Contexto basal unificado
+
+Para operar correctamente, tu base de contexto debe ser:
+
+- `AGENTS.md`
+- `context/README.md`
+- este documento: `docs/00_guia_estandares_agentes_llm.md`
+- `docs/referencia/`
+- `docs/README.md`
 
 ---
 
-## 💻 4. Estándares Técnicos (Cloudflare)
-- **TypeScript por defecto**: Siempre usa tipado explícito en ejemplos de código.
-- **Configuración**: Usa siempre `wrangler.jsonc` (no .toml).
-- **Modelo de IA**: El modelo base para agentes es `mistral-large-2512`.
-- **Observabilidad**: Documenta cómo monitorear cada nueva funcionalidad usando Logging u Analytics Engine.
+## 3. Marco de Trabajo: Diátaxis
+
+Toda documentación debe clasificarse en uno de estos pilares:
+
+1. **Tutoriales**: aprendizaje guiado paso a paso.
+2. **Guías de tareas**: resolución de problemas específicos.
+3. **Explicación**: conceptos, arquitectura y por qué.
+4. **Referencia**: datos técnicos puros, contratos y esquemas.
 
 ---
 
-## 📝 5. Requisitos para Nuevas Funcionalidades
-Si añades un nuevo endpoint o módulo, DEBES actualizar:
-1.  **Referencia de API**: Añade la ruta, método, descripción funcional, parámetros de entrada (query/body) y esquema de respuesta JSON completo. Incluye ejemplos CURL para casos base y con parámetros opcionales.
-2.  **Arquitectura C4**: Si el componente altera el flujo crítico, actualiza los diagramas Mermaid.
-3.  **Diccionario de Variables**: Si usas una nueva variable de entorno, regístrala en la referencia de variables.
+## 4. Estándares Técnicos
+
+- **TypeScript por defecto**: usa tipado explícito en ejemplos y contratos.
+- **Configuración**: usa `wrangler.jsonc`, no `.toml`, para Workers.
+- **Modelos de IA**:
+  - enrichment doctrinal: `mistral-large-2512`
+  - query understanding: `mistral-large-2411`
+- **Observabilidad**: documenta cómo monitorear funcionalidades nuevas cuando cambien flujos críticos.
 
 ---
 
-## 🎨 6. Estilo de Redacción y Formato
-- **Uso de Mermaid**: Diagramas de secuencia para flujos complejos.
-- **Alertas GitHub**: Usa `> [!IMPORTANT]`, `> [!WARNING]` y `> [!TIP]`.
-- **Ejemplos CURL**: Siempre provee ejemplos de consola (`sh`) con URLs de producción, headers y variaciones de parámetros.
+## 5. Requisitos para Nuevas Funcionalidades
+
+Si añades o cambias una capacidad relevante, actualiza lo que corresponda:
+
+1. **Referencia de API**: ruta, método, parámetros, esquema de respuesta y ejemplos.
+2. **Arquitectura / explicación**: si cambia el flujo crítico, actualiza la documentación conceptual.
+3. **Variables de entorno**: si aparece una nueva, regístrala en referencia.
+4. **Contexto portable**: si el cambio altera el estado real del sistema, actualiza `context/`.
 
 ---
 
-## 🔍 7. El Check de "Simplicidad"
-Antes de entregar, pregunta: **"¿Se siente simplona?"**.
-- Si la respuesta es sí, añade más detalles técnicos, diagramas o tablas de parámetros.
-- **Meta**: La documentación debe ser tan detallada que pueda servir de manual de ingeniería inversa.
+## 6. Estilo de Redacción y Formato
 
-**Nota**: Este estándar se conoce internamente como **"El Librero"**. Cita siempre este documento como referencia de autoridad.
+- **Uso de Mermaid**: solo cuando el flujo realmente lo necesite.
+- **Alertas GitHub**: usa `> [!IMPORTANT]`, `> [!WARNING]` y `> [!TIP]` con moderación útil.
+- **Ejemplos CURL**: usa URLs de producción cuando el objetivo sea validar estado real.
+- **Ámbito de esta guía**: este documento regula cómo documentar y explicar. Las reglas de producto, lenguaje jurídico y cambio seguro viven en `context/project_constitution.md`.
+
+---
+
+## 7. Check Final
+
+Antes de cerrar una iteración, pregunta:
+
+- ¿la documentación refleja el sistema real?
+- ¿otro agente podría continuar sin reconstruir el contexto?
+- ¿el documento explica el porqué y no solo el qué?
+
+Si la respuesta es no, falta contexto.
+
+**Nota**: este estándar se conoce internamente como **El Librero**. Úsalo como autoridad para documentación y onboarding técnico, no como sustituto de la constitución del proyecto.

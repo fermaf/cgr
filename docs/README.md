@@ -6,11 +6,9 @@ Bienvenido al centro de conocimiento de **CGR-Platform**. Esta documentación ha
 
 ## 🗺️ Mapa de Navegación (Diátaxis)
 
-## 🗺️ Mapa de Navegación (Diátaxis)
-
 ### 🚀 [Tutoriales y Contexto Base](tutoriales/)
-- **[00 - Guía de Estándares para Agentes LLM (El Librero)](00_guia_estandares_agentes_llm.md)**: El **CONTEXTO PRINCIPAL Y ÚNICO** de entrada para agentes autónomos. Define las reglas de interacción y arquitectura base.
-- **[Contexto Inicial Portable](../context/README.md)**: Capa de arranque rápido para Codex, Antigravity y otros agentes futuros, con constitución, contexto del proyecto, mapa de arquitectura, prioridades y glosario.
+- **[Contexto Inicial Portable](../context/README.md)**: Punto de arranque principal para Codex, Antigravity y otros agentes futuros, con constitución, contexto del proyecto, mapa de arquitectura, prioridades y glosario.
+- **[00 - Guía de Estándares para Agentes LLM (El Librero)](00_guia_estandares_agentes_llm.md)**: Estándar de documentación, onboarding técnico y escritura explicativa. Complementa `AGENTS.md` y `context/`, no los reemplaza.
 - **[01 - Onboarding para Desarrolladores (Local)](tutoriales/01_onboarding_desarrollador_local.md)**: Configura tu Worker localmente con Wrangler y entiende el código fuente.
 - **[02 - Tu Primer Skill (Gobernanza)](tutoriales/02_creando_tu_primer_skill.md)**: Cómo utilizar `Skillgen` para atrapar, normalizar y reportar incidentes en tu nuevo código.
 - **[03 - Guía de Desarrollo Avanzada](tutoriales/03_guia_desarrollo_avanzada.md)**: Patrones críticos de programación para Workflows y archivos de incidentes pasados.
