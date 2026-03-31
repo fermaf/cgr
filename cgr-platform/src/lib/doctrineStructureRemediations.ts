@@ -205,7 +205,11 @@ function mergeKeyDictamenes(lines: DoctrineLineLike[], canonicalRepresentativeId
 
   for (const line of lines) {
     for (const item of line.key_dictamenes) {
-      const forcedRole = item.id === canonicalRepresentativeId ? 'representativo' : item.rol_en_linea;
+      const forcedRole = item.id === canonicalRepresentativeId
+        ? 'representativo'
+        : item.rol_en_linea === 'representativo'
+          ? 'núcleo doctrinal'
+          : item.rol_en_linea;
       const current = merged.get(item.id);
       if (!current || roleRank[forcedRole] > roleRank[current.rol_en_linea]) {
         merged.set(item.id, {
