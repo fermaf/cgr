@@ -16,7 +16,13 @@ const DEMO_RESPONSE: DoctrineInsightsResponse = {
             to: "2025-03-05"
         },
         materiaEvaluated: "Empleo público",
-        query: "contrata confianza legítima"
+        query: "contrata confianza legítima",
+        query_interpreted: "confianza legítima empleo a contrata no renovación",
+        query_intent: {
+            intent_label: "confianza legítima",
+            confidence: 0.82
+        },
+        searchMode: "semantic"
     },
     lines: [
         {

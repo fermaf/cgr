@@ -6,6 +6,7 @@ import { DOCTRINE_SEARCH_EXAMPLES, fetchDoctrineInsights } from "../lib/doctrine
 import { cn } from "../lib/utils";
 import { DoctrineReadingWorkspace } from "../components/doctrine/DoctrineReadingWorkspace";
 import { formatSimpleDate } from "../lib/date";
+import { doctrinalStateNarrative, groupingHint, lineClarityLabel, relationPatternNarrative, simplifyDoctrineLanguage } from "../lib/doctrineLanguage";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
 
@@ -36,33 +37,6 @@ function doctrineExplorerTitle(query: string) {
     return "Principales líneas doctrinales del corpus";
 }
 
-function doctrinalStateLabel(state: DoctrineLine["doctrinal_state"]) {
-    if (state === "consolidado") return "criterio consolidado";
-    if (state === "bajo_tension") return "existen decisiones que aplican el criterio de forma distinta";
-    return "el criterio ha cambiado en el tiempo";
-}
-
-function relationDynamicsLabel(line: DoctrineLine) {
-    if (line.relation_dynamics.dominant_bucket === "consolida") return "predomina consolidación";
-    if (line.relation_dynamics.dominant_bucket === "desarrolla") return "predomina desarrollo";
-    if (line.relation_dynamics.dominant_bucket === "ajusta") return "predomina ajuste";
-    return "sin dinámica dominante";
-}
-
-function coherenceSummaryLabel(line: DoctrineLine) {
-    if (line.coherence_signals.coherence_status === "fragmentada") return "agrupación posiblemente mezclada";
-    if (line.coherence_signals.coherence_status === "mixta") return "algunos dictámenes tratan temas relacionados";
-    return "coherencia suficiente";
-}
-
-function structureHintLabel(line: DoctrineLine) {
-    if (line.structure_adjustments?.action === "merge_clusters") return "línea consolidada";
-    if (line.coherence_signals.coherence_status === "fragmentada") return "podría refinarse esta agrupación";
-    if (line.coherence_signals.outlier_probability >= 0.22) return "hay dictámenes que podrían revisarse";
-    if (line.coherence_signals.descriptor_noise_score >= 0.4) return "conviene ordenar mejor los descriptores";
-    return null;
-}
-
 export function Home() {
     const [query, setQuery] = useState("");
     const [submittedQuery, setSubmittedQuery] = useState("");
@@ -85,6 +59,12 @@ export function Home() {
                 setMode(response.mode);
                 setResult(response.data);
                 setSelectedId(response.data.lines[0]?.representative_dictamen_id ?? null);
+                if (import.meta.env.DEV) {
+                    console.debug("doctrine-search query", {
+                        query_original: submittedQuery,
+                        query_rewritten: response.data.overview.query_interpreted ?? null
+                    });
+                }
                 setState("ready");
             } catch {
                 if (!active) return;
@@ -104,6 +84,7 @@ export function Home() {
 
     const hasActiveQuery = submittedQuery.trim().length > 0;
     const visibleOverviewQuery = hasActiveQuery ? submittedQuery : result?.overview.query;
+    const visibleInterpretedQuery = hasActiveQuery ? result?.overview.query_interpreted : null;
     const visibleOverviewMatter = state === "ready" ? result?.overview.materiaEvaluated : null;
     const modeLabel = state === "loading"
         ? "Actualizando resultado"
@@ -168,6 +149,13 @@ export function Home() {
                                 </button>
                             </div>
 
+                            {visibleInterpretedQuery && visibleInterpretedQuery.trim() !== (visibleOverviewQuery ?? "").trim() && (
+                                <div className="rounded-[1.15rem] border border-white/15 bg-white/10 px-4 py-3 text-sm text-blue-100">
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cgr-gold">Consulta interpretada</p>
+                                    <p className="mt-2">“{visibleInterpretedQuery}”</p>
+                                </div>
+                            )}
+
                             <div className="flex flex-wrap gap-2">
                                 {DOCTRINE_SEARCH_EXAMPLES.map((example) => (
                                     <button
@@ -216,8 +204,13 @@ export function Home() {
                             {visibleOverviewQuery
                                 ? `Consulta jurídica: “${visibleOverviewQuery}”.`
                                 : "Sin consulta específica: se muestran las líneas doctrinales más visibles del corpus."}{" "}
-                            {visibleOverviewMatter && `Marco doctrinal evaluado: ${visibleOverviewMatter}.`}
+                            {visibleOverviewMatter && `Materia predominante: ${visibleOverviewMatter}.`}
                         </p>
+                        {result?.overview.query_intent && (
+                            <p className="text-sm leading-6 text-slate-500">
+                                Tema detectado: {result.overview.query_intent.intent_label}.
+                            </p>
+                        )}
                     </div>
 
                     {state === "loading" && (
@@ -285,7 +278,7 @@ export function Home() {
                         const isSelected = line.representative_dictamen_id === selectedLine?.representative_dictamen_id;
                         const visibleFuentes = line.top_fuentes_legales.slice(0, 3);
                         const visibleKeyDictamenes = line.key_dictamenes.slice(0, 3);
-                        const structureHint = structureHintLabel(line);
+                        const structureHint = groupingHint(line);
                         return (
                             <button
                                 key={line.representative_dictamen_id}
@@ -306,10 +299,10 @@ export function Home() {
                                                 importancia {line.importance_level}
                                             </span>
                                             <span className={cn("rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]", levelBadgeTone(line.change_risk_level, "risk"))}>
-                                                {doctrinalStateLabel(line.doctrinal_state)}
+                                                {doctrinalStateNarrative(line.doctrinal_state)}
                                             </span>
                                             <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
-                                                {relationDynamicsLabel(line)}
+                                                {relationPatternNarrative(line)}
                                             </span>
                                             <span className={cn(
                                                 "rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]",
@@ -319,7 +312,7 @@ export function Home() {
                                                         ? "border-amber-200 bg-amber-50 text-amber-700"
                                                         : "border-emerald-200 bg-emerald-50 text-emerald-700"
                                             )}>
-                                                {coherenceSummaryLabel(line)}
+                                                {lineClarityLabel(line)}
                                             </span>
                                         </div>
                                     </div>
@@ -328,22 +321,20 @@ export function Home() {
                                     </div>
                                 </div>
 
-                                <p className="mt-4 text-sm leading-7 text-slate-700">{line.summary}</p>
-                                <p className="mt-3 text-sm leading-6 text-slate-500">{line.doctrinal_state_reason}</p>
-                                <p className="mt-2 text-sm leading-6 text-slate-500">{line.relation_dynamics.summary}</p>
-                                <p className="mt-2 text-sm leading-6 text-slate-500">{line.coherence_signals.summary}</p>
+                                <p className="mt-4 text-sm leading-7 text-slate-700">{simplifyDoctrineLanguage(line.summary)}</p>
+                                <p className="mt-3 text-sm leading-6 text-slate-500">{simplifyDoctrineLanguage(line.doctrinal_state_reason)}</p>
+                                <p className="mt-2 text-sm leading-6 text-slate-500">{simplifyDoctrineLanguage(line.relation_dynamics.summary)}</p>
+                                <p className="mt-2 text-sm leading-6 text-slate-500">{simplifyDoctrineLanguage(line.coherence_signals.summary)}</p>
                                 {line.semantic_anchor_dictamen && (
                                     <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3">
                                         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cgr-navy/75">Más cercano a su búsqueda</p>
                                         <p className="mt-1 font-mono text-xs text-cgr-navy">{line.semantic_anchor_dictamen.id}</p>
                                         <p className="mt-2 text-sm leading-6 text-cgr-navy">{line.semantic_anchor_dictamen.titulo}</p>
-                                        <p className="mt-2 text-xs text-slate-500">
-                                            {formatSimpleDate(line.semantic_anchor_dictamen.fecha, "Sin fecha")} · score semántico {line.semantic_anchor_dictamen.score}
-                                        </p>
+                                        <p className="mt-2 text-xs text-slate-500">{formatSimpleDate(line.semantic_anchor_dictamen.fecha, "Sin fecha")}</p>
                                     </div>
                                 )}
                                 {line.structure_adjustments && (
-                                    <p className="mt-2 text-sm leading-6 text-emerald-800">{line.structure_adjustments.note}</p>
+                                    <p className="mt-2 text-sm leading-6 text-emerald-800">{simplifyDoctrineLanguage(line.structure_adjustments.note)}</p>
                                 )}
                                 {structureHint && (
                                     <div
@@ -360,8 +351,8 @@ export function Home() {
 
                                 {line.query_match_reason && (
                                     <div className="mt-4 rounded-2xl border border-cgr-gold/25 bg-cgr-gold/10 px-4 py-3">
-                                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cgr-navy/75">Por qué aparece esta línea</p>
-                                        <p className="mt-1 text-sm leading-6 text-cgr-navy">{line.query_match_reason}</p>
+                                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cgr-navy/75">Por qué conviene leer esta línea</p>
+                                        <p className="mt-1 text-sm leading-6 text-cgr-navy">{simplifyDoctrineLanguage(line.query_match_reason)}</p>
                                     </div>
                                 )}
 
@@ -384,13 +375,17 @@ export function Home() {
                                             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Dictámenes a leer primero</p>
                                             <div className="mt-2 space-y-2">
                                                 {visibleKeyDictamenes.map((dictamen) => (
-                                                    <div key={dictamen.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                                                        <div className="flex items-center justify-between gap-3">
-                                                            <span className="font-mono text-xs text-cgr-navy">{dictamen.id}</span>
-                                                            <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{dictamen.rol_en_linea}</span>
+                                                    <div key={dictamen.id} className="rounded-[1.1rem] border border-slate-200 bg-slate-50 px-4 py-3">
+                                                        <div className="flex flex-wrap items-start justify-between gap-3">
+                                                            <div className="space-y-1">
+                                                                <p className="font-serif text-base font-semibold text-cgr-navy">{dictamen.titulo}</p>
+                                                                <p className="font-mono text-xs text-slate-500">{dictamen.id}</p>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{dictamen.rol_en_linea}</p>
+                                                                {dictamen.fecha && <p className="mt-1 text-xs text-slate-500">{formatSimpleDate(dictamen.fecha, "Sin fecha")}</p>}
+                                                            </div>
                                                         </div>
-                                                        <p className="mt-2 text-sm text-slate-700">{dictamen.titulo}</p>
-                                                        {dictamen.fecha && <p className="mt-2 text-xs text-slate-500">{formatSimpleDate(dictamen.fecha, "Sin fecha")}</p>}
                                                     </div>
                                                 ))}
                                             </div>
@@ -446,7 +441,7 @@ export function Home() {
                                 <div className="space-y-2">
                                     <h3 className="font-serif text-2xl font-semibold text-cgr-navy">Seleccione una línea doctrinal</h3>
                                     <p className="max-w-md text-sm leading-6 text-slate-600">
-                                        Aquí verá el dictamen representativo, el núcleo doctrinal y los documentos que conviene leer primero.
+                                        Aquí verá el dictamen más útil para empezar, el recorrido sugerido y los documentos que conviene leer primero.
                                     </p>
                                 </div>
                             </div>

@@ -19,6 +19,7 @@ import {
     CartesianGrid
 } from 'recharts';
 import { useMigrationInfo } from '../../hooks/useAdminDashboard';
+import { formatSimpleDate } from '../../lib/date';
 
 export function MigrationDashboard() {
     const { data, loading, error } = useMigrationInfo();
@@ -229,7 +230,7 @@ function EventRow({ event }: { event: any }) {
                         {event.type === 'skill_event' ? `Evento de Skill: ${event.code}` : `Migración Exitosa: ${event.code}`}
                     </h5>
                     <span className="text-[10px] font-bold text-slate-400 uppercase whitespace-nowrap ml-2">
-                        {new Date(event.timestamp).toLocaleString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        {formatSimpleDate(event.timestamp)}
                     </span>
                 </div>
                 <p className="text-xs text-slate-600 line-clamp-2">

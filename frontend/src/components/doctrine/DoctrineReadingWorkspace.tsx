@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import type { DoctrineLine, DoctrineKeyDictamen } from "../../types";
 import { cn } from "../../lib/utils";
 import { formatSimpleDate } from "../../lib/date";
+import { doctrinalStateNarrative, lineClarityLabel, relationPatternNarrative, simplifyDoctrineLanguage } from "../../lib/doctrineLanguage";
 
 function normalizeDate(value: string | null) {
     if (!value) return null;
@@ -41,38 +42,19 @@ function roleHint(index: number, total: number, isRepresentative: boolean) {
     return "punto de apoyo";
 }
 
-function doctrinalStateLabel(state: DoctrineLine["doctrinal_state"]) {
-    if (state === "consolidado") return "criterio consolidado";
-    if (state === "bajo_tension") return "existen decisiones que aplican el criterio de forma distinta";
-    return "el criterio ha cambiado en el tiempo";
-}
-
-function relationBucketLabel(bucket: DoctrineLine["relation_dynamics"]["dominant_bucket"]) {
-    if (bucket === "consolida") return "consolida criterio";
-    if (bucket === "desarrolla") return "desarrolla criterio";
-    if (bucket === "ajusta") return "ajusta criterio";
-    return "sin patrón dominante";
-}
-
-function coherenceLabel(status: DoctrineLine["coherence_signals"]["coherence_status"]) {
-    if (status === "fragmentada") return "agrupación posiblemente mezclada";
-    if (status === "mixta") return "hay temas relacionados, pero no idénticos";
-    return "coherencia suficiente";
-}
-
 function coherenceActionHints(line: DoctrineLine) {
     const hints: string[] = [];
     if (line.structure_adjustments?.action === "merge_clusters") {
-        hints.push("fusión estructural aplicada");
+        hints.push("criterio ya consolidado");
     }
     if (line.coherence_signals.coherence_status === "fragmentada") {
-        hints.push("podría refinarse esta agrupación");
+        hints.push("la agrupación podría refinarse");
     }
     if (line.coherence_signals.outlier_probability >= 0.22) {
-        hints.push("hay dictámenes que podrían revisarse");
+        hints.push("hay decisiones con relación poco clara");
     }
     if (line.coherence_signals.descriptor_noise_score >= 0.4) {
-        hints.push("conviene ordenar mejor los descriptores");
+        hints.push("conviene ordenar mejor los nombres del criterio");
     }
     return hints.slice(0, 3);
 }
@@ -107,11 +89,11 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                         <div className="space-y-3">
                             <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-cgr-gold">
                                 <LibraryBig className="h-3.5 w-3.5" />
-                                Mesa de lectura doctrinal
+                                Lectura sugerida
                             </div>
                             <div className="space-y-2">
                                 <h3 className="font-serif text-3xl font-semibold leading-tight text-white">{line.title}</h3>
-                                <p className="max-w-2xl text-sm leading-7 text-blue-100">{line.summary}</p>
+                                <p className="max-w-2xl text-sm leading-7 text-blue-100">{simplifyDoctrineLanguage(line.summary)}</p>
                             </div>
                         </div>
 
@@ -125,7 +107,7 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                     </div>
 
                     <div className="rounded-[1.35rem] border border-white/10 bg-white/10 p-5">
-                        <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
+                        <div className="space-y-5">
                             <div>
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-100">Dictamen más cercano a su búsqueda</p>
                                 <p className="mt-2 font-mono text-sm text-cgr-gold">{line.semantic_anchor_dictamen?.id ?? representative.id}</p>
@@ -133,24 +115,24 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                                     {line.semantic_anchor_dictamen?.titulo ?? representative.titulo}
                                 </p>
                                 <p className="mt-3 text-sm leading-6 text-blue-100">
-                                    {line.semantic_anchor_dictamen?.reason ?? "Es el dictamen que conviene leer primero para entender este criterio."}
+                                    {simplifyDoctrineLanguage(line.semantic_anchor_dictamen?.reason ?? "Es el dictamen que conviene leer primero para entender este criterio.")}
                                 </p>
                             </div>
-                            <div className="space-y-4 rounded-[1.1rem] border border-white/10 bg-black/10 p-4">
-                                <div>
-                                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-100">Período en que este criterio aparece</p>
-                                    <p className="mt-2 text-sm text-white">
-                                        {formatSimpleDate(line.time_span.from, "s/d")} → {formatSimpleDate(line.time_span.to, "s/d")}
-                                    </p>
+
+                            <div className="border-t border-white/10 pt-4">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-100">Período en que este criterio aparece</p>
+                                <p className="mt-2 text-sm text-white">
+                                    {formatSimpleDate(line.time_span.from, "s/d")} → {formatSimpleDate(line.time_span.to, "s/d")}
+                                </p>
+                            </div>
+
+                            <div className="border-t border-white/10 pt-4">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-100">Cómo se comporta el criterio</p>
+                                <div className="mt-2 flex items-start gap-2 text-sm text-white">
+                                    <GitBranch className="mt-0.5 h-4 w-4 shrink-0 text-cgr-gold" />
+                                    <span>{doctrinalStateNarrative(line.doctrinal_state)}</span>
                                 </div>
-                                <div>
-                                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-100">Cómo se comporta el criterio</p>
-                                    <div className="mt-2 flex items-start gap-2 text-sm text-white">
-                                        <GitBranch className="mt-0.5 h-4 w-4 shrink-0 text-cgr-gold" />
-                                        <span>{doctrinalStateLabel(line.doctrinal_state)}</span>
-                                    </div>
-                                    <p className="mt-2 text-xs leading-5 text-blue-100">{line.doctrinal_state_reason}</p>
-                                </div>
+                                <p className="mt-2 text-xs leading-5 text-blue-100">{simplifyDoctrineLanguage(line.doctrinal_state_reason)}</p>
                             </div>
                         </div>
                     </div>
@@ -159,10 +141,10 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
 
             <section className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
                 <div className="rounded-[1.6rem] border border-slate-200 bg-white p-5 shadow-sm">
-                    <div className="flex items-center gap-2">
-                        <Sparkles className="h-4 w-4 text-cgr-navy" />
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Ruta de lectura sugerida</p>
-                    </div>
+                        <div className="flex items-center gap-2">
+                            <Sparkles className="h-4 w-4 text-cgr-navy" />
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Ruta de lectura sugerida</p>
+                        </div>
 
                     <div className="mt-5 space-y-5">
                         {timeline.map((dictamen, index) => {
@@ -237,9 +219,9 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                     <section className="rounded-[1.6rem] border border-slate-200 bg-white p-5 shadow-sm">
                         <div className="flex items-center gap-2">
                             <GitBranch className="h-4 w-4 text-cgr-navy" />
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Lectura doctrinal</p>
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Cómo se aplica este criterio</p>
                         </div>
-                        <p className="mt-4 text-sm leading-6 text-slate-600">{line.doctrinal_state_reason}</p>
+                        <p className="mt-4 text-sm leading-6 text-slate-600">{simplifyDoctrineLanguage(line.doctrinal_state_reason)}</p>
                         {line.pivot_dictamen && (
                             <div className="mt-4 rounded-[1.2rem] border border-cgr-red/15 bg-cgr-red/5 p-4">
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cgr-red">Dictamen pivote</p>
@@ -247,7 +229,7 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                                     <div>
                                         <p className="font-mono text-xs text-cgr-red">{line.pivot_dictamen.id}</p>
                                         <p className="mt-2 font-serif text-lg font-semibold text-cgr-navy">{line.pivot_dictamen.titulo}</p>
-                                        <p className="mt-2 text-sm leading-6 text-slate-600">{line.pivot_dictamen.reason}</p>
+                                        <p className="mt-2 text-sm leading-6 text-slate-600">{simplifyDoctrineLanguage(line.pivot_dictamen.reason)}</p>
                                     </div>
                                     <p className="text-sm text-slate-500">{formatSimpleDate(line.pivot_dictamen.fecha)}</p>
                                 </div>
@@ -267,7 +249,7 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                                     <div>
                                         <p className="font-mono text-xs text-cgr-navy">{line.semantic_anchor_dictamen.id}</p>
                                         <p className="mt-2 font-serif text-lg font-semibold text-cgr-navy">{line.semantic_anchor_dictamen.titulo}</p>
-                                        <p className="mt-2 text-sm leading-6 text-slate-600">{line.semantic_anchor_dictamen.reason}</p>
+                                        <p className="mt-2 text-sm leading-6 text-slate-600">{simplifyDoctrineLanguage(line.semantic_anchor_dictamen.reason)}</p>
                                     </div>
                                     <p className="text-sm text-slate-500">{formatSimpleDate(line.semantic_anchor_dictamen.fecha, "Sin fecha")}</p>
                                 </div>
@@ -278,9 +260,9 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                     <section className="rounded-[1.6rem] border border-slate-200 bg-white p-5 shadow-sm">
                         <div className="flex items-center gap-2">
                             <ChevronRight className="h-4 w-4 text-cgr-navy" />
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Dinámica jurídica</p>
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Patrón de decisiones</p>
                         </div>
-                        <p className="mt-4 text-sm leading-6 text-slate-600">{line.relation_dynamics.summary}</p>
+                        <p className="mt-4 text-sm leading-6 text-slate-600">{simplifyDoctrineLanguage(line.relation_dynamics.summary)}</p>
                         <div className="mt-4 grid gap-3 sm:grid-cols-3">
                             <div className="rounded-[1rem] border border-emerald-200 bg-emerald-50 px-4 py-3">
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-700">Consolidan</p>
@@ -296,14 +278,14 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                             </div>
                         </div>
                         <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                            Patrón dominante: {relationBucketLabel(line.relation_dynamics.dominant_bucket)}
+                            Patrón dominante: {relationPatternNarrative(line)}
                         </p>
                     </section>
 
                     <section className="rounded-[1.6rem] border border-slate-200 bg-white p-5 shadow-sm">
                         <div className="flex items-center gap-2">
                             <Sparkles className="h-4 w-4 text-cgr-navy" />
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Coherencia del corpus</p>
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Claridad de la línea</p>
                         </div>
                         <div className="mt-4 flex flex-wrap items-center gap-2">
                             <span className={cn(
@@ -314,13 +296,13 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                                         ? "border-amber-200 bg-amber-50 text-amber-700"
                                         : "border-emerald-200 bg-emerald-50 text-emerald-700"
                             )}>
-                                {coherenceLabel(line.coherence_signals.coherence_status)}
+                                {lineClarityLabel(line)}
                             </span>
                         </div>
-                        <p className="mt-4 text-sm leading-6 text-slate-600">{line.coherence_signals.summary}</p>
+                        <p className="mt-4 text-sm leading-6 text-slate-600">{simplifyDoctrineLanguage(line.coherence_signals.summary)}</p>
                         <div className="mt-4 grid gap-3 sm:grid-cols-2">
                             <div className="rounded-[1rem] border border-slate-200 bg-slate-50 px-4 py-3">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Cohesión</p>
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Cercanía entre dictámenes</p>
                                 <p className="mt-2 text-2xl font-semibold text-cgr-navy">{line.coherence_signals.cluster_cohesion_score}</p>
                             </div>
                             <div className="rounded-[1rem] border border-slate-200 bg-slate-50 px-4 py-3">
@@ -329,11 +311,11 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                             </div>
                         </div>
                         {line.structure_adjustments && (
-                            <p className="mt-4 text-sm leading-6 text-emerald-800">{line.structure_adjustments.note}</p>
+                            <p className="mt-4 text-sm leading-6 text-emerald-800">{simplifyDoctrineLanguage(line.structure_adjustments.note)}</p>
                         )}
                         {coherenceHints.length > 0 && (
                             <div className="mt-4">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Qué podría refinarse</p>
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Qué conviene revisar</p>
                                 <div className="mt-2 flex flex-wrap gap-2">
                                     {coherenceHints.map((hint) => (
                                         <span
@@ -356,7 +338,7 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                     <section className="rounded-[1.6rem] border border-slate-200 bg-white p-5 shadow-sm">
                         <div className="flex items-center gap-2">
                             <Scale className="h-4 w-4 text-cgr-navy" />
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Núcleo doctrinal</p>
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Dictámenes clave</p>
                         </div>
                         <div className="mt-4 flex flex-wrap gap-2">
                             {line.core_dictamen_ids.map((id) => (

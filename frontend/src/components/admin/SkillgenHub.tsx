@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Network, Bot, Cpu, Zap, AlertCircle, Activity } from 'lucide-react';
 import { useMigrationInfo } from '../../hooks/useAdminDashboard';
+import { formatSimpleDate } from '../../lib/date';
 
 export function SkillgenHub() {
     const { data, loading, error } = useMigrationInfo();
@@ -110,7 +111,7 @@ export function SkillgenHub() {
                                                 {event.workflow && <span className="ml-2 font-mono text-[10px] bg-slate-100 text-slate-500 px-1 py-0.5 rounded">{event.workflow}</span>}
                                             </h5>
                                             <span className="text-[10px] font-bold text-slate-400 uppercase whitespace-nowrap ml-2">
-                                                {new Date(event.timestamp).toLocaleString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                                {formatSimpleDate(event.timestamp)}
                                             </span>
                                         </div>
                                         <p className="text-xs text-slate-600 leading-snug">

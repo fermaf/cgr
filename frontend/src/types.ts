@@ -243,6 +243,12 @@ export interface DoctrineInsightsOverview {
     periodCovered: DoctrineTimeSpan;
     materiaEvaluated: string | null;
     query?: string;
+    query_interpreted?: string | null;
+    query_intent?: {
+        intent_label: string;
+        confidence: number;
+    } | null;
+    searchMode?: "semantic" | "lexical_fallback";
 }
 
 export interface DoctrineInsightsResponse {
