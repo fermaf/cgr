@@ -12,6 +12,7 @@
 
 - Enrichment doctrinal: `mistral-large-2512`
 - Query understanding y rewrite conservador: `mistral-large-2411`
+- Metadata doctrinal y reproceso del core: `mistral-large-2411`
 
 ## Capacidades productivas ya operativas
 
@@ -22,6 +23,7 @@
 - `pivot_dictamen`
 - `reading_priority_reason`
 - `graph_doctrinal_status`
+- `dictamen_metadata_doctrinal`
 - ranking híbrido semántico-doctrinal
 - priorización por vigencia doctrinal
 - remediación estructural de líneas doctrinales
@@ -51,6 +53,14 @@ La plataforma ya tiene:
 - diccionario canónico base de normas;
 - saneamiento histórico seguro para alias y variantes triviales;
 - render más confiable en detalle de dictamen.
+
+## Metadata doctrinal
+
+La plataforma ahora cuenta con:
+
+- `dictamen_metadata_doctrinal` como snapshot operativo por dictamen;
+- `dictamen_metadata_doctrinal_evidence` para trazabilidad de señales;
+- reproceso administrable desde el backend para recalcular la capa sin tocar el retrieval semántico.
 
 ## Despliegue principal
 

@@ -119,6 +119,40 @@ export interface DictamenEventRow {
   created_at: string;
 }
 
+export interface DictamenMetadataDoctrinalRow {
+  dictamen_id: string;
+  pipeline_version: string;
+  computed_at: string;
+  materia_base: string | null;
+  tema_canonico: string | null;
+  subtema_canonico: string | null;
+  rol_principal: string;
+  roles_secundarios_json: string | null;
+  estado_intervencion_cgr: string;
+  estado_vigencia: string;
+  reading_role: string;
+  reading_weight: number;
+  currentness_score: number;
+  historical_significance_score: number;
+  doctrinal_centrality_score: number;
+  shift_intensity_score: number;
+  family_eligibility_score: number;
+  drift_risk_score: number;
+  supports_state_current: number;
+  signals_litigious_matter: number;
+  signals_abstention: number;
+  signals_competence_closure: number;
+  signals_operational_rule: number;
+  anchor_norma_principal: string | null;
+  anchor_dictamen_referido: string | null;
+  evidence_summary_json: string | null;
+  confidence_global: number;
+  manual_review_status: string;
+  source_snapshot_version: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AccionJuridicaEmitida {
   accion: 'aplicado' | 'aclarado' | 'alterado' | 'complementado' | 'confirmado' | 'reactivado' | 'reconsiderado' | 'reconsiderado_parcialmente';
   numero_destino: string;
@@ -128,6 +162,35 @@ export interface AccionJuridicaEmitida {
 
 
 
+// Fila de la nueva tabla tabla_boletines.
+export interface BoletinRow {
+  id: string;
+  fecha_inicio: string;
+  fecha_fin: string;
+  filtro_boletin: number;
+  filtro_relevante: number;
+  filtro_recurso_prot: number;
+  status: 'PENDING' | 'MISTRAL_REDUCING' | 'MEDIA_GENERATING' | 'COMPLETED' | 'ERROR';
+  original_ids?: string | null; // JSON array
+  synthesis?: string | null;    // Síntesis doctrinal maestra
+  created_at: string;
+  updated_at: string;
+}
+
+// Fila de la nueva tabla tabla_boletines_entregables.
+export interface BoletinEntregableRow {
+  id: number;
+  boletin_id: string;
+  canal: string;
+  status: 'DRAFT' | 'GENERATING_MEDIA' | 'READY';
+  content_text: string | null;
+  media_urls: string | null; // JSON string (array)
+  prompts: string | null;    // Prompts de Gemini
+  metadata: string | null;   // Metadatos adicionales (JSON)
+  created_at: string;
+  updated_at: string;
+}
+
 // Bindings y variables de entorno del Worker.
 export interface Env {
   // Bindings
@@ -135,6 +198,8 @@ export interface Env {
   BACKFILL_WORKFLOW: Workflow;
   KV_SYNC_WORKFLOW: Workflow;
   CANONICAL_RELATIONS_WORKFLOW: Workflow;
+  DOCTRINAL_METADATA_WORKFLOW: Workflow;
+  BOLETIN_WORKFLOW: Workflow;
   DB: D1Database;
   DICTAMENES_SOURCE: KVNamespace;
   DICTAMENES_PASO: KVNamespace;
@@ -164,7 +229,11 @@ export interface Env {
   // Secrets
   PINECONE_API_KEY: string;
   MISTRAL_API_KEY: string;
+  GEMINI_API_KEY: string;
+  ELEVENLABS_API_KEY: string;
+  ELEVENLABS_TOOL_SECRET: string;
 
   INGEST_TRIGGER_TOKEN?: string;
   CF_AIG_AUTHORIZATION?: string;
+  GEMINI_API_URL?: string;
 }

@@ -1,0 +1,1228 @@
+{
+  "generated_at": "2026-04-04T03:12:17.779Z",
+  "benchmark_ids": [
+    "E523936N24",
+    "E516614N24",
+    "E516638N24",
+    "E516610N24",
+    "E510609N24",
+    "005288N18",
+    "045157N16",
+    "E200011N25"
+  ],
+  "summary": {
+    "models": [
+      {
+        "model_id": "mistral-large-2411",
+        "label": "Mistral Large 2411",
+        "type": "paid_control",
+        "total_cases": 8,
+        "valid_cases": 8,
+        "average_score": 100,
+        "average_latency_ms": 10248.13
+      },
+      {
+        "model_id": "arcee-ai/trinity-large-preview:free",
+        "label": "Arcee Trinity Large Preview Free",
+        "type": "free_candidate",
+        "total_cases": 8,
+        "valid_cases": 8,
+        "average_score": 100,
+        "average_latency_ms": 60940
+      },
+      {
+        "model_id": "openai/gpt-oss-120b:free",
+        "label": "OpenAI gpt-oss-120b Free",
+        "type": "free_candidate",
+        "total_cases": 8,
+        "valid_cases": 0,
+        "average_score": 0,
+        "average_latency_ms": 260.25
+      }
+    ],
+    "findings": [
+      "Mejor score promedio: Mistral Large 2411 con 100.",
+      "Mejor candidato gratuito: Arcee Trinity Large Preview Free con 100 y 8/8 salidas válidas.",
+      "Diferencia contra Mistral Large 2411: +0 puntos para Arcee Trinity Large Preview Free."
+    ]
+  },
+  "results": [
+    {
+      "dictamen_id": "E523936N24",
+      "materia": "Imparte instrucciones sobre las modificaciones que la ley N° 21.643 (Ley Karin) introdujo al Código del Trabajo, en materia de prevención, investigación y sanción del acoso laboral, sexual o de violencia en el trabajo, respecto de organismos públicos cuyo personal se rija por ese código.",
+      "fecha_documento": "2024-08-06",
+      "models": [
+        {
+          "model_id": "mistral-large-2411",
+          "label": "Mistral Large 2411",
+          "type": "paid_control",
+          "provider": "mistral",
+          "http_ok": true,
+          "status": 200,
+          "latency_ms": 8325,
+          "usage": {
+            "prompt_tokens": 9239,
+            "total_tokens": 9668,
+            "completion_tokens": 429,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "parse_error": null,
+          "evaluation": {
+            "valid": true,
+            "score": 100,
+            "issues": [],
+            "warnings": [],
+            "summary": "Salida estructuralmente válida"
+          },
+          "output": {
+            "dictamen_id": "E523936N24",
+            "rol_principal": "complemento",
+            "roles_secundarios": [
+              "aplicacion",
+              "aclaracion"
+            ],
+            "estado_intervencion_cgr": "intervencion_normal",
+            "estado_vigencia": "vigente_visible",
+            "reading_role": "entrada_doctrinal",
+            "reading_weight": 0.8,
+            "currentness_score": 0.9,
+            "historical_significance_score": 0.6,
+            "doctrinal_centrality_score": 0.7,
+            "shift_intensity_score": 0.3,
+            "family_eligibility_score": 0.5,
+            "drift_risk_score": 0.2,
+            "supports_state_current": true,
+            "signals_litigious_matter": false,
+            "signals_abstention": false,
+            "signals_competence_closure": false,
+            "signals_operational_rule": true,
+            "anchor_norma_principal": "Ley 21.643",
+            "anchor_dictamen_referido": "E516610N24",
+            "confidence_global": 0.8,
+            "evidencia_resumen": "El dictamen complementa y profundiza las instrucciones previas sobre la aplicación de la Ley 21.643 en organismos públicos con personal regido por el Código del Trabajo, detallando protocolos de prevención, investigación de acoso y medidas de resguardo."
+          }
+        },
+        {
+          "model_id": "arcee-ai/trinity-large-preview:free",
+          "label": "Arcee Trinity Large Preview Free",
+          "type": "free_candidate",
+          "provider": "openrouter",
+          "http_ok": true,
+          "status": 200,
+          "latency_ms": 73618,
+          "usage": {
+            "prompt_tokens": 7227,
+            "completion_tokens": 323,
+            "total_tokens": 7550,
+            "cost": 0,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "parse_error": null,
+          "evaluation": {
+            "valid": true,
+            "score": 100,
+            "issues": [],
+            "warnings": [],
+            "summary": "Salida estructuralmente válida"
+          },
+          "output": {
+            "dictamen_id": "E523936N24",
+            "rol_principal": "complemento",
+            "roles_secundarios": [
+              "aplicacion",
+              "aclaracion",
+              "hito_historico"
+            ],
+            "estado_intervencion_cgr": "intervencion_normal",
+            "estado_vigencia": "vigente_visible",
+            "reading_role": "entrada_doctrinal",
+            "reading_weight": 0.85,
+            "currentness_score": 0.95,
+            "historical_significance_score": 0.75,
+            "doctrinal_centrality_score": 0.8,
+            "shift_intensity_score": 0.2,
+            "family_eligibility_score": 0.9,
+            "drift_risk_score": 0.1,
+            "supports_state_current": true,
+            "signals_litigious_matter": false,
+            "signals_abstention": false,
+            "signals_competence_closure": false,
+            "signals_operational_rule": true,
+            "anchor_norma_principal": "ley::21643::2024::",
+            "anchor_dictamen_referido": "E516610N24",
+            "confidence_global": 0.88,
+            "evidencia_resumen": "Dictamen complementa instructivo previo sobre Ley Karin, profundizando en aplicación a organismos con personal bajo Código del Trabajo, abordando denuncias verbales, medidas de resguardo, investigación y garantías procesales."
+          }
+        },
+        {
+          "model_id": "openai/gpt-oss-120b:free",
+          "label": "OpenAI gpt-oss-120b Free",
+          "type": "free_candidate",
+          "provider": "openrouter",
+          "http_ok": false,
+          "status": 404,
+          "latency_ms": 241,
+          "usage": null,
+          "parse_error": "EMPTY_CONTENT",
+          "evaluation": {
+            "valid": false,
+            "score": 0,
+            "issues": [
+              "{\"error\":{\"message\":\"No endpoints available matching your guardrail restrictions and data policy. Configure: https://openrouter.ai/settings/privacy\",\"code\":404}}"
+            ],
+            "warnings": [],
+            "summary": "Fallo de invocación"
+          },
+          "output": null
+        }
+      ]
+    },
+    {
+      "dictamen_id": "E516614N24",
+      "materia": "Imparte instrucciones a los gobiernos regionales sobre rendición de cuentas de los recursos transferidos a receptores intermediarios y a beneficiarios finales privados.",
+      "fecha_documento": "2024-07-19",
+      "models": [
+        {
+          "model_id": "mistral-large-2411",
+          "label": "Mistral Large 2411",
+          "type": "paid_control",
+          "provider": "mistral",
+          "http_ok": true,
+          "status": 200,
+          "latency_ms": 11213,
+          "usage": {
+            "prompt_tokens": 7719,
+            "total_tokens": 8156,
+            "completion_tokens": 437,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "parse_error": null,
+          "evaluation": {
+            "valid": true,
+            "score": 100,
+            "issues": [],
+            "warnings": [],
+            "summary": "Salida estructuralmente válida"
+          },
+          "output": {
+            "dictamen_id": "E516614N24",
+            "rol_principal": "nucleo_doctrinal",
+            "roles_secundarios": [
+              "aplicacion",
+              "aclaracion"
+            ],
+            "estado_intervencion_cgr": "intervencion_normal",
+            "estado_vigencia": "vigente_visible",
+            "reading_role": "entrada_doctrinal",
+            "reading_weight": 0.9,
+            "currentness_score": 0.9,
+            "historical_significance_score": 0.6,
+            "doctrinal_centrality_score": 0.8,
+            "shift_intensity_score": 0.2,
+            "family_eligibility_score": 0.7,
+            "drift_risk_score": 0.1,
+            "supports_state_current": true,
+            "signals_litigious_matter": false,
+            "signals_abstention": false,
+            "signals_competence_closure": false,
+            "signals_operational_rule": true,
+            "anchor_norma_principal": "Ley 10.336",
+            "anchor_dictamen_referido": "E409612N23",
+            "confidence_global": 0.8,
+            "evidencia_resumen": "El dictamen E516614N24 instruye sobre la rendición de cuentas de recursos transferidos por gobiernos regionales a receptores intermediarios, estableciendo procedimientos diferenciados según la naturaleza jurídica de los receptores y el uso obligatorio del SISREC."
+          }
+        },
+        {
+          "model_id": "arcee-ai/trinity-large-preview:free",
+          "label": "Arcee Trinity Large Preview Free",
+          "type": "free_candidate",
+          "provider": "openrouter",
+          "http_ok": true,
+          "status": 200,
+          "latency_ms": 57441,
+          "usage": {
+            "prompt_tokens": 6156,
+            "completion_tokens": 320,
+            "total_tokens": 6476,
+            "cost": 0,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "parse_error": null,
+          "evaluation": {
+            "valid": true,
+            "score": 100,
+            "issues": [],
+            "warnings": [],
+            "summary": "Salida estructuralmente válida"
+          },
+          "output": {
+            "dictamen_id": "E516614N24",
+            "rol_principal": "nucleo_doctrinal",
+            "roles_secundarios": [
+              "aplicacion",
+              "criterio_operativo_actual"
+            ],
+            "estado_intervencion_cgr": "intervencion_normal",
+            "estado_vigencia": "vigente_visible",
+            "reading_role": "entrada_doctrinal",
+            "reading_weight": 0.95,
+            "currentness_score": 0.9,
+            "historical_significance_score": 0.7,
+            "doctrinal_centrality_score": 0.85,
+            "shift_intensity_score": 0.3,
+            "family_eligibility_score": 0.8,
+            "drift_risk_score": 0.2,
+            "supports_state_current": true,
+            "signals_litigious_matter": false,
+            "signals_abstention": false,
+            "signals_competence_closure": false,
+            "signals_operational_rule": true,
+            "anchor_norma_principal": "ley::10336::::ley organica de la contraloria general de la republica",
+            "anchor_dictamen_referido": null,
+            "confidence_global": 0.88,
+            "evidencia_resumen": "Establece procedimientos diferenciados para rendición de cuentas según naturaleza jurídica del receptor intermediario (público/privado), integrando normativa constitucional, legal y resoluciones administrativas con uso obligatorio del SISREC."
+          }
+        },
+        {
+          "model_id": "openai/gpt-oss-120b:free",
+          "label": "OpenAI gpt-oss-120b Free",
+          "type": "free_candidate",
+          "provider": "openrouter",
+          "http_ok": false,
+          "status": 404,
+          "latency_ms": 221,
+          "usage": null,
+          "parse_error": "EMPTY_CONTENT",
+          "evaluation": {
+            "valid": false,
+            "score": 0,
+            "issues": [
+              "{\"error\":{\"message\":\"No endpoints available matching your guardrail restrictions and data policy. Configure: https://openrouter.ai/settings/privacy\",\"code\":404}}"
+            ],
+            "warnings": [],
+            "summary": "Fallo de invocación"
+          },
+          "output": null
+        }
+      ]
+    },
+    {
+      "dictamen_id": "E516638N24",
+      "materia": "Imparte instrucciones sobre clasificaciones presupuestarias de los gastos por transferencias corrientes y de capital que efectúan  los  organismos públicos.",
+      "fecha_documento": "2024-07-20",
+      "models": [
+        {
+          "model_id": "mistral-large-2411",
+          "label": "Mistral Large 2411",
+          "type": "paid_control",
+          "provider": "mistral",
+          "http_ok": true,
+          "status": 200,
+          "latency_ms": 9732,
+          "usage": {
+            "prompt_tokens": 7992,
+            "total_tokens": 8396,
+            "completion_tokens": 404,
+            "prompt_tokens_details": {
+              "cached_tokens": 736
+            }
+          },
+          "parse_error": null,
+          "evaluation": {
+            "valid": true,
+            "score": 100,
+            "issues": [],
+            "warnings": [],
+            "summary": "Salida estructuralmente válida"
+          },
+          "output": {
+            "dictamen_id": "E516638N24",
+            "rol_principal": "aplicacion",
+            "roles_secundarios": [
+              "aclaracion",
+              "complemento"
+            ],
+            "estado_intervencion_cgr": "intervencion_normal",
+            "estado_vigencia": "vigente_visible",
+            "reading_role": "entrada_doctrinal",
+            "reading_weight": 0.8,
+            "currentness_score": 0.9,
+            "historical_significance_score": 0.6,
+            "doctrinal_centrality_score": 0.7,
+            "shift_intensity_score": 0.2,
+            "family_eligibility_score": 0.5,
+            "drift_risk_score": 0.3,
+            "supports_state_current": true,
+            "signals_litigious_matter": false,
+            "signals_abstention": false,
+            "signals_competence_closure": false,
+            "signals_operational_rule": true,
+            "anchor_norma_principal": "Decreto 854",
+            "anchor_dictamen_referido": "E37914",
+            "confidence_global": 0.8,
+            "evidencia_resumen": "El dictamen E516638N24 aplica y complementa criterios para la clasificación presupuestaria de transferencias corrientes y de capital, basándose en normativas y jurisprudencia administrativa previa."
+          }
+        },
+        {
+          "model_id": "arcee-ai/trinity-large-preview:free",
+          "label": "Arcee Trinity Large Preview Free",
+          "type": "free_candidate",
+          "provider": "openrouter",
+          "http_ok": true,
+          "status": 200,
+          "latency_ms": 67428,
+          "usage": {
+            "prompt_tokens": 6389,
+            "completion_tokens": 305,
+            "total_tokens": 6694,
+            "cost": 0,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "parse_error": null,
+          "evaluation": {
+            "valid": true,
+            "score": 100,
+            "issues": [],
+            "warnings": [],
+            "summary": "Salida estructuralmente válida"
+          },
+          "output": {
+            "dictamen_id": "E516638N24",
+            "rol_principal": "nucleo_doctrinal",
+            "roles_secundarios": [
+              "aplicacion",
+              "criterio_operativo_actual"
+            ],
+            "estado_intervencion_cgr": "intervencion_normal",
+            "estado_vigencia": "vigente_visible",
+            "reading_role": "entrada_doctrinal",
+            "reading_weight": 0.95,
+            "currentness_score": 0.9,
+            "historical_significance_score": 0.8,
+            "doctrinal_centrality_score": 0.95,
+            "shift_intensity_score": 0.1,
+            "family_eligibility_score": 0.85,
+            "drift_risk_score": 0.2,
+            "supports_state_current": true,
+            "signals_litigious_matter": false,
+            "signals_abstention": false,
+            "signals_competence_closure": false,
+            "signals_operational_rule": true,
+            "anchor_norma_principal": "decreto 854 de 2004",
+            "anchor_dictamen_referido": null,
+            "confidence_global": 0.92,
+            "evidencia_resumen": "Establece doctrina vinculante sobre clasificación presupuestaria de transferencias corrientes y de capital, definiendo criterios operativos para su aplicación en organismos públicos."
+          }
+        },
+        {
+          "model_id": "openai/gpt-oss-120b:free",
+          "label": "OpenAI gpt-oss-120b Free",
+          "type": "free_candidate",
+          "provider": "openrouter",
+          "http_ok": false,
+          "status": 404,
+          "latency_ms": 39,
+          "usage": null,
+          "parse_error": "EMPTY_CONTENT",
+          "evaluation": {
+            "valid": false,
+            "score": 0,
+            "issues": [
+              "{\"error\":{\"message\":\"No endpoints available matching your guardrail restrictions and data policy. Configure: https://openrouter.ai/settings/privacy\",\"code\":404}}"
+            ],
+            "warnings": [],
+            "summary": "Fallo de invocación"
+          },
+          "output": null
+        }
+      ]
+    },
+    {
+      "dictamen_id": "E516610N24",
+      "materia": "Imparte instrucciones sobre las modificaciones que la ley N° 21.643 (Ley Karin) introdujo en las leyes N°s 18.575, 18.834 y 18.883, en materia de prevención, investigación y sanción del acoso laboral, sexual o de violencia en el trabajo.",
+      "fecha_documento": "2024-07-19",
+      "models": [
+        {
+          "model_id": "mistral-large-2411",
+          "label": "Mistral Large 2411",
+          "type": "paid_control",
+          "provider": "mistral",
+          "http_ok": true,
+          "status": 200,
+          "latency_ms": 10405,
+          "usage": {
+            "prompt_tokens": 9122,
+            "total_tokens": 9564,
+            "completion_tokens": 442,
+            "prompt_tokens_details": {
+              "cached_tokens": 736
+            }
+          },
+          "parse_error": null,
+          "evaluation": {
+            "valid": true,
+            "score": 100,
+            "issues": [],
+            "warnings": [],
+            "summary": "Salida estructuralmente válida"
+          },
+          "output": {
+            "dictamen_id": "E516610N24",
+            "rol_principal": "aplicacion",
+            "roles_secundarios": [
+              "nucleo_doctrinal",
+              "aclaracion"
+            ],
+            "estado_intervencion_cgr": "intervencion_normal",
+            "estado_vigencia": "vigente_visible",
+            "reading_role": "entrada_semantica",
+            "reading_weight": 0.8,
+            "currentness_score": 0.9,
+            "historical_significance_score": 0.6,
+            "doctrinal_centrality_score": 0.7,
+            "shift_intensity_score": 0.5,
+            "family_eligibility_score": 0.7,
+            "drift_risk_score": 0.3,
+            "supports_state_current": true,
+            "signals_litigious_matter": false,
+            "signals_abstention": false,
+            "signals_competence_closure": false,
+            "signals_operational_rule": true,
+            "anchor_norma_principal": "Ley 21.643",
+            "anchor_dictamen_referido": null,
+            "confidence_global": 0.8,
+            "evidencia_resumen": "El dictamen analiza y aplica las modificaciones introducidas por la Ley 21.643 (Ley Karin) en materia de prevención, investigación y sanción del acoso sexual, laboral y violencia en el trabajo, estableciendo obligaciones para órganos administrativos, protocolos de prevención, principios procedimentales y sanciones."
+          }
+        },
+        {
+          "model_id": "arcee-ai/trinity-large-preview:free",
+          "label": "Arcee Trinity Large Preview Free",
+          "type": "free_candidate",
+          "provider": "openrouter",
+          "http_ok": true,
+          "status": 200,
+          "latency_ms": 56493,
+          "usage": {
+            "prompt_tokens": 7269,
+            "completion_tokens": 359,
+            "total_tokens": 7628,
+            "cost": 0,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "parse_error": null,
+          "evaluation": {
+            "valid": true,
+            "score": 100,
+            "issues": [],
+            "warnings": [],
+            "summary": "Salida estructuralmente válida"
+          },
+          "output": {
+            "dictamen_id": "E516610N24",
+            "rol_principal": "nucleo_doctrinal",
+            "roles_secundarios": [
+              "aplicacion",
+              "hito_historico",
+              "criterio_operativo_actual"
+            ],
+            "estado_intervencion_cgr": "intervencion_normal",
+            "estado_vigencia": "vigente_visible",
+            "reading_role": "entrada_doctrinal",
+            "reading_weight": 0.95,
+            "currentness_score": 0.95,
+            "historical_significance_score": 0.85,
+            "doctrinal_centrality_score": 0.9,
+            "shift_intensity_score": 0.75,
+            "family_eligibility_score": 0.8,
+            "drift_risk_score": 0.2,
+            "supports_state_current": true,
+            "signals_litigious_matter": false,
+            "signals_abstention": false,
+            "signals_competence_closure": false,
+            "signals_operational_rule": true,
+            "anchor_norma_principal": "ley::21643::2024::ley karin",
+            "anchor_dictamen_referido": null,
+            "confidence_global": 0.92,
+            "evidencia_resumen": "Dictamen E516610N24 establece doctrina operativa sobre aplicación de Ley Karin (N° 21.643) en prevención, investigación y sanción de acoso sexual, laboral y violencia en el trabajo, incorporando principios de confidencialidad, imparcialidad, celeridad y perspectiva de género, con efectos inmediatos desde agosto 2024."
+          }
+        },
+        {
+          "model_id": "openai/gpt-oss-120b:free",
+          "label": "OpenAI gpt-oss-120b Free",
+          "type": "free_candidate",
+          "provider": "openrouter",
+          "http_ok": false,
+          "status": 404,
+          "latency_ms": 1031,
+          "usage": null,
+          "parse_error": "EMPTY_CONTENT",
+          "evaluation": {
+            "valid": false,
+            "score": 0,
+            "issues": [
+              "{\"error\":{\"message\":\"No endpoints available matching your guardrail restrictions and data policy. Configure: https://openrouter.ai/settings/privacy\",\"code\":404}}"
+            ],
+            "warnings": [],
+            "summary": "Fallo de invocación"
+          },
+          "output": null
+        }
+      ]
+    },
+    {
+      "dictamen_id": "E510609N24",
+      "materia": "Imparte instrucciones en relación con eventos culturales y de esparcimiento organizados por las municipalidades.",
+      "fecha_documento": "2024-07-09",
+      "models": [
+        {
+          "model_id": "mistral-large-2411",
+          "label": "Mistral Large 2411",
+          "type": "paid_control",
+          "provider": "mistral",
+          "http_ok": true,
+          "status": 200,
+          "latency_ms": 11519,
+          "usage": {
+            "prompt_tokens": 8051,
+            "total_tokens": 8459,
+            "completion_tokens": 408,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "parse_error": null,
+          "evaluation": {
+            "valid": true,
+            "score": 100,
+            "issues": [],
+            "warnings": [],
+            "summary": "Salida estructuralmente válida"
+          },
+          "output": {
+            "dictamen_id": "E510609N24",
+            "rol_principal": "aplicacion",
+            "roles_secundarios": [
+              "aclaracion",
+              "limitacion"
+            ],
+            "estado_intervencion_cgr": "intervencion_normal",
+            "estado_vigencia": "vigente_visible",
+            "reading_role": "entrada_doctrinal",
+            "reading_weight": 0.8,
+            "currentness_score": 0.9,
+            "historical_significance_score": 0.6,
+            "doctrinal_centrality_score": 0.7,
+            "shift_intensity_score": 0.3,
+            "family_eligibility_score": 0.5,
+            "drift_risk_score": 0.2,
+            "supports_state_current": true,
+            "signals_litigious_matter": false,
+            "signals_abstention": false,
+            "signals_competence_closure": false,
+            "signals_operational_rule": true,
+            "anchor_norma_principal": "Ley 18.695",
+            "anchor_dictamen_referido": "N° 27.930, de 2018",
+            "confidence_global": 0.7,
+            "evidencia_resumen": "El dictamen establece límites claros para el uso de bienes municipales y gastos en publicidad en eventos culturales, reafirmando principios de juridicidad y probidad administrativa."
+          }
+        },
+        {
+          "model_id": "arcee-ai/trinity-large-preview:free",
+          "label": "Arcee Trinity Large Preview Free",
+          "type": "free_candidate",
+          "provider": "openrouter",
+          "http_ok": true,
+          "status": 200,
+          "latency_ms": 54778,
+          "usage": {
+            "prompt_tokens": 6482,
+            "completion_tokens": 326,
+            "total_tokens": 6808,
+            "cost": 0,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "parse_error": null,
+          "evaluation": {
+            "valid": true,
+            "score": 100,
+            "issues": [],
+            "warnings": [],
+            "summary": "Salida estructuralmente válida"
+          },
+          "output": {
+            "dictamen_id": "E510609N24",
+            "rol_principal": "nucleo_doctrinal",
+            "roles_secundarios": [
+              "aplicacion",
+              "criterio_operativo_actual"
+            ],
+            "estado_intervencion_cgr": "intervencion_normal",
+            "estado_vigencia": "vigente_visible",
+            "reading_role": "entrada_doctrinal",
+            "reading_weight": 0.95,
+            "currentness_score": 0.9,
+            "historical_significance_score": 0.8,
+            "doctrinal_centrality_score": 0.95,
+            "shift_intensity_score": 0.1,
+            "family_eligibility_score": 0.85,
+            "drift_risk_score": 0.2,
+            "supports_state_current": true,
+            "signals_litigious_matter": false,
+            "signals_abstention": false,
+            "signals_competence_closure": false,
+            "signals_operational_rule": true,
+            "anchor_norma_principal": "ley::18575::::organica constitucional de bases generales de la administracion del estado",
+            "anchor_dictamen_referido": null,
+            "confidence_global": 0.92,
+            "evidencia_resumen": "Dictamen E510609N24 establece doctrina operativa sobre eventos culturales municipales, uso de bienes públicos, límites en publicidad institucional y prohibición de actividad política, bajo principios de juridicidad, probidad y no discriminación."
+          }
+        },
+        {
+          "model_id": "openai/gpt-oss-120b:free",
+          "label": "OpenAI gpt-oss-120b Free",
+          "type": "free_candidate",
+          "provider": "openrouter",
+          "http_ok": false,
+          "status": 404,
+          "latency_ms": 35,
+          "usage": null,
+          "parse_error": "EMPTY_CONTENT",
+          "evaluation": {
+            "valid": false,
+            "score": 0,
+            "issues": [
+              "{\"error\":{\"message\":\"No endpoints available matching your guardrail restrictions and data policy. Configure: https://openrouter.ai/settings/privacy\",\"code\":404}}"
+            ],
+            "warnings": [],
+            "summary": "Fallo de invocación"
+          },
+          "output": null
+        }
+      ]
+    },
+    {
+      "dictamen_id": "005288N18",
+      "materia": "Imparte instrucciones en relación a los sujetos obligados a realizar las declaraciones de intereses y patrimonio a que se refiere la ley N° 20.880 y que son fiscalizados por esta Entidad de Control Superior.",
+      "fecha_documento": "2018-02-20",
+      "models": [
+        {
+          "model_id": "mistral-large-2411",
+          "label": "Mistral Large 2411",
+          "type": "paid_control",
+          "provider": "mistral",
+          "http_ok": true,
+          "status": 200,
+          "latency_ms": 11810,
+          "usage": {
+            "prompt_tokens": 8932,
+            "total_tokens": 9334,
+            "completion_tokens": 402,
+            "prompt_tokens_details": {
+              "cached_tokens": 736
+            }
+          },
+          "parse_error": null,
+          "evaluation": {
+            "valid": true,
+            "score": 100,
+            "issues": [],
+            "warnings": [],
+            "summary": "Salida estructuralmente válida"
+          },
+          "output": {
+            "dictamen_id": "005288N18",
+            "rol_principal": "aplicacion",
+            "roles_secundarios": [
+              "nucleo_doctrinal",
+              "aclaracion"
+            ],
+            "estado_intervencion_cgr": "intervencion_normal",
+            "estado_vigencia": "vigente_visible",
+            "reading_role": "entrada_semantica",
+            "reading_weight": 0.8,
+            "currentness_score": 0.9,
+            "historical_significance_score": 0.6,
+            "doctrinal_centrality_score": 0.7,
+            "shift_intensity_score": 0.2,
+            "family_eligibility_score": 0.8,
+            "drift_risk_score": 0.1,
+            "supports_state_current": true,
+            "signals_litigious_matter": false,
+            "signals_abstention": false,
+            "signals_competence_closure": false,
+            "signals_operational_rule": true,
+            "anchor_norma_principal": "Ley 20.880",
+            "anchor_dictamen_referido": "041297N17",
+            "confidence_global": 0.85,
+            "evidencia_resumen": "Dictamen aplica y aclara la Ley 20.880 sobre sujetos obligados a declarar intereses y patrimonio, integrando jurisprudencia previa."
+          }
+        },
+        {
+          "model_id": "arcee-ai/trinity-large-preview:free",
+          "label": "Arcee Trinity Large Preview Free",
+          "type": "free_candidate",
+          "provider": "openrouter",
+          "http_ok": true,
+          "status": 200,
+          "latency_ms": 49156,
+          "usage": {
+            "prompt_tokens": 7084,
+            "completion_tokens": 309,
+            "total_tokens": 7393,
+            "cost": 0,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "parse_error": null,
+          "evaluation": {
+            "valid": true,
+            "score": 100,
+            "issues": [],
+            "warnings": [],
+            "summary": "Salida estructuralmente válida"
+          },
+          "output": {
+            "dictamen_id": "005288N18",
+            "rol_principal": "nucleo_doctrinal",
+            "roles_secundarios": [
+              "aplicacion",
+              "criterio_operativo_actual"
+            ],
+            "estado_intervencion_cgr": "intervencion_normal",
+            "estado_vigencia": "vigente_visible",
+            "reading_role": "entrada_doctrinal",
+            "reading_weight": 0.95,
+            "currentness_score": 0.9,
+            "historical_significance_score": 0.8,
+            "doctrinal_centrality_score": 0.95,
+            "shift_intensity_score": 0.1,
+            "family_eligibility_score": 0.85,
+            "drift_risk_score": 0.2,
+            "supports_state_current": true,
+            "signals_litigious_matter": false,
+            "signals_abstention": false,
+            "signals_competence_closure": false,
+            "signals_operational_rule": true,
+            "anchor_norma_principal": "ley::20880::2016::",
+            "anchor_dictamen_referido": null,
+            "confidence_global": 0.92,
+            "evidencia_resumen": "Dictamen sistematiza integralmente sujetos obligados a DIP según Ley 20.880, integrando jurisprudencia previa y estableciendo criterios operativos para fiscalizadores, directivos y honorarios."
+          }
+        },
+        {
+          "model_id": "openai/gpt-oss-120b:free",
+          "label": "OpenAI gpt-oss-120b Free",
+          "type": "free_candidate",
+          "provider": "openrouter",
+          "http_ok": false,
+          "status": 404,
+          "latency_ms": 30,
+          "usage": null,
+          "parse_error": "EMPTY_CONTENT",
+          "evaluation": {
+            "valid": false,
+            "score": 0,
+            "issues": [
+              "{\"error\":{\"message\":\"No endpoints available matching your guardrail restrictions and data policy. Configure: https://openrouter.ai/settings/privacy\",\"code\":404}}"
+            ],
+            "warnings": [],
+            "summary": "Fallo de invocación"
+          },
+          "output": null
+        }
+      ]
+    },
+    {
+      "dictamen_id": "045157N16",
+      "materia": "Se abstiene de emitir un pronunciamiento por encontrarse el asunto en conocimiento de los tribunales de justicia.",
+      "fecha_documento": "2016-06-17",
+      "models": [
+        {
+          "model_id": "mistral-large-2411",
+          "label": "Mistral Large 2411",
+          "type": "paid_control",
+          "provider": "mistral",
+          "http_ok": true,
+          "status": 200,
+          "latency_ms": 11263,
+          "usage": {
+            "prompt_tokens": 3251,
+            "total_tokens": 3667,
+            "completion_tokens": 416,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "parse_error": null,
+          "evaluation": {
+            "valid": true,
+            "score": 100,
+            "issues": [],
+            "warnings": [],
+            "summary": "Salida estructuralmente válida"
+          },
+          "output": {
+            "dictamen_id": "045157N16",
+            "rol_principal": "abstencion",
+            "roles_secundarios": [
+              "materia_litigiosa"
+            ],
+            "estado_intervencion_cgr": "abstencion_visible",
+            "estado_vigencia": "vigente_visible",
+            "reading_role": "entrada_semantica",
+            "reading_weight": 0.8,
+            "currentness_score": 0.9,
+            "historical_significance_score": 0.6,
+            "doctrinal_centrality_score": 0.5,
+            "shift_intensity_score": 0.1,
+            "family_eligibility_score": 0.7,
+            "drift_risk_score": 0.2,
+            "supports_state_current": true,
+            "signals_litigious_matter": true,
+            "signals_abstention": true,
+            "signals_competence_closure": false,
+            "signals_operational_rule": false,
+            "anchor_norma_principal": "ley::10336::::ley organica de la contraloria general de la republica",
+            "anchor_dictamen_referido": null,
+            "confidence_global": 0.9,
+            "evidencia_resumen": "El dictamen se abstiene de emitir pronunciamiento debido a un litigio pendiente en tutela laboral, conforme al artículo 6°, inciso tercero, de la ley N° 10.336."
+          }
+        },
+        {
+          "model_id": "arcee-ai/trinity-large-preview:free",
+          "label": "Arcee Trinity Large Preview Free",
+          "type": "free_candidate",
+          "provider": "openrouter",
+          "http_ok": true,
+          "status": 200,
+          "latency_ms": 60638,
+          "usage": {
+            "prompt_tokens": 2596,
+            "completion_tokens": 327,
+            "total_tokens": 2923,
+            "cost": 0,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "parse_error": null,
+          "evaluation": {
+            "valid": true,
+            "score": 100,
+            "issues": [],
+            "warnings": [],
+            "summary": "Salida estructuralmente válida"
+          },
+          "output": {
+            "dictamen_id": "045157N16",
+            "rol_principal": "abstencion",
+            "roles_secundarios": [
+              "materia_litigiosa",
+              "criterio_operativo_actual"
+            ],
+            "estado_intervencion_cgr": "abstencion_visible",
+            "estado_vigencia": "vigente_visible",
+            "reading_role": "ancla_historica",
+            "reading_weight": 0.85,
+            "currentness_score": 0.9,
+            "historical_significance_score": 0.75,
+            "doctrinal_centrality_score": 0.8,
+            "shift_intensity_score": 0,
+            "family_eligibility_score": 0.7,
+            "drift_risk_score": 0.1,
+            "supports_state_current": true,
+            "signals_litigious_matter": true,
+            "signals_abstention": true,
+            "signals_competence_closure": false,
+            "signals_operational_rule": true,
+            "anchor_norma_principal": "ley::10336::::ley organica de la contraloria general de la republica",
+            "anchor_dictamen_referido": null,
+            "confidence_global": 0.88,
+            "evidencia_resumen": "Dictamen que se abstiene de pronunciarse por existencia de acción de tutela laboral pendiente ante tribunales, aplicando artículo 6° inciso tercero de ley 10.336 sobre competencia excluyente de tribunales en materias litigiosas."
+          }
+        },
+        {
+          "model_id": "openai/gpt-oss-120b:free",
+          "label": "OpenAI gpt-oss-120b Free",
+          "type": "free_candidate",
+          "provider": "openrouter",
+          "http_ok": false,
+          "status": 404,
+          "latency_ms": 233,
+          "usage": null,
+          "parse_error": "EMPTY_CONTENT",
+          "evaluation": {
+            "valid": false,
+            "score": 0,
+            "issues": [
+              "{\"error\":{\"message\":\"No endpoints available matching your guardrail restrictions and data policy. Configure: https://openrouter.ai/settings/privacy\",\"code\":404}}"
+            ],
+            "warnings": [],
+            "summary": "Fallo de invocación"
+          },
+          "output": null
+        }
+      ]
+    },
+    {
+      "dictamen_id": "E200011N25",
+      "materia": "Representa la resolución N° 36, de 2025, de la Agencia Nacional de Investigación y Desarrollo.",
+      "fecha_documento": "2025-11-24T00:00:00+00:00",
+      "models": [
+        {
+          "model_id": "mistral-large-2411",
+          "label": "Mistral Large 2411",
+          "type": "paid_control",
+          "provider": "mistral",
+          "http_ok": true,
+          "status": 200,
+          "latency_ms": 7718,
+          "usage": {
+            "prompt_tokens": 2728,
+            "total_tokens": 3148,
+            "completion_tokens": 420,
+            "prompt_tokens_details": {
+              "cached_tokens": 736
+            }
+          },
+          "parse_error": null,
+          "evaluation": {
+            "valid": true,
+            "score": 100,
+            "issues": [],
+            "warnings": [],
+            "summary": "Salida estructuralmente válida"
+          },
+          "output": {
+            "dictamen_id": "E200011N25",
+            "rol_principal": "abstencion",
+            "roles_secundarios": [
+              "aplicacion",
+              "aclaracion"
+            ],
+            "estado_intervencion_cgr": "abstencion_visible",
+            "estado_vigencia": "vigente_visible",
+            "reading_role": "entrada_doctrinal",
+            "reading_weight": 0.8,
+            "currentness_score": 0.9,
+            "historical_significance_score": 0.6,
+            "doctrinal_centrality_score": 0.7,
+            "shift_intensity_score": 0.3,
+            "family_eligibility_score": 0.5,
+            "drift_risk_score": 0.2,
+            "supports_state_current": true,
+            "signals_litigious_matter": false,
+            "signals_abstention": true,
+            "signals_competence_closure": false,
+            "signals_operational_rule": true,
+            "anchor_norma_principal": "Ley 10.336",
+            "anchor_dictamen_referido": "E181666",
+            "confidence_global": 0.85,
+            "evidencia_resumen": "La Contraloría General se abstiene de aprobar la adjudicación de un concurso de I+D debido a la falta de antecedentes requeridos, reforzando la obligatoriedad de cumplir con observaciones previas y normas de control previo."
+          }
+        },
+        {
+          "model_id": "arcee-ai/trinity-large-preview:free",
+          "label": "Arcee Trinity Large Preview Free",
+          "type": "free_candidate",
+          "provider": "openrouter",
+          "http_ok": true,
+          "status": 200,
+          "latency_ms": 67968,
+          "usage": {
+            "prompt_tokens": 2143,
+            "completion_tokens": 308,
+            "total_tokens": 2451,
+            "cost": 0,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "parse_error": null,
+          "evaluation": {
+            "valid": true,
+            "score": 100,
+            "issues": [],
+            "warnings": [],
+            "summary": "Salida estructuralmente válida"
+          },
+          "output": {
+            "dictamen_id": "E200011N25",
+            "rol_principal": "abstencion",
+            "roles_secundarios": [
+              "criterio_operativo_actual",
+              "hito_historico"
+            ],
+            "estado_intervencion_cgr": "intervencion_normal",
+            "estado_vigencia": "vigente_visible",
+            "reading_role": "ancla_historica",
+            "reading_weight": 0.85,
+            "currentness_score": 0.95,
+            "historical_significance_score": 0.8,
+            "doctrinal_centrality_score": 0.9,
+            "shift_intensity_score": 0.1,
+            "family_eligibility_score": 0.7,
+            "drift_risk_score": 0.2,
+            "supports_state_current": true,
+            "signals_litigious_matter": false,
+            "signals_abstention": true,
+            "signals_competence_closure": false,
+            "signals_operational_rule": true,
+            "anchor_norma_principal": "ley::10336::::ley organica de la contraloria general de la republica",
+            "anchor_dictamen_referido": "E181666",
+            "confidence_global": 0.92,
+            "evidencia_resumen": "Abstención por omisión de antecedentes exigidos en dictamen previo, reforzando obligatoriedad de cumplimiento de observaciones contraloras y control previo."
+          }
+        },
+        {
+          "model_id": "openai/gpt-oss-120b:free",
+          "label": "OpenAI gpt-oss-120b Free",
+          "type": "free_candidate",
+          "provider": "openrouter",
+          "http_ok": false,
+          "status": 404,
+          "latency_ms": 252,
+          "usage": null,
+          "parse_error": "EMPTY_CONTENT",
+          "evaluation": {
+            "valid": false,
+            "score": 0,
+            "issues": [
+              "{\"error\":{\"message\":\"No endpoints available matching your guardrail restrictions and data policy. Configure: https://openrouter.ai/settings/privacy\",\"code\":404}}"
+            ],
+            "warnings": [],
+            "summary": "Fallo de invocación"
+          },
+          "output": null
+        }
+      ]
+    }
+  ]
+}

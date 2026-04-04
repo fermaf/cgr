@@ -4,6 +4,8 @@ import type { Env, DictamenRaw, DictamenSource } from '../types';
 import { logError, logWarn, setLogLevel } from '../lib/log';
 import { normalizeLegalSourceForStorage } from '../lib/legalSourcesCanonical';
 
+const DOCTRINAL_METADATA_MODEL = 'mistral-large-2411';
+
 function getMistralClient(env: Env) {
   setLogLevel(env.LOG_LEVEL);
   const headers: Record<string, string> = {};
@@ -208,6 +210,165 @@ function extractJsonArrayPayload(content: string) {
   return content.slice(start, end + 1).trim();
 }
 
+function buildPromptDoctrinalMetadata(raw: DictamenRaw, context?: Record<string, unknown>) {
+  const source = getRawSource(raw);
+  const inputData = JSON.stringify({
+    documento_completo: source.documento_completo ?? source.materia ?? (source as any).texto ?? (source as any).resumen,
+    materia: source.materia ?? null,
+    criterio: source.criterio ?? null,
+    descriptores: source.descriptores ?? null,
+    fuentes_legales: source.fuentes_legales ?? null,
+    contexto_core: context ?? null
+  }, null, 2);
+
+  return [
+    'Eres un abogado experto en derecho administrativo chileno y en la jurisprudencia de la Contraloría.',
+    '',
+    'Tu tarea es clasificar el PERFIL DOCTRINAL OPERATIVO de un dictamen.',
+    'No inventes evidencia. Si la señal es débil, responde de forma conservadora.',
+    'La búsqueda semántica manda: tu tarea no es reemplazarla, sino describir el rol doctrinal del dictamen.',
+    'Debes distinguir especialmente entre dictamen aplicativo, aclaratorio, complementario, núcleo doctrinal y criterio operativo actual.',
+    '',
+    'Debes devolver SOLO JSON válido, sin comentarios, sin markdown.',
+    '',
+    'Enums permitidos:',
+    '- rol_principal: nucleo_doctrinal, aplicacion, aclaracion, complemento, ajuste, limitacion, desplazamiento, reactivacion, cierre_competencial, materia_litigiosa, abstencion, criterio_operativo_actual, hito_historico, contexto_no_central',
+    '- estado_intervencion_cgr: intervencion_normal, intervencion_condicionada, intervencion_residual, abstencion_visible, materia_litigiosa, sin_senal_clara',
+    '- estado_vigencia: vigente_visible, vigente_tensionado, vigente_en_revision, desplazado_parcialmente, desplazado, valor_historico, indeterminado',
+    '- reading_role: entrada_semantica, entrada_doctrinal, estado_actual, ancla_historica, pivote_de_cambio, soporte_contextual',
+    '',
+    'Reglas:',
+    '- roles_secundarios debe ser un array corto de enums válidos.',
+    '- Todos los scores deben ir entre 0 y 1.',
+    '- Los booleans deben ser true o false.',
+    '- evidencia_resumen debe mencionar la evidencia principal en una o dos frases breves.',
+    '- anchor_norma_principal y anchor_dictamen_referido pueden ser null.',
+    '',
+    'Criterios obligatorios de clasificación:',
+    '- Usa aplicacion SOLO cuando el dictamen resuelve o aplica un criterio ya conocido a un caso concreto, sin redefinir el régimen general.',
+    '- Usa aclaracion cuando el dictamen precisa el alcance, interpretación o condiciones de una regla ya existente.',
+    '- Usa complemento cuando el dictamen agrega una precisión relevante a doctrina previa, pero sin desplazarla ni convertirla en un simple caso concreto.',
+    '- Usa criterio_operativo_actual cuando el dictamen formula o reafirma la regla vigente que debería leerse hoy como estado actual de la materia.',
+    '- Usa nucleo_doctrinal cuando el dictamen tiene vocación general, estructura una materia o funciona como punto de entrada doctrinal principal, no solo como caso aplicado.',
+    '- Si el dictamen rechaza una reconsideración pero complementa o aclara doctrina, NO lo clasifiques automáticamente como aplicacion.',
+    '- Si el dictamen contiene instrucciones generales, lineamientos, criterios de alcance amplio o precisión normativa reusable, prefiere aclaracion, complemento, nucleo_doctrinal o criterio_operativo_actual antes que aplicacion.',
+    '- Si solo hay caso concreto, ausencia de estructura general y señal doctrinal moderada, ahí sí usa aplicacion.',
+    '- No uses criterio_operativo_actual ni reading_role=estado_actual sin señal fuerte de vigencia visible o regla vigente reutilizable.',
+    '- Si la evidencia no permite discriminar bien, baja confidence_global y usa un reading_role más conservador.',
+    '',
+    'Formato JSON obligatorio:',
+    '{',
+    '  "rol_principal": "",',
+    '  "roles_secundarios": [],',
+    '  "estado_intervencion_cgr": "",',
+    '  "estado_vigencia": "",',
+    '  "reading_role": "",',
+    '  "reading_weight": 0,',
+    '  "currentness_score": 0,',
+    '  "historical_significance_score": 0,',
+    '  "doctrinal_centrality_score": 0,',
+    '  "shift_intensity_score": 0,',
+    '  "family_eligibility_score": 0,',
+    '  "drift_risk_score": 0,',
+    '  "supports_state_current": false,',
+    '  "signals_litigious_matter": false,',
+    '  "signals_abstention": false,',
+    '  "signals_competence_closure": false,',
+    '  "signals_operational_rule": false,',
+    '  "anchor_norma_principal": null,',
+    '  "anchor_dictamen_referido": null,',
+    '  "confidence_global": 0,',
+    '  "evidencia_resumen": ""',
+    '}',
+    '',
+    'Input:',
+    inputData
+  ].join('\n');
+}
+
+function normalizeScore(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.max(0, Math.min(1, value));
+  }
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return Math.max(0, Math.min(1, parsed));
+  }
+  return null;
+}
+
+async function analyzeDoctrinalMetadata(
+  env: Env,
+  raw: DictamenRaw,
+  context?: Record<string, unknown>
+): Promise<{ result: Record<string, unknown> | null; error?: string; model: string }> {
+  const client = getMistralClient(env);
+  const model = DOCTRINAL_METADATA_MODEL;
+  let attempts = 0;
+  const maxAttempts = 4;
+  let delay = 6000;
+
+  while (attempts < maxAttempts) {
+    try {
+      const response = await client.chat.completions.create({
+        model,
+        messages: [{ role: 'user', content: buildPromptDoctrinalMetadata(raw, context) }],
+        temperature: 0.1,
+        response_format: { type: 'json_object' }
+      });
+
+      const contentRaw = response.choices?.[0]?.message?.content;
+      const content = typeof contentRaw === 'string' ? contentRaw : undefined;
+      if (!content) return { result: null, error: 'Empty response from Mistral doctrinal metadata', model };
+
+      const jsonPayload = extractJsonPayload(content) || content;
+      const parsed = JSON.parse(jsonPayload) as Record<string, unknown>;
+
+      return {
+        model,
+        result: {
+          rol_principal: typeof parsed.rol_principal === 'string' ? parsed.rol_principal.trim() : null,
+          roles_secundarios: Array.isArray(parsed.roles_secundarios) ? parsed.roles_secundarios.map((item) => String(item).trim()).filter(Boolean) : [],
+          estado_intervencion_cgr: typeof parsed.estado_intervencion_cgr === 'string' ? parsed.estado_intervencion_cgr.trim() : null,
+          estado_vigencia: typeof parsed.estado_vigencia === 'string' ? parsed.estado_vigencia.trim() : null,
+          reading_role: typeof parsed.reading_role === 'string' ? parsed.reading_role.trim() : null,
+          reading_weight: normalizeScore(parsed.reading_weight),
+          currentness_score: normalizeScore(parsed.currentness_score),
+          historical_significance_score: normalizeScore(parsed.historical_significance_score),
+          doctrinal_centrality_score: normalizeScore(parsed.doctrinal_centrality_score),
+          shift_intensity_score: normalizeScore(parsed.shift_intensity_score),
+          family_eligibility_score: normalizeScore(parsed.family_eligibility_score),
+          drift_risk_score: normalizeScore(parsed.drift_risk_score),
+          supports_state_current: normalizeBoolean(parsed.supports_state_current),
+          signals_litigious_matter: normalizeBoolean(parsed.signals_litigious_matter),
+          signals_abstention: normalizeBoolean(parsed.signals_abstention),
+          signals_competence_closure: normalizeBoolean(parsed.signals_competence_closure),
+          signals_operational_rule: normalizeBoolean(parsed.signals_operational_rule),
+          anchor_norma_principal: typeof parsed.anchor_norma_principal === 'string' ? parsed.anchor_norma_principal.trim() : null,
+          anchor_dictamen_referido: typeof parsed.anchor_dictamen_referido === 'string' ? parsed.anchor_dictamen_referido.trim() : null,
+          confidence_global: normalizeScore(parsed.confidence_global),
+          evidencia_resumen: typeof parsed.evidencia_resumen === 'string' ? parsed.evidencia_resumen.trim() : null
+        }
+      };
+    } catch (error: any) {
+      attempts++;
+      const isRateLimit = error.status === 429 || String(error).includes('429');
+      if (isRateLimit && attempts < maxAttempts) {
+        logWarn('MISTRAL_DOCTRINAL_METADATA_RATE_LIMIT_RETRY', { attempt: attempts, nextDelay: delay });
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        delay *= 2;
+        continue;
+      }
+
+      const msg = error.message || String(error);
+      logError('MISTRAL_DOCTRINAL_METADATA_ERROR', error, { model, attempts });
+      return { result: null, error: msg, model };
+    }
+  }
+
+  return { result: null, error: 'Max retry attempts reached', model };
+}
+
 async function analyzeDictamen(env: Env, raw: DictamenRaw, modelOverride?: string): Promise<{ result: any | null; error?: string }> {
   const client = getMistralClient(env);
   const model = typeof modelOverride === 'string' && modelOverride.trim().length > 0 ? modelOverride.trim() : env.MISTRAL_MODEL;
@@ -380,4 +541,4 @@ async function generateEmbedding(env: Env, input: string): Promise<number[]> {
   }
 }
 
-export { analyzeDictamen, buildPromptConsolidado, expandQuery, rerankResults, generateEmbedding };
+export { analyzeDictamen, analyzeDoctrinalMetadata, buildPromptConsolidado, expandQuery, rerankResults, generateEmbedding, DOCTRINAL_METADATA_MODEL };

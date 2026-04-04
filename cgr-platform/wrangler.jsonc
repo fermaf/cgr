@@ -26,10 +26,20 @@
       "binding": "KV_SYNC_WORKFLOW",
       "class_name": "KVSyncWorkflow"
     },
-    {
+        {
       "name": "canonical-relations-workflow",
       "binding": "CANONICAL_RELATIONS_WORKFLOW",
       "class_name": "CanonicalRelationsWorkflow"
+    },
+    {
+      "name": "boletin-workflow",
+      "binding": "BOLETIN_WORKFLOW",
+      "class_name": "BoletinMultimediaWorkflow"
+    },
+    {
+      "name": "doctrinal-metadata-workflow",
+      "binding": "DOCTRINAL_METADATA_WORKFLOW",
+      "class_name": "DoctrinalMetadataWorkflow"
     }
   ],
   "kv_namespaces": [
@@ -75,10 +85,14 @@
     "PINECONE_NAMESPACE": "mistralLarge2512",
     "LOG_LEVEL": "debug",
     "CRAWL_DAYS_LOOKBACK": "30",
-    "BACKFILL_BATCH_SIZE": "50",
+    "BACKFILL_BATCH_SIZE": "40",
     "BACKFILL_DELAY_MS": "500",
     "ANALYTICS_CACHE_TTL_SECONDS": "900",
-    "INGEST_TRIGGER_TOKEN": "paz_mundial"
+    "INGEST_TRIGGER_TOKEN": "paz_mundial",
+        "GEMINI_API_KEY": "AIzaSyD6XExcvy0xh1Ue2hH9CJyGKCZs8_7ynHc",
+        "ELEVENLABS_TOOL_SECRET": "elevenlabs.ioQazqaz1",
+        "GEMINI_API_URL": "https://gateway.ai.cloudflare.com/v1/63ac4f10cdedc71a1b09256622380278/cgr-gateway/google-ai-studio",
+        "GEMINI_API_URL": "https://gateway.ai.cloudflare.com/v1/63ac4f10cdedc71a1b09256622380278/cgr-gateway/google-ai-studio"
   },
   "env": {
     "staging": {
@@ -93,10 +107,13 @@
         "PINECONE_NAMESPACE": "mistralLarge2512",
         "LOG_LEVEL": "debug",
         "CRAWL_DAYS_LOOKBACK": "30",
-        "BACKFILL_BATCH_SIZE": "50",
+        "BACKFILL_BATCH_SIZE": "40",
         "BACKFILL_DELAY_MS": "500",
         "ANALYTICS_CACHE_TTL_SECONDS": "900",
-        "INGEST_TRIGGER_TOKEN": "paz_mundial"
+        "INGEST_TRIGGER_TOKEN": "paz_mundial",
+        "GEMINI_API_KEY": "AIzaSyD6XExcvy0xh1Ue2hH9CJyGKCZs8_7ynHc",
+        "ELEVENLABS_TOOL_SECRET": "elevenlabs.ioQazqaz1",
+        "GEMINI_API_URL": "https://gateway.ai.cloudflare.com/v1/63ac4f10cdedc71a1b09256622380278/cgr-gateway/google-ai-studio"
       },
       "kv_namespaces": [
         {
@@ -135,6 +152,16 @@
           "name": "canonical-relations-workflow",
           "binding": "CANONICAL_RELATIONS_WORKFLOW",
           "class_name": "CanonicalRelationsWorkflow"
+        },
+        {
+          "name": "boletin-workflow",
+          "binding": "BOLETIN_WORKFLOW",
+          "class_name": "BoletinMultimediaWorkflow"
+        },
+        {
+          "name": "doctrinal-metadata-workflow",
+          "binding": "DOCTRINAL_METADATA_WORKFLOW",
+          "class_name": "DoctrinalMetadataWorkflow"
         }
       ]
     },
@@ -150,10 +177,13 @@
         "PINECONE_NAMESPACE": "mistralLarge2512",
         "LOG_LEVEL": "debug",
         "CRAWL_DAYS_LOOKBACK": "30",
-        "BACKFILL_BATCH_SIZE": "50",
+        "BACKFILL_BATCH_SIZE": "40",
         "BACKFILL_DELAY_MS": "500",
         "ANALYTICS_CACHE_TTL_SECONDS": "900",
-        "INGEST_TRIGGER_TOKEN": "paz_mundial"
+        "INGEST_TRIGGER_TOKEN": "paz_mundial",
+        "GEMINI_API_KEY": "AIzaSyD6XExcvy0xh1Ue2hH9CJyGKCZs8_7ynHc",
+        "ELEVENLABS_TOOL_SECRET": "elevenlabs.ioQazqaz1",
+        "GEMINI_API_URL": "https://gateway.ai.cloudflare.com/v1/63ac4f10cdedc71a1b09256622380278/cgr-gateway/google-ai-studio"
       },
       "queues": {
         "producers": [
@@ -208,6 +238,16 @@
           "name": "canonical-relations-workflow",
           "binding": "CANONICAL_RELATIONS_WORKFLOW",
           "class_name": "CanonicalRelationsWorkflow"
+        },
+        {
+          "name": "boletin-workflow",
+          "binding": "BOLETIN_WORKFLOW",
+          "class_name": "BoletinMultimediaWorkflow"
+        },
+        {
+          "name": "doctrinal-metadata-workflow",
+          "binding": "DOCTRINAL_METADATA_WORKFLOW",
+          "class_name": "DoctrinalMetadataWorkflow"
         }
       ]
     }

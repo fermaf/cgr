@@ -14,21 +14,30 @@ import {
   getMigrationStats,
   getMigrationEvolution,
   getRecentMigrationEvents,
-  getDictamenRelacionesJuridicas
+  getDictamenRelacionesJuridicas,
+  createBoletin,
+  getBoletin,
+  listBoletines,
+  getBoletinEntregables
 } from './storage/d1';
 import type { Env, DictamenRaw } from './types';
 import { IngestWorkflow } from './workflows/ingestWorkflow';
 import { BackfillWorkflow } from './workflows/backfillWorkflow';
 import { KVSyncWorkflow } from './workflows/kvSyncWorkflow';
 import { CanonicalRelationsWorkflow } from './workflows/canonicalRelationsWorkflow';
+import { DoctrinalMetadataWorkflow } from './workflows/doctrinalMetadataWorkflow';
+import { BoletinMultimediaWorkflow } from './workflows/boletinMultimediaWorkflow';
 import { analyzeDictamen } from './clients/mistral';
 import { fetchDictamenesSearchPage } from './clients/cgr';
 import { ingestDictamen, extractDictamenId } from './lib/ingest';
 import { applyRetroUpdates } from './lib/relations';
 import { buildDoctrineClusters } from './lib/doctrineClusters';
+import { reprocessDoctrinalMetadata } from './lib/doctrinalMetadata';
 import { buildDoctrineLines, buildDoctrineSearch } from './lib/doctrineLines';
+import { buildGuidedDoctrineFlow, buildGuidedDoctrineFamily } from './lib/doctrineGuided';
 import { normalizeLegalSourceForPresentation } from './lib/legalSourcesCanonical';
 import { logInfo, logError, setLogLevel } from './lib/log';
+import { validateElevenLabsAuth } from './lib/agents/elevenLabsSpeaker';
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -277,7 +286,9 @@ export {
   IngestWorkflow,
   BackfillWorkflow,
   KVSyncWorkflow,
-  CanonicalRelationsWorkflow
+  CanonicalRelationsWorkflow,
+  DoctrinalMetadataWorkflow,
+  BoletinMultimediaWorkflow
 };
 
 const app = new Hono<{ Bindings: Env }>();
@@ -311,6 +322,119 @@ app.get('/', (c) => c.text('CGR Platform API'));
 // --- ESTADÍSTICAS ---
 
 // --- AUDITORIA BIDIRECCIONAL (SRE) ---
+// --- BOLETINES MULTIMEDIA ---
+
+app.get('/api/v1/boletines/stats', async (c) => {
+  try {
+    const candidates = await c.env.DB.prepare(`
+      SELECT COUNT(*) as count 
+      FROM dictamenes d
+      INNER JOIN atributos_juridicos a ON a.dictamen_id = d.id
+      WHERE a.en_boletin = 1 OR a.es_relevante = 1 OR a.recurso_proteccion = 1
+    `).first<{ count: number }>();
+    
+    const lastBoletin = await c.env.DB.prepare("SELECT created_at FROM tabla_boletines ORDER BY created_at DESC LIMIT 1").first<{ created_at: string }>();
+    
+    return c.json({ 
+      data: { 
+        candidates: candidates?.count ?? 0,
+        last_generated: lastBoletin?.created_at ?? null
+      } 
+    });
+  } catch (e: any) {
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+app.get('/api/v1/boletines', async (c) => {
+  const limit = parsePositiveInt(c.req.query('limit'), 20, 1, 100);
+  try {
+    const list = await listBoletines(c.env.DB, limit);
+    return c.json({ data: list });
+  } catch (e: any) {
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+app.get('/api/v1/boletines/:id', async (c) => {
+  const id = c.req.param('id');
+  try {
+    const boletin = await getBoletin(c.env.DB, id);
+    if (!boletin) return c.json({ error: 'No encontrado' }, 404);
+    
+    const entregables = await getBoletinEntregables(c.env.DB, id);
+    return c.json({ data: { ...boletin, entregables } });
+  } catch (e: any) {
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+app.post('/api/v1/boletines', async (c) => {
+  const body = await readJsonBody(c);
+  const id = (body.id as string) || crypto.randomUUID();
+  const fechaInicio = (body.fecha_inicio as string) || new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().split('T')[0];
+  const fechaFin = (body.fecha_fin as string) || new Date().toISOString().split('T')[0];
+  
+  try {
+    await createBoletin(c.env.DB, {
+      id,
+      fecha_inicio: fechaInicio,
+      fecha_fin: fechaFin,
+      filtro_boletin: body.filtro_boletin ? 1 : 0,
+      filtro_relevante: body.filtro_relevante ? 1 : 0,
+      filtro_recurso_prot: body.filtro_recurso_prot ? 1 : 0
+    });
+
+    const workflow = await c.env.BOLETIN_WORKFLOW.create({
+      params: { boletinId: id }
+    });
+
+    return c.json({ success: true, id, workflowInstanceId: workflow.id });
+  } catch (e: any) {
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+// Proxy de herramientas para el ElevenLabs Agent (Custom Header Auth)
+app.get('/api/v1/tools/elevenlabs/latest-script', async (c) => {
+  if (!validateElevenLabsAuth(c, c.env)) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    // Retornamos el script del último boletín generado como ejemplo
+    const latest = await c.env.DB.prepare(
+      "SELECT content_text FROM tabla_boletines_entregables WHERE canal = 'YOUTUBE_SHORTS' ORDER BY id DESC LIMIT 1"
+    ).first<{ content_text: string }>();
+    
+    return c.json({ 
+      text: latest?.content_text || "Bienvenidos a Indubia. Aún no hay boletines procesados.",
+      voice_id: 'pNInz6obpgnuMvYJdGRp' 
+    });
+  } catch (e: any) {
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+app.get('/api/v1/assets/image/:key', async (c) => {
+  if (!c.req.param('key')) return c.json({ error: 'Falta key' }, 400);
+  try {
+    const key = c.req.param('key');
+    const imageBytes = await c.env.DICTAMENES_PASO.get(key, 'arrayBuffer');
+    
+    if (!imageBytes) {
+      return c.json({ error: 'Asset no encontrado' }, 404);
+    }
+    
+    return c.body(imageBytes, 200, {
+      'Content-Type': 'image/png',
+      'Cache-Control': 'public, max-age=86400'
+    });
+  } catch (e: any) {
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
 app.get('/api/v1/admin/audit-sync', async (c) => {
   const db = c.env.DB;
   const kv = c.env.DICTAMENES_SOURCE;
@@ -728,7 +852,7 @@ app.get('/api/v1/insights/doctrine-search', async (c) => {
     return c.json({ error: 'Missing q parameter' }, 400);
   }
 
-  const cacheKey = `insights:doctrine-search:v14:q:${q}:l:${limit}`;
+  const cacheKey = `insights:doctrine-search:v25:q:${q}:l:${limit}`;
 
   try {
     const cached = await c.env.DICTAMENES_PASO.get(cacheKey, 'json').catch(() => null);
@@ -748,6 +872,74 @@ app.get('/api/v1/insights/doctrine-search', async (c) => {
     return c.json(response);
   } catch (e: unknown) {
     logError('INSIGHTS_DOCTRINE_SEARCH_ERROR', e, { q, limit });
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+app.get('/api/v1/insights/doctrine-guided', async (c) => {
+  const q = c.req.query('q')?.trim() || '';
+  const limit = parsePositiveInt(c.req.query('limit'), 4, 1, 8);
+
+  if (!q) {
+    return c.json({ error: 'Missing q parameter' }, 400);
+  }
+
+  const cacheKey = `insights:doctrine-guided:v7:q:${q}:l:${limit}`;
+
+  try {
+    const cached = await c.env.DICTAMENES_PASO.get(cacheKey, 'json').catch(() => null);
+    if (cached && typeof cached === 'object') {
+      logInfo('INSIGHTS_DOCTRINE_GUIDED_CACHE_HIT', { cacheKey, q, limit });
+      return c.json(cached);
+    }
+
+    const response = await buildGuidedDoctrineFlow(c.env, { q, limit });
+    await putAnalyticsCache(c, cacheKey, response);
+    logInfo('INSIGHTS_DOCTRINE_GUIDED_DONE', {
+      q,
+      limit,
+      totalFamilies: response.overview.total_families,
+      focusId: response.focus_directo?.dictamen_id ?? null
+    });
+    return c.json(response);
+  } catch (e: unknown) {
+    logError('INSIGHTS_DOCTRINE_GUIDED_ERROR', e, { q, limit });
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+app.get('/api/v1/insights/doctrine-guided/family', async (c) => {
+  const q = c.req.query('q')?.trim() || '';
+  const familyId = c.req.query('family_id')?.trim() || '';
+  const limit = parsePositiveInt(c.req.query('limit'), 4, 1, 8);
+
+  if (!q) {
+    return c.json({ error: 'Missing q parameter' }, 400);
+  }
+  if (!familyId) {
+    return c.json({ error: 'Missing family_id parameter' }, 400);
+  }
+
+  const cacheKey = `insights:doctrine-guided:family:v7:q:${q}:f:${familyId}:l:${limit}`;
+
+  try {
+    const cached = await c.env.DICTAMENES_PASO.get(cacheKey, 'json').catch(() => null);
+    if (cached && typeof cached === 'object') {
+      logInfo('INSIGHTS_DOCTRINE_GUIDED_FAMILY_CACHE_HIT', { cacheKey, q, familyId, limit });
+      return c.json(cached);
+    }
+
+    const response = await buildGuidedDoctrineFamily(c.env, { q, familyId, limit });
+    await putAnalyticsCache(c, cacheKey, response);
+    logInfo('INSIGHTS_DOCTRINE_GUIDED_FAMILY_DONE', {
+      q,
+      familyId,
+      limit,
+      found: response.overview.family_found
+    });
+    return c.json(response);
+  } catch (e: unknown) {
+    logError('INSIGHTS_DOCTRINE_GUIDED_FAMILY_ERROR', e, { q, familyId, limit });
     return c.json({ error: errorMessage(e) }, 500);
   }
 });
@@ -1739,6 +1931,54 @@ app.post('/api/v1/trigger/canonical-relations', async (c) => {
   return c.json({ error: 'Binding CANONICAL_RELATIONS_WORKFLOW no disponible.' }, 500);
 });
 
+app.post('/api/v1/trigger/doctrinal-metadata-reprocess', async (c) => {
+  if (c.env.ENVIRONMENT === 'prod') {
+    const token = c.req.header('x-admin-token');
+    if (!token || token !== c.env.INGEST_TRIGGER_TOKEN) {
+      return c.json({ error: 'Unauthorized' }, 403);
+    }
+  }
+
+  const params = await readJsonBody(c);
+  if (!c.env.DOCTRINAL_METADATA_WORKFLOW) {
+    return c.json({ error: 'Binding DOCTRINAL_METADATA_WORKFLOW no disponible.' }, 500);
+  }
+
+  const requestedIds = Array.isArray(params.dictamenIds)
+    ? params.dictamenIds
+      .filter((value: unknown): value is string => typeof value === 'string' && value.trim().length > 0)
+      .map((value: string) => value.trim())
+      .slice(0, 500)
+    : [];
+  const requestedRunTag = typeof params.runTag === 'string' && params.runTag.trim().length > 0
+    ? params.runTag.trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24)
+    : undefined;
+  const defaultParams = {
+    limit: parsePositiveInt(params.limit, 50, 1, 200),
+    offset: parsePositiveInt(params.offset, 0, 0, 1000000),
+    recursive: requestedIds.length > 0 ? false : params.recursive !== false,
+    delayMs: parsePositiveInt(params.delayMs, 1200, 0, 10000),
+    dictamenIds: requestedIds.length > 0 ? [...new Set(requestedIds)] : undefined,
+    sourceSnapshotVersion: typeof params.sourceSnapshotVersion === 'string' && params.sourceSnapshotVersion.trim().length > 0
+      ? params.sourceSnapshotVersion.trim()
+      : 'workflow_reprocess',
+    runTag: requestedRunTag
+  };
+  const instance = await c.env.DOCTRINAL_METADATA_WORKFLOW.create({ params: defaultParams });
+  logInfo('DOCTRINAL_METADATA_WORKFLOW_CREATED', {
+    workflowId: instance.id,
+    ...defaultParams,
+    mistralModel: 'mistral-large-2411',
+    aiGatewayUrl: c.env.MISTRAL_API_URL
+  });
+  return c.json({
+    status: 'started',
+    instanceId: instance.id,
+    message: 'Workflow de metadata doctrinal iniciado',
+    params: defaultParams
+  });
+});
+
 app.post('/api/v1/admin/relations-gap/analyze', async (c) => {
   if (c.env.ENVIRONMENT === 'prod') {
     const token = c.req.header('x-admin-token');
@@ -1800,6 +2040,42 @@ app.post('/api/v1/admin/relations-gap/analyze', async (c) => {
   }
 
   return c.json({ success: true, model, apply, count: results.length, results });
+});
+
+app.post('/api/v1/admin/doctrinal-metadata/reprocess', async (c) => {
+  if (c.env.ENVIRONMENT === 'prod') {
+    const token = c.req.header('x-admin-token');
+    if (!token || token !== c.env.INGEST_TRIGGER_TOKEN) {
+      return c.json({ error: 'Unauthorized' }, 403);
+    }
+  }
+
+  try {
+    const body = await readJsonBody(c);
+    const dictamenIds = Array.isArray(body.dictamenIds)
+      ? [...new Set(body.dictamenIds.filter((value: unknown): value is string => typeof value === 'string' && value.trim().length > 0).map((value: string) => value.trim()))].slice(0, 200)
+      : undefined;
+
+    const result = await reprocessDoctrinalMetadata(c.env, {
+      dictamenIds,
+      limit: parsePositiveInt(body.limit, 100, 1, 500),
+      offset: parsePositiveInt(body.offset, 0, 0, 1000000),
+      sourceSnapshotVersion: typeof body.sourceSnapshotVersion === 'string' && body.sourceSnapshotVersion.trim().length > 0
+        ? body.sourceSnapshotVersion.trim()
+        : 'admin_reprocess'
+    });
+
+    logInfo('DOCTRINAL_METADATA_REPROCESS_DONE', {
+      processed: result.processed,
+      pipelineVersion: result.pipeline_version,
+      explicitIds: dictamenIds?.length ?? 0
+    });
+
+    return c.json({ success: true, ...result });
+  } catch (e: unknown) {
+    logError('DOCTRINAL_METADATA_REPROCESS_ERROR', e, {});
+    return c.json({ error: errorMessage(e) }, 500);
+  }
 });
 
 

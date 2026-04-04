@@ -33,6 +33,7 @@
 - [index.ts](/home/bilbao3561/github/cgr/cgr-platform/src/index.ts)
 - [doctrineClusters.ts](/home/bilbao3561/github/cgr/cgr-platform/src/lib/doctrineClusters.ts)
 - [doctrineLines.ts](/home/bilbao3561/github/cgr/cgr-platform/src/lib/doctrineLines.ts)
+- [doctrinalMetadata.ts](/home/bilbao3561/github/cgr/cgr-platform/src/lib/doctrinalMetadata.ts)
 - [doctrinalGraph.ts](/home/bilbao3561/github/cgr/cgr-platform/src/lib/doctrinalGraph.ts)
 - [legalSourcesCanonical.ts](/home/bilbao3561/github/cgr/cgr-platform/src/lib/legalSourcesCanonical.ts)
 - [DoctrineReadingWorkspace.tsx](/home/bilbao3561/github/cgr/frontend/src/components/doctrine/DoctrineReadingWorkspace.tsx)

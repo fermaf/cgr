@@ -21,6 +21,9 @@
 - `graph_doctrinal_status`
   Estado visible del criterio a partir del grafo jurídico.
 
+- `metadata doctrinal`
+  Snapshot estructural por dictamen que separa rol doctrinal, vigencia, intervención de la CGR y peso de lectura.
+
 - `dictamen_relaciones_juridicas`
   Tabla principal de relaciones entre dictámenes.
 
