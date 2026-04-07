@@ -105,24 +105,28 @@ export interface RegimenCandidate {
 
 // ── Identidad normativa según derecho chileno ──────────────────────
 //
-// Distinción fundamental para la correcta identificación de normas:
+// Jerarquía normativa relevante para la CGR:
 //
-// IDENTIFICABLES SOLO POR NÚMERO (sin año ni órgano):
+// RANGO CONSTITUCIONAL:
+//   - CPR: transversal absoluta, descartada como señal de régimen
+//
+// RANGO LEGAL — IDENTIFICABLES POR NÚMERO:
 //   - Ley: numeración única y permanente (e.g., "Ley 18.834")
-//   - Decreto Ley (DL): numeración correlativa única (e.g., "DL 3.500")
+//   - DL (Decreto Ley): numeración correlativa única (e.g., "DL 3.500")
+//   - Leyes con nombre propio o sigla:
+//     · LOCBGAE = Ley 18.575  · LBPA = Ley 19.880  · LOC CGR = Ley 10.336
+//     Se resuelven al número canónico antes de construir la clave.
+//   - Códigos (Civil, del Trabajo, de Aguas, etc.):
+//     Cuerpos normativos autónomos sin número de ley.
+//     Se identifican como "Código|[nombre]|[artículo]".
 //
-// REQUIEREN AÑO + ÓRGANO DE ORIGEN para ser inequívocas:
-//   - DFL (Decreto con Fuerza de Ley): un "DFL N°1" existe de múltiples
-//     ministerios y en distintos años (DFL 1/2005 Salud ≠ DFL 1/1997 Defensa)
-//   - Decreto Supremo / Decreto: mismo problema (D.S. 250 de MH ≠ D.S. 250 de Educación)
-//   - Resolución / Resolución Exenta: mínimo necesita año y órgano
+// RANGO SUBLEGAL — REQUIEREN AÑO + ÓRGANO para ser inequívocos:
+//   - DFL, Decretos, Resoluciones
 //
-// PROBLEMA EN LA DATA EXISTENTE:
-//   La tabla dictamen_fuentes_legales tiene campos `year` y `sector` con
-//   variantes de capitalización ("Salud", "salud", "SALUD", "salud.") y
-//   valores nulos. Se aplica normalización para construir una clave canónica.
+// PROBLEMA EN LA DATA:
+//   Variantes de capitalización en sector/tipo_norma. Se normaliza.
 
-/** Tipos de norma que se identifican únicamente por número */
+/** Tipos de norma identificables solo por número */
 const NORMAS_POR_NUMERO = new Set([
   'Ley',
   'DL',
@@ -130,8 +134,7 @@ const NORMAS_POR_NUMERO = new Set([
   'Decreto-Ley',
 ]);
 
-/** Tipos de norma que son demasiado ambigüos sin año+órgano y NO deben
- *  usarse como señal de régimen cuando faltan esos datos */
+/** Tipos sublegal que requieren año + órgano para ser inequívocos */
 const NORMAS_REQUIEREN_ANIO_ORGANO = new Set([
   'DFL',
   'Decreto',
@@ -142,24 +145,72 @@ const NORMAS_REQUIEREN_ANIO_ORGANO = new Set([
   'Oficio Circular',
 ]);
 
-/** Normas transversales que aparecen en casi todos los dictámenes,
- *  sin capacidad de señalizar un régimen específico */
-const NORMAS_TRANSVERSALES: Record<string, Set<string>> = {
-  'Ley': new Set(['18575', '19880', '10336']),  // LOCBGAE, LBPA, LOC CGR
-  'DFL': new Set(['29']),                         // Estatuto Administrativo
+/**
+ * Leyes conocidas por nombre propio o sigla.
+ * Se mapean al número canónico para deduplicación.
+ * El tipo resultante siempre será 'Ley'.
+ */
+const LEY_ALIAS_A_NUMERO: Record<string, string> = {
+  'LOCBGAE':  '18575',
+  'LBPA':     '19880',
+  'LOC CGR':  '10336',
+  'Ley Karin':'21643',
+  // nombres completos en tipo_norma
+  'Ley Orgánica Constitucional de Bases Generales de la Administración del Estado': '18575',
+  'Ley de Bases de los Procedimientos Administrativos': '19880',
+  'Ley Orgánica Constitucional de la Contraloría General de la República': '10336',
+};
+
+/** Leyes transversales (demasiado genéricas sin artículo específico) */
+const LEYES_TRANSVERSALES = new Set(['18575', '19880', '10336']);
+
+/** DFL transversales */
+const DFL_TRANSVERSALES = new Set(['29']);
+
+/**
+ * Normas de rango constitucional.
+ * Siempre transversales en el contexto CGR.
+ */
+const NORMAS_CONSTITUCIONALES = new Set([
+  'Constitución Política de la República',
+  'Constitucion Politica de la Republica',
+  'Constitución',
+  'Constitucion',
+  'CPR',
+]);
+
+/**
+ * Códigos chilenos: cuerpos normativos autónomos identificados por nombre.
+ * Se normalizan las variantes del LLM a un nombre canónico.
+ */
+const CODIGO_CANONICO: Record<string, string> = {
+  'Código del Trabajo':              'Código del Trabajo',
+  'Código Del Trabajo':              'Código del Trabajo',
+  'CTB':                             'Código del Trabajo',
+  'Código Civil':                    'Código Civil',
+  'Código de Aguas':                 'Código de Aguas',
+  'Código Sanitario':                'Código Sanitario',
+  'Código de Minería':             'Código de Minería',
+  'Código Orgánico de Tribunales':  'Código Orgánico de Tribunales',
+  'COT':                             'Código Orgánico de Tribunales',
+  'Código Penal':                    'Código Penal',
+  'Código Procesal Penal':           'Código Procesal Penal',
+  'Código de Policía Local':         'Código de Policía Local',
+  'Código':                          'Código',  // fallback genérico
 };
 
 /** Normaliza el campo sector/órgano para comparación canónica */
 function normalizarOrgano(sector: string | null): string {
   if (!sector || sector.trim().length === 0) return '';
-  return sector.trim().toLowerCase().replace(/\.$/,'').replace(/\s+/g, ' ');
+  return sector.trim().toLowerCase().replace(/\.$/, '').replace(/\s+/g, ' ');
 }
 
 /**
- * Construye la clave canónica de una norma, respetando la distinción jurídica
- * chilena entre normas identificables por número y las que requieren año+órgano.
+ * Construye la clave canónica de una norma respetando la jerarquía del
+ * derecho chileno y las particularidades del corpus CGR.
  *
- * Retorna null si la norma no puede identificarse de forma inequívoca.
+ * Retorna null si la norma no puede identificarse de forma inequívoca,
+ * o si es transversal sin artículo específico.
  */
 export function buildNormaCanonicalKey(
   tipoNorma: string,
@@ -169,60 +220,59 @@ export function buildNormaCanonicalKey(
   sector: string | null
 ): string | null {
   const tipo = tipoNorma.trim();
-  const num = numero?.trim() ?? '';
-  const art = articulo?.trim() ?? '';
-  const anio = year?.trim() ?? '';
+  const num  = numero?.trim()   ?? '';
+  const art  = articulo?.trim() ?? '';
+  const anio = year?.trim()     ?? '';
   const organo = normalizarOrgano(sector);
 
-  if (!num) return null;  // Sin número no hay identidad
+  // 1. CPR y variantes: transversal absoluta, nunca es señal de régimen
+  if (NORMAS_CONSTITUCIONALES.has(tipo)) return null;
 
-  // CPR: siempre genérica independiente del artículo
+  // 2. Códigos: cuerpos normativos autónomos, identificados por nombre + artículo.
+  //    Sin artículo son demasiado genéricos.
+  const codigoNombre = CODIGO_CANONICO[tipo];
   if (
-    tipo === 'Constitución Política de la República' ||
-    tipo === 'Constitucion Politica de la Republica' ||
-    tipo === 'CPR'
-  ) return null;
-
-  // Tipos identificables solo por número
-  if (NORMAS_POR_NUMERO.has(tipo)) {
-    // Verificar que no sea transversal
-    if (NORMAS_TRANSVERSALES[tipo]?.has(num)) {
-      // Las transversales solo son señal si tienen artículo específico
-      if (!art) return null;
-    }
-    return `${tipo}|${num}|${art}`;
+    codigoNombre !== undefined ||
+    tipo.startsWith('Código') ||
+    tipo.startsWith('Codigo') ||
+    tipo === 'CTB' ||
+    tipo === 'COT'
+  ) {
+    if (!art) return null;
+    const nombreFinal = codigoNombre ?? tipo;
+    return `Código|${nombreFinal}|${art}`;
   }
 
-  // Tipos que requieren año + órgano para ser inequívocos
+  // 3. Aliases de leyes con nombre propio (LOCBGAE, LBPA, Ley Karin...)
+  //    El tipo_norma ísmo es el alias en lugar del número.
+  const numeroAlias = LEY_ALIAS_A_NUMERO[tipo];
+  if (numeroAlias) {
+    if (LEYES_TRANSVERSALES.has(numeroAlias) && !art) return null;
+    return `Ley|${numeroAlias}|${art}`;
+  }
+
+  // 4. Leyes y DL: identificables solo por número
+  if (NORMAS_POR_NUMERO.has(tipo)) {
+    if (!num) return null;
+    if (tipo === 'Ley' && LEYES_TRANSVERSALES.has(num) && !art) return null;
+    // Unificar Ley y DL bajo el mismo prefijo 'Ley' (ambos son rango legal)
+    // DL mantiene su tipo para distinguir en presentación si se necesita
+    return `${tipo === 'Ley' ? 'Ley' : 'DL'}|${num}|${art}`;
+  }
+
+  // 5. Normativa sublegal: requiere año obligatorio, órgano recomendado
   if (NORMAS_REQUIEREN_ANIO_ORGANO.has(tipo)) {
-    // Sin año no podemos identificar la norma
-    if (!anio) return null;
-    // Con año pero sin órgano: aceptable si el número es suficientemente específico
-    // (e.g., Decreto N°250 de 2004 es el Reglamento de Compras, aunque no diga el ministerio)
-    const organoKey = organo ? organo.slice(0, 5) : 'unk';  // primeros 5 chars para colapsar variantes
+    if (!num) return null;
+    if (!anio) return null;  // sin año la norma es ambigua
+    if (tipo === 'DFL' && DFL_TRANSVERSALES.has(num) && !art) return null;
+    // 5 chars del órgano para colapsar variantes de capitalización
+    const organoKey = organo ? organo.slice(0, 5) : 'unk';
     return `${tipo}|${num}|${anio}|${organoKey}|${art}`;
   }
 
-  // Tipos de código (Código Civil, Código del Trabajo, etc.) — por nombre + artículo
-  if (tipo.startsWith('Código') || tipo.startsWith('Codigo')) {
-    if (!art) return null;  // sin artículo el código es demasiado genérico
-    return `${tipo}|${art}`;
-  }
-
-  // Tipo desconocido/otro: requerir al menos número + artículo
-  if (!art) return null;
+  // 6. Tipo no reconocido: requiere al menos número + artículo
+  if (!num || !art) return null;
   return `${tipo}|${num}|${art}`;
-}
-
-/**
- * Evalúa si una clave canónica de norma es válida para señalizar un régimen.
- * (wrapper de compatibilidad para el filtrado en findSharedNorms)
- */
-function isNormaValida(
-  tipoNorma: string, numero: string, articulo: string | null,
-  year: string | null, sector: string | null
-): boolean {
-  return buildNormaCanonicalKey(tipoNorma, numero, articulo, year, sector) !== null;
 }
 
 // ── Funciones de descubrimiento ─────────────────────────────────────
