@@ -33,8 +33,10 @@ import { ingestDictamen, extractDictamenId } from './lib/ingest';
 import { applyRetroUpdates } from './lib/relations';
 import { buildDoctrineClusters } from './lib/doctrineClusters';
 import { reprocessDoctrinalMetadata } from './lib/doctrinalMetadata';
+import { runRegimenPilot } from './lib/regimenDiscovery';
 import { buildDoctrineLines, buildDoctrineSearch } from './lib/doctrineLines';
 import { buildGuidedDoctrineFlow, buildGuidedDoctrineFamily } from './lib/doctrineGuided';
+import { normalizeQueryLight } from './lib/queryUnderstanding/queryRewrite';
 import { normalizeLegalSourceForPresentation } from './lib/legalSourcesCanonical';
 import { logInfo, logError, setLogLevel } from './lib/log';
 import { validateElevenLabsAuth } from './lib/agents/elevenLabsSpeaker';
@@ -845,14 +847,15 @@ app.get('/api/v1/insights/doctrine-lines', async (c) => {
 });
 
 app.get('/api/v1/insights/doctrine-search', async (c) => {
-  const q = c.req.query('q')?.trim() || '';
+  const qRaw = c.req.query('q')?.trim() || '';
+  const q = normalizeQueryLight(qRaw);
   const limit = parsePositiveInt(c.req.query('limit'), 5, 1, 10);
 
   if (!q) {
     return c.json({ error: 'Missing q parameter' }, 400);
   }
 
-  const cacheKey = `insights:doctrine-search:v25:q:${q}:l:${limit}`;
+  const cacheKey = `insights:doctrine-search:v31:q:${q}:l:${limit}`;
 
   try {
     const cached = await c.env.DICTAMENES_PASO.get(cacheKey, 'json').catch(() => null);
@@ -861,7 +864,7 @@ app.get('/api/v1/insights/doctrine-search', async (c) => {
       return c.json(cached);
     }
 
-    const response = await buildDoctrineSearch(c.env, { q, limit });
+    const response = await buildDoctrineSearch(c.env, { q: qRaw, limit });
     await putAnalyticsCache(c, cacheKey, response);
     logInfo('INSIGHTS_DOCTRINE_SEARCH_DONE', {
       q,
@@ -877,14 +880,15 @@ app.get('/api/v1/insights/doctrine-search', async (c) => {
 });
 
 app.get('/api/v1/insights/doctrine-guided', async (c) => {
-  const q = c.req.query('q')?.trim() || '';
+  const qRaw = c.req.query('q')?.trim() || '';
+  const q = normalizeQueryLight(qRaw);
   const limit = parsePositiveInt(c.req.query('limit'), 4, 1, 8);
 
   if (!q) {
     return c.json({ error: 'Missing q parameter' }, 400);
   }
 
-  const cacheKey = `insights:doctrine-guided:v7:q:${q}:l:${limit}`;
+  const cacheKey = `insights:doctrine-guided:v11:q:${q}:l:${limit}`;
 
   try {
     const cached = await c.env.DICTAMENES_PASO.get(cacheKey, 'json').catch(() => null);
@@ -893,7 +897,7 @@ app.get('/api/v1/insights/doctrine-guided', async (c) => {
       return c.json(cached);
     }
 
-    const response = await buildGuidedDoctrineFlow(c.env, { q, limit });
+    const response = await buildGuidedDoctrineFlow(c.env, { q: qRaw, limit });
     await putAnalyticsCache(c, cacheKey, response);
     logInfo('INSIGHTS_DOCTRINE_GUIDED_DONE', {
       q,
@@ -909,7 +913,8 @@ app.get('/api/v1/insights/doctrine-guided', async (c) => {
 });
 
 app.get('/api/v1/insights/doctrine-guided/family', async (c) => {
-  const q = c.req.query('q')?.trim() || '';
+  const qRaw = c.req.query('q')?.trim() || '';
+  const q = normalizeQueryLight(qRaw);
   const familyId = c.req.query('family_id')?.trim() || '';
   const limit = parsePositiveInt(c.req.query('limit'), 4, 1, 8);
 
@@ -920,7 +925,7 @@ app.get('/api/v1/insights/doctrine-guided/family', async (c) => {
     return c.json({ error: 'Missing family_id parameter' }, 400);
   }
 
-  const cacheKey = `insights:doctrine-guided:family:v7:q:${q}:f:${familyId}:l:${limit}`;
+  const cacheKey = `insights:doctrine-guided:family:v11:q:${q}:f:${familyId}:l:${limit}`;
 
   try {
     const cached = await c.env.DICTAMENES_PASO.get(cacheKey, 'json').catch(() => null);
@@ -929,7 +934,7 @@ app.get('/api/v1/insights/doctrine-guided/family', async (c) => {
       return c.json(cached);
     }
 
-    const response = await buildGuidedDoctrineFamily(c.env, { q, familyId, limit });
+    const response = await buildGuidedDoctrineFamily(c.env, { q: qRaw, familyId, limit });
     await putAnalyticsCache(c, cacheKey, response);
     logInfo('INSIGHTS_DOCTRINE_GUIDED_FAMILY_DONE', {
       q,
@@ -966,6 +971,7 @@ app.get('/api/v1/divisions', async (c) => {
 // 2. Si falla, recurre a SQL LIKE en D1.
 app.get('/api/v1/dictamenes', async (c) => {
   const query = c.req.query('q') || '';
+  const normalizedQuery = normalizeQueryLight(query);
   const page = parseInt(c.req.query('page') || '1', 10);
   const yearFromStr = c.req.query('year');
   const materia = c.req.query('materia');
@@ -997,9 +1003,9 @@ app.get('/api/v1/dictamenes', async (c) => {
       pcFilter["descriptores_AI"] = { "$in": tagsArray };
     }
 
-    if (query.trim() !== '') {
+    if (normalizedQuery.trim() !== '') {
       try {
-        const queryTrimmed = query.trim();
+        const queryTrimmed = normalizedQuery.trim();
         // Detección de patrones de ID (Ej: E85862N25, 71381, N25)
         const isLikelyId = /^[A-Z0-9]*[0-9]+N[0-9]+$/i.test(queryTrimmed) || (/^[0-9]+$/.test(queryTrimmed) && queryTrimmed.length > 3);
         
@@ -1014,7 +1020,7 @@ app.get('/api/v1/dictamenes', async (c) => {
              // No asignamos dataToReturn aquí para forzar el flujo SQL completo con filtros.
           } else {
              // Si no hay match de ID, intentamos vectorial
-             const pcRes = await queryRecords(c.env, query, limit * 2, Object.keys(pcFilter).length > 0 ? pcFilter : undefined);
+             const pcRes = await queryRecords(c.env, normalizedQuery, limit * 2, Object.keys(pcFilter).length > 0 ? pcFilter : undefined);
              const matches = pcRes.matches || [];
              if (matches.length > 0) {
                dataToReturn = matches.map((m: any) => ({
@@ -1033,7 +1039,7 @@ app.get('/api/v1/dictamenes', async (c) => {
           }
         } else {
           // Búsqueda Vectorial normal
-          const pcRes = await queryRecords(c.env, query, limit * 2, Object.keys(pcFilter).length > 0 ? pcFilter : undefined);
+          const pcRes = await queryRecords(c.env, normalizedQuery, limit * 2, Object.keys(pcFilter).length > 0 ? pcFilter : undefined);
           const matches = pcRes.matches || [];
           const data = matches.map((m: any) => ({
             id: m.id,
@@ -1080,8 +1086,8 @@ app.get('/api/v1/dictamenes', async (c) => {
       let condition = "WHERE 1=1";
       let binds: any[] = [];
 
-      if (query.trim() !== '') {
-        const words = query.trim().split(/\s+/).slice(0, 5); // Incluir palabras cortas (IDs)
+      if (normalizedQuery.trim() !== '') {
+        const words = normalizedQuery.trim().split(/\s+/).slice(0, 5); // Incluir palabras cortas (IDs)
         if (words.length > 0) {
           const conditions = words.map(() => "(d.materia LIKE ? OR d.numero LIKE ? OR d.id LIKE ?)");
           condition += " AND " + conditions.join(" AND ");
@@ -2133,6 +2139,87 @@ app.post('/api/v1/test/pinecone', async (c) => {
   }
 });
 
+// ── PILOTO: Descubrimiento de Regímenes Jurisprudenciales (Fase 0) ──
+// Endpoint temporal para ejecutar el piloto de descubrimiento de regímenes.
+// Procesa UNA semilla por request para no exceder el wall-clock del Worker.
+// Uso:
+//   1) GET /api/v1/pilot/regimenes/seeds           → lista las semillas disponibles
+//   2) GET /api/v1/pilot/regimenes?seedIndex=0     → expande la semilla índice 0
+//   3) GET /api/v1/pilot/regimenes?seedIndex=1     → expande la semilla índice 1
+//   ... etc.
+
+app.get('/api/v1/pilot/regimenes/seeds', async (c) => {
+  const token = c.req.header('x-admin-token');
+  if (!token || token !== c.env.INGEST_TRIGGER_TOKEN) {
+    return c.json({ error: 'Se requiere autenticación admin' }, 403);
+  }
+  try {
+    const { fetchSeedDictamenes } = await import('./lib/regimenDiscovery');
+    const seeds = await fetchSeedDictamenes(c.env.DB, 20);
+    return c.json({
+      total: seeds.length,
+      seeds: seeds.map((s, i) => ({
+        index: i,
+        id: s.id,
+        titulo: s.titulo,
+        fecha_documento: s.fecha_documento,
+        rol_principal: s.rol_principal,
+        doctrinal_centrality_score: s.doctrinal_centrality_score,
+        currentness_score: s.currentness_score,
+        estado_vigencia: s.estado_vigencia
+      }))
+    });
+  } catch (e: unknown) {
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+app.get('/api/v1/pilot/regimenes', async (c) => {
+  const token = c.req.header('x-admin-token');
+  if (!token || token !== c.env.INGEST_TRIGGER_TOKEN) {
+    return c.json({ error: 'Se requiere autenticación admin' }, 403);
+  }
+
+  const seedIndex = parsePositiveInt(c.req.query('seedIndex'), 0, 0, 29);
+
+  try {
+    const startedAt = Date.now();
+    const { fetchSeedDictamenes, buildRegimenCandidate } = await import('./lib/regimenDiscovery');
+
+    // Obtener solo la semilla solicitada
+    const seeds = await fetchSeedDictamenes(c.env.DB, seedIndex + 1);
+    if (seeds.length <= seedIndex) {
+      return c.json({ error: `No hay semilla en el índice ${seedIndex}` }, 404);
+    }
+    const seed = seeds[seedIndex];
+    const regimen = await buildRegimenCandidate(c.env.DB, seed);
+    const elapsed = Date.now() - startedAt;
+
+    logInfo('PILOT_REGIMEN_SINGLE', {
+      seed_id: seed.id,
+      seedIndex,
+      total_members: regimen.total_members,
+      normas_nucleares: regimen.normas_nucleares.length,
+      elapsed_ms: elapsed
+    });
+
+    return c.json({
+      _meta: {
+        fase: '0 - Piloto de descubrimiento (una semilla)',
+        descripcion: 'Régimen jurisprudencial descubierto bottom-up desde grafo + normas',
+        seed_index: seedIndex,
+        elapsed_ms: elapsed,
+        nota: 'Iterar seedIndex=0,1,2... para explorar todas las semillas'
+      },
+      regimen
+    });
+  } catch (e: unknown) {
+    logError('PILOT_REGIMENES_ERROR', e);
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+
 export default {
   fetch: app.fetch,
 
@@ -2187,6 +2274,7 @@ export default {
       }));
     }
   },
+
 
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     try {
