@@ -103,33 +103,126 @@ export interface RegimenCandidate {
   tiene_desplazamientos: boolean;
 }
 
-// ── Normas genéricas (no señalizan régimen específico) ──────────────
+// ── Identidad normativa según derecho chileno ──────────────────────
+//
+// Distinción fundamental para la correcta identificación de normas:
+//
+// IDENTIFICABLES SOLO POR NÚMERO (sin año ni órgano):
+//   - Ley: numeración única y permanente (e.g., "Ley 18.834")
+//   - Decreto Ley (DL): numeración correlativa única (e.g., "DL 3.500")
+//
+// REQUIEREN AÑO + ÓRGANO DE ORIGEN para ser inequívocas:
+//   - DFL (Decreto con Fuerza de Ley): un "DFL N°1" existe de múltiples
+//     ministerios y en distintos años (DFL 1/2005 Salud ≠ DFL 1/1997 Defensa)
+//   - Decreto Supremo / Decreto: mismo problema (D.S. 250 de MH ≠ D.S. 250 de Educación)
+//   - Resolución / Resolución Exenta: mínimo necesita año y órgano
+//
+// PROBLEMA EN LA DATA EXISTENTE:
+//   La tabla dictamen_fuentes_legales tiene campos `year` y `sector` con
+//   variantes de capitalización ("Salud", "salud", "SALUD", "salud.") y
+//   valores nulos. Se aplica normalización para construir una clave canónica.
 
-/**
- * Normas que son demasiado generales para formar señal de régimen.
- * Aparecen en casi cualquier dictamen de la CGR.
- */
-const NORMAS_GENERICAS = new Set([
-  'Constitucion--',       // CPR sin artículo
-  'Ley-18575-',           // LOCBGAE genérica
-  'Ley-19880-',           // LBPA genérica (pero con artículo SÍ es señal)
-  'DFL-29-',              // Estatuto Administrativo genérico
+/** Tipos de norma que se identifican únicamente por número */
+const NORMAS_POR_NUMERO = new Set([
+  'Ley',
+  'DL',
+  'Decreto Ley',
+  'Decreto-Ley',
 ]);
 
+/** Tipos de norma que son demasiado ambigüos sin año+órgano y NO deben
+ *  usarse como señal de régimen cuando faltan esos datos */
+const NORMAS_REQUIEREN_ANIO_ORGANO = new Set([
+  'DFL',
+  'Decreto',
+  'Decreto Supremo',
+  'Resolución',
+  'Resolución Exenta',
+  'Resolución Exenta.',
+  'Oficio Circular',
+]);
+
+/** Normas transversales que aparecen en casi todos los dictámenes,
+ *  sin capacidad de señalizar un régimen específico */
+const NORMAS_TRANSVERSALES: Record<string, Set<string>> = {
+  'Ley': new Set(['18575', '19880', '10336']),  // LOCBGAE, LBPA, LOC CGR
+  'DFL': new Set(['29']),                         // Estatuto Administrativo
+};
+
+/** Normaliza el campo sector/órgano para comparación canónica */
+function normalizarOrgano(sector: string | null): string {
+  if (!sector || sector.trim().length === 0) return '';
+  return sector.trim().toLowerCase().replace(/\.$/,'').replace(/\s+/g, ' ');
+}
+
 /**
- * Evalúa si una norma es "genérica" (aparece en demasiados contextos 
- * como para ser señal de régimen específico)
+ * Construye la clave canónica de una norma, respetando la distinción jurídica
+ * chilena entre normas identificables por número y las que requieren año+órgano.
+ *
+ * Retorna null si la norma no puede identificarse de forma inequívoca.
  */
-function isNormaGenerica(tipoNorma: string, numero: string, articulo: string | null): boolean {
-  // Si tiene artículo específico, es más probable que sea señal real
-  if (articulo && articulo.trim().length > 0) {
-    // Excepciones: CPR sin importar artículo sigue siendo demasiado genérica
-    if (tipoNorma === 'Constitucion' || tipoNorma === 'Constitución') return true;
-    return false;
+export function buildNormaCanonicalKey(
+  tipoNorma: string,
+  numero: string | null,
+  articulo: string | null,
+  year: string | null,
+  sector: string | null
+): string | null {
+  const tipo = tipoNorma.trim();
+  const num = numero?.trim() ?? '';
+  const art = articulo?.trim() ?? '';
+  const anio = year?.trim() ?? '';
+  const organo = normalizarOrgano(sector);
+
+  if (!num) return null;  // Sin número no hay identidad
+
+  // CPR: siempre genérica independiente del artículo
+  if (
+    tipo === 'Constitución Política de la República' ||
+    tipo === 'Constitucion Politica de la Republica' ||
+    tipo === 'CPR'
+  ) return null;
+
+  // Tipos identificables solo por número
+  if (NORMAS_POR_NUMERO.has(tipo)) {
+    // Verificar que no sea transversal
+    if (NORMAS_TRANSVERSALES[tipo]?.has(num)) {
+      // Las transversales solo son señal si tienen artículo específico
+      if (!art) return null;
+    }
+    return `${tipo}|${num}|${art}`;
   }
-  // Sin artículo, muchas normas son demasiado genéricas  
-  const key = `${tipoNorma}-${numero}-`;
-  return NORMAS_GENERICAS.has(key);
+
+  // Tipos que requieren año + órgano para ser inequívocos
+  if (NORMAS_REQUIEREN_ANIO_ORGANO.has(tipo)) {
+    // Sin año no podemos identificar la norma
+    if (!anio) return null;
+    // Con año pero sin órgano: aceptable si el número es suficientemente específico
+    // (e.g., Decreto N°250 de 2004 es el Reglamento de Compras, aunque no diga el ministerio)
+    const organoKey = organo ? organo.slice(0, 5) : 'unk';  // primeros 5 chars para colapsar variantes
+    return `${tipo}|${num}|${anio}|${organoKey}|${art}`;
+  }
+
+  // Tipos de código (Código Civil, Código del Trabajo, etc.) — por nombre + artículo
+  if (tipo.startsWith('Código') || tipo.startsWith('Codigo')) {
+    if (!art) return null;  // sin artículo el código es demasiado genérico
+    return `${tipo}|${art}`;
+  }
+
+  // Tipo desconocido/otro: requerir al menos número + artículo
+  if (!art) return null;
+  return `${tipo}|${num}|${art}`;
+}
+
+/**
+ * Evalúa si una clave canónica de norma es válida para señalizar un régimen.
+ * (wrapper de compatibilidad para el filtrado en findSharedNorms)
+ */
+function isNormaValida(
+  tipoNorma: string, numero: string, articulo: string | null,
+  year: string | null, sector: string | null
+): boolean {
+  return buildNormaCanonicalKey(tipoNorma, numero, articulo, year, sector) !== null;
 }
 
 // ── Funciones de descubrimiento ─────────────────────────────────────
@@ -209,7 +302,15 @@ export async function expandByGraph(
 
 /**
  * Busca normas compartidas entre los miembros de una comunidad.
- * Filtra normas genéricas que no señalizan régimen específico.
+ *
+ * Aplica la distinción jurídica chilena:
+ * - Leyes y DL: identidad por número (sin necesidad de año/órgano)
+ * - DFL, Decretos, Resoluciones: identidad por número+año+órgano
+ * - Normas transversales (LBPA, LOCBGAE) solo cuentan con artículo específico
+ * - Normas sin clave canónica válida se ignoran
+ *
+ * La query incluye `year` y `sector` para poder construir la clave canónica
+ * correctamente según el tipo de norma.
  */
 export async function findSharedNorms(
   db: D1Database,
@@ -223,31 +324,61 @@ export async function findSharedNorms(
       f.tipo_norma,
       f.numero,
       f.articulo,
+      f.year,
+      f.sector,
       COUNT(DISTINCT f.dictamen_id) as dictamenes_count,
       GROUP_CONCAT(DISTINCT f.dictamen_id) as dictamen_ids_csv
     FROM dictamen_fuentes_legales f
     WHERE f.dictamen_id IN (${placeholders})
-    GROUP BY f.tipo_norma, f.numero, f.articulo
+      AND f.numero IS NOT NULL
+      AND LENGTH(TRIM(f.numero)) > 0
+      AND f.tipo_norma != 'valor de relleno'
+      AND f.tipo_norma != 'Desconocido'
+    GROUP BY f.tipo_norma, f.numero, f.articulo, f.year, f.sector
     HAVING dictamenes_count >= 2
     ORDER BY dictamenes_count DESC
   `).bind(...memberIds).all<{
     tipo_norma: string;
     numero: string;
     articulo: string | null;
+    year: string | null;
+    sector: string | null;
     dictamenes_count: number;
     dictamen_ids_csv: string;
   }>();
 
-  return (res.results ?? [])
-    .filter(row => !isNormaGenerica(row.tipo_norma, row.numero, row.articulo))
-    .map(row => ({
-      norma_key: `${row.tipo_norma}-${row.numero}-${row.articulo ?? ''}`,
-      tipo_norma: row.tipo_norma,
-      numero: row.numero,
-      articulo: row.articulo,
-      dictamenes_count: row.dictamenes_count,
-      dictamen_ids: row.dictamen_ids_csv.split(',')
-    }));
+  // Agrupar por clave canónica (colapsa variantes de capitalización/abreviatura)
+  const normaMap = new Map<string, NormaCompartida>();
+  for (const row of res.results ?? []) {
+    const canonicalKey = buildNormaCanonicalKey(
+      row.tipo_norma, row.numero, row.articulo, row.year, row.sector
+    );
+    if (!canonicalKey) continue;  // norma no identificable o transversal sin artículo
+
+    const existing = normaMap.get(canonicalKey);
+    if (!existing) {
+      normaMap.set(canonicalKey, {
+        norma_key: canonicalKey,
+        tipo_norma: row.tipo_norma,
+        numero: row.numero,
+        articulo: row.articulo,
+        dictamenes_count: row.dictamenes_count,
+        dictamen_ids: row.dictamen_ids_csv.split(',')
+      });
+    } else {
+      // Colapsar variantes del mismo instrumento
+      const mergedIds = new Set([...existing.dictamen_ids, ...row.dictamen_ids_csv.split(',')]);
+      normaMap.set(canonicalKey, {
+        ...existing,
+        dictamenes_count: mergedIds.size,
+        dictamen_ids: [...mergedIds]
+      });
+    }
+  }
+
+  return [...normaMap.values()]
+    .filter(n => n.dictamenes_count >= 2)
+    .sort((a, b) => b.dictamenes_count - a.dictamenes_count);
 }
 
 /**
