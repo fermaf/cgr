@@ -34,6 +34,7 @@ import { applyRetroUpdates } from './lib/relations';
 import { buildDoctrineClusters } from './lib/doctrineClusters';
 import { reprocessDoctrinalMetadata } from './lib/doctrinalMetadata';
 import { runRegimenPilot } from './lib/regimenDiscovery';
+import { buildAndPersistRegimen } from './lib/regimenBuilder';
 import { buildDoctrineLines, buildDoctrineSearch } from './lib/doctrineLines';
 import { buildGuidedDoctrineFlow, buildGuidedDoctrineFamily } from './lib/doctrineGuided';
 import { normalizeQueryLight } from './lib/queryUnderstanding/queryRewrite';
@@ -2147,6 +2148,28 @@ app.post('/api/v1/test/pinecone', async (c) => {
 //   2) GET /api/v1/pilot/regimenes?seedIndex=0     → expande la semilla índice 0
 //   3) GET /api/v1/pilot/regimenes?seedIndex=1     → expande la semilla índice 1
 //   ... etc.
+
+// Persistir UN régimen en D1 (una semilla a la vez)
+app.post('/api/v1/pilot/regimenes/persist', async (c) => {
+  const token = c.req.header('x-admin-token');
+  if (!token || token !== c.env.INGEST_TRIGGER_TOKEN) {
+    return c.json({ error: 'Se requiere autenticación admin' }, 403);
+  }
+  const seedIndex = parsePositiveInt(c.req.query('seedIndex'), 0, 0, 29);
+  try {
+    const startedAt = Date.now();
+    const result = await buildAndPersistRegimen(c.env, seedIndex);
+    const elapsed = Date.now() - startedAt;
+    if (!result) {
+      return c.json({ success: false, message: `Semilla ${seedIndex} no encontrada o comunidad demasiado pequeña` }, 404);
+    }
+    logInfo('REGIMEN_PERSISTIDO', { ...result, seedIndex, elapsed_ms: elapsed });
+    return c.json({ success: true, elapsed_ms: elapsed, result });
+  } catch (e: unknown) {
+    logError('REGIMEN_PERSIST_ERROR', e);
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
 
 app.get('/api/v1/pilot/regimenes/seeds', async (c) => {
   const token = c.req.header('x-admin-token');
