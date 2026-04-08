@@ -1,7 +1,7 @@
 // Acceso a D1 (base: cgr-dictamenes c391c767).
 // Tablas principales: dictamenes, enriquecimiento, registro_ejecucion.
 // Tablas principales: dictamenes, enriquecimiento
-import type { DictamenStatus, EnrichmentRow, DictamenEventType } from '../types';
+import type { DictamenStatus, EnrichmentRow, DictamenEventType, BoletinRow, BoletinEntregableRow } from '../types';
 
 // Parámetros de upsert para la tabla dictamenes.
 type DictamenUpsertParams = {
@@ -240,6 +240,67 @@ async function getDictamenById(db: D1Database, id: string): Promise<{ id: string
   return row ?? { id, numero: null, estado: null };
 }
 
+type DictamenProcessingProfile = {
+  id: string;
+  current_status: string | null;
+  target_status: DictamenStatus;
+  route: 'mistral_2512' | 'gemini' | 'mistral_2411' | 'vectorize_only';
+  anio: number | null;
+  es_relevante: number;
+  en_boletin: number;
+};
+
+async function getDictamenProcessingProfile(db: D1Database, id: string): Promise<DictamenProcessingProfile | null> {
+  const row = await db.prepare(
+    `SELECT d.id,
+            d.estado AS current_status,
+            d.anio,
+            COALESCE(a.es_relevante, 0) AS es_relevante,
+            COALESCE(a.en_boletin, 0) AS en_boletin
+     FROM dictamenes d
+     LEFT JOIN atributos_juridicos a ON a.dictamen_id = d.id
+     WHERE d.id = ?`
+  ).bind(id).first<{
+    id: string;
+    current_status: string | null;
+    anio: number | null;
+    es_relevante: number;
+    en_boletin: number;
+  }>();
+
+  if (!row) return null;
+
+  if (row.current_status === 'enriched_pending_vectorization' || row.current_status === 'error_quota_pinecone') {
+    return {
+      ...row,
+      target_status: 'enriched_pending_vectorization',
+      route: 'vectorize_only'
+    };
+  }
+
+  if (row.anio === 2026) {
+    return {
+      ...row,
+      target_status: 'ingested',
+      route: 'mistral_2512'
+    };
+  }
+
+  if (row.es_relevante === 1 || row.en_boletin === 1) {
+    return {
+      ...row,
+      target_status: 'ingested_importante',
+      route: 'gemini'
+    };
+  }
+
+  return {
+    ...row,
+    target_status: 'ingested_trivial',
+    route: 'mistral_2411'
+  };
+}
+
 async function listDictamenByStatus(
   db: D1Database,
   statuses: string[],
@@ -273,45 +334,69 @@ async function listDictamenIdsParaProcesar(db: D1Database, limit = 50): Promise<
     `SELECT d.id
      FROM dictamenes d
      LEFT JOIN enriquecimiento e ON d.id = e.dictamen_id
-     WHERE d.estado = 'ingested'
+     WHERE d.estado IN ('ingested', 'ingested_importante', 'ingested_trivial', 'error_quota', 'enriched_pending_vectorization', 'error_quota_pinecone')
        AND d.old_url IS NOT NULL 
        AND d.division_id IS NOT NULL
-       AND (e.modelo_llm IS NULL OR e.modelo_llm != 'mistral-large-2512')
+       AND (
+         d.estado NOT IN ('enriched_pending_vectorization', 'error_quota_pinecone')
+         OR e.dictamen_id IS NOT NULL
+       )
      ORDER BY d.fecha_documento DESC, d.numero DESC
      LIMIT ?`
   ).bind(limit).all<{ id: string }>();
   return result.results?.map((row) => row.id) ?? [];
 }
 
-async function checkoutDictamenesParaProcesar(db: D1Database, limit = 50): Promise<string[]> {
-  const result = await db.prepare(
+
+async function checkoutDictamenesParaProcesar(
+  db: D1Database,
+  limit = 50,
+  allowedStatuses?: string[]
+): Promise<{ id: string, status_from: string }[]> {
+  const defaultStatuses = ['ingested', 'ingested_importante', 'ingested_trivial', 'error_quota', 'enriched_pending_vectorization', 'error_quota_pinecone'];
+  const statuses = allowedStatuses && allowedStatuses.length > 0 ? allowedStatuses : defaultStatuses;
+
+  const placeholders = statuses.map(() => '?').join(',');
+
+  // Primero seleccionamos los candidatos para conocer su estado original
+  const candidates = await db.prepare(
+    `SELECT d.id, d.estado as status_from
+     FROM dictamenes d
+     LEFT JOIN enriquecimiento e ON d.id = e.dictamen_id
+     WHERE d.estado IN (${placeholders})
+       AND d.old_url IS NOT NULL
+       AND d.division_id IS NOT NULL
+       AND (
+         d.estado NOT IN ('enriched_pending_vectorization', 'error_quota_pinecone')
+         OR e.dictamen_id IS NOT NULL
+       )
+     ORDER BY d.fecha_documento DESC, d.numero DESC
+     LIMIT ?`
+  ).bind(...statuses, limit).all<{ id: string, status_from: string }>();
+
+  const rows = candidates.results ?? [];
+  if (rows.length === 0) return [];
+
+  const ids = rows.map(r => r.id);
+  const now = nowIso();
+
+  // Actualizamos a 'processing'
+  await db.prepare(
     `UPDATE dictamenes 
      SET estado = 'processing', updated_at = ?
-     WHERE id IN (
-         SELECT d.id
-         FROM dictamenes d
-         LEFT JOIN enriquecimiento e ON d.id = e.dictamen_id
-         WHERE d.estado = 'ingested'
-           AND d.old_url IS NOT NULL 
-           AND d.division_id IS NOT NULL
-           AND (e.modelo_llm IS NULL OR e.modelo_llm != 'mistral-large-2512')
-         ORDER BY d.fecha_documento DESC, d.numero DESC
-         LIMIT ?
-     ) RETURNING id;`
-  ).bind(nowIso(), limit).all<{ id: string }>();
+     WHERE id IN (${ids.map(() => '?').join(',')})`
+  ).bind(now, ...ids).run();
 
-  const ids = result.results?.map((row) => row.id) ?? [];
-
-  for (const id of ids) {
+  for (const row of rows) {
     await logDictamenEvent(db, {
-      dictamen_id: id,
+      dictamen_id: row.id,
       event_type: 'BACKFILL_LOTE_CHECKOUT',
-      status_from: 'ingested',
+      status_from: row.status_from,
       status_to: 'processing'
     });
   }
 
-  return ids;
+  return rows;
 }
 
 async function listDictamenes(
@@ -358,8 +443,11 @@ async function getLatestRawRef(_db: D1Database, dictamenId: string): Promise<{ r
 
 // ─── Enriquecimiento ─────────────────────────────────────────────────
 
-async function getEnrichment(db: D1Database, dictamenId: string, model: string): Promise<any | null> {
-  const row = await db.prepare("SELECT * FROM enriquecimiento WHERE dictamen_id = ? AND modelo_llm = ?").bind(dictamenId, model).first();
+async function getEnrichment(db: D1Database, dictamenId: string, _model: string): Promise<any | null> {
+  // Buscamos cualquier enriquecimiento existente para el dictamen, sin filtrar por modelo.
+  // El parámetro _model se conserva en la firma para compatibilidad, pero NO se usa como filtro.
+  // Esto evita reprocesar dictámenes que ya tienen enriquecimiento de un modelo diferente al actual.
+  const row = await db.prepare("SELECT * FROM enriquecimiento WHERE dictamen_id = ?").bind(dictamenId).first();
   if (!row) return null;
   return {
     extrae_jurisprudencia: {
@@ -370,9 +458,11 @@ async function getEnrichment(db: D1Database, dictamenId: string, model: string):
     },
     genera_jurisprudencia: row.genera_jurisprudencia === 1,
     booleanos: JSON.parse(String(row.booleanos_json || '{}')),
-    fuentes_legales: JSON.parse(String(row.fuentes_legales_json || '[]'))
+    fuentes_legales: JSON.parse(String(row.fuentes_legales_json || '[]')),
+    _modelo_llm: row.modelo_llm // incluimos para trazabilidad en logs
   };
 }
+
 
 async function insertEnrichment(
   db: D1Database,
@@ -511,6 +601,13 @@ async function insertDictamenBooleanosLLM(db: D1Database, dictamenId: string, bo
   ).run();
 }
 
+async function clearEnrichmentDerivedData(db: D1Database, dictamenId: string): Promise<void> {
+  await db.batch([
+    db.prepare(`DELETE FROM dictamen_etiquetas_llm WHERE dictamen_id = ?`).bind(dictamenId),
+    db.prepare(`DELETE FROM dictamen_fuentes_legales WHERE dictamen_id = ?`).bind(dictamenId)
+  ]);
+}
+
 async function insertDictamenReferencia(db: D1Database, dictamenId: string, refNombre: string, tipo: string): Promise<void> {
   await db.prepare(
     `INSERT INTO dictamen_referencias (dictamen_id, dictamen_ref_nombre, url)
@@ -543,10 +640,10 @@ async function getDashboardStats(db: D1Database): Promise<{
   ).all<{ estado: string; count: number }>();
   const counts = { total: 0, ingested: 0, enriched: 0, vectorized: 0, error: 0 };
   for (const row of countsResult.results ?? []) {
-    if (row.estado === "ingested") counts.ingested = row.count;
-    else if (row.estado === "enriched") counts.enriched = row.count;
+    if (row.estado === "ingested" || row.estado === "ingested_importante" || row.estado === "ingested_trivial") counts.ingested += row.count;
+    else if (row.estado === "enriched" || row.estado === "enriched_pending_vectorization") counts.enriched += row.count;
     else if (row.estado === "vectorized") counts.vectorized = row.count;
-    else if (row.estado === "error") counts.error = row.count;
+    else if (row.estado.startsWith("error")) counts.error += row.count;
   }
   counts.total = counts.ingested + counts.enriched + counts.vectorized + counts.error;
 
@@ -583,7 +680,7 @@ async function getDashboardStats(db: D1Database): Promise<{
   };
 
   const pending = {
-    enrich: counts.ingested + counts.error,
+    enrich: counts.ingested,
     vectorize: counts.enriched
   };
 
@@ -616,9 +713,9 @@ async function getMigrationStats(db: D1Database): Promise<Record<string, number>
     SELECT 
       COUNT(*) as total,
       SUM(CASE WHEN d.estado LIKE 'error%' THEN 1 ELSE 0 END) as errors,
-      SUM(CASE WHEN d.estado IN ('ingested', 'processing') THEN 1 ELSE 0 END) as pending,
-      SUM(CASE WHEN d.estado NOT LIKE 'error%' AND d.estado NOT IN ('ingested', 'processing') AND e.modelo_llm = 'mistral-large-2512' THEN 1 ELSE 0 END) as migrated,
-      SUM(CASE WHEN d.estado NOT LIKE 'error%' AND d.estado NOT IN ('ingested', 'processing') AND e.modelo_llm IN ('mistral-large-2411', 'mistralLarge2411') THEN 1 ELSE 0 END) as legacy
+      SUM(CASE WHEN d.estado IN ('ingested', 'ingested_importante', 'ingested_trivial', 'processing', 'enriched_pending_vectorization') THEN 1 ELSE 0 END) as pending,
+      SUM(CASE WHEN d.estado NOT LIKE 'error%' AND d.estado NOT IN ('ingested', 'ingested_importante', 'ingested_trivial', 'processing', 'enriched_pending_vectorization') AND e.modelo_llm = 'mistral-large-2512' THEN 1 ELSE 0 END) as migrated,
+      SUM(CASE WHEN d.estado NOT LIKE 'error%' AND d.estado NOT IN ('ingested', 'ingested_importante', 'ingested_trivial', 'processing', 'enriched_pending_vectorization') AND e.modelo_llm IN ('mistral-large-2411', 'mistralLarge2411') THEN 1 ELSE 0 END) as legacy
     FROM dictamenes d
     LEFT JOIN enriquecimiento e ON d.id = e.dictamen_id
   `).first<Record<string, number>>();
@@ -739,6 +836,45 @@ async function updateEnrichmentBooleanos(
   ).bind(flag, value ? 'true' : 'false', dictamenId).run();
 }
 
+// ─── Boletines ────────────────────────────────────────────────────────
+
+async function createBoletin(db: D1Database, params: {
+  id: string;
+  fecha_inicio: string;
+  fecha_fin: string;
+  filtro_boletin: number;
+  filtro_relevante: number;
+  filtro_recurso_prot: number;
+}): Promise<void> {
+  await db.prepare(
+    `INSERT INTO tabla_boletines (id, fecha_inicio, fecha_fin, filtro_boletin, filtro_relevante, filtro_recurso_prot, status)
+     VALUES (?, ?, ?, ?, ?, ?, 'PENDING')`
+  ).bind(
+    params.id,
+    params.fecha_inicio,
+    params.fecha_fin,
+    params.filtro_boletin,
+    params.filtro_relevante,
+    params.filtro_recurso_prot
+  ).run();
+}
+
+async function getBoletin(db: D1Database, id: string): Promise<BoletinRow | null> {
+  return await db.prepare("SELECT * FROM tabla_boletines WHERE id = ?").bind(id).first<BoletinRow>();
+}
+
+async function listBoletines(db: D1Database, limit = 20): Promise<BoletinRow[]> {
+  const res = await db.prepare("SELECT * FROM tabla_boletines ORDER BY created_at DESC LIMIT ?").bind(limit).all<BoletinRow>();
+  return res.results ?? [];
+}
+
+async function getBoletinEntregables(db: D1Database, boletinId: string): Promise<BoletinEntregableRow[]> {
+  const res = await db.prepare("SELECT * FROM tabla_boletines_entregables WHERE boletin_id = ? ORDER BY id ASC")
+    .bind(boletinId)
+    .all<BoletinEntregableRow>();
+  return res.results ?? [];
+}
+
 // ─── Exports ─────────────────────────────────────────────────────────
 
 export {
@@ -757,6 +893,7 @@ export {
   getRecentMigrationEvents,
   listDictamenes,
   getDictamenById,
+  getDictamenProcessingProfile,
   listDictamenByStatus,
   listDictamenIdsByStatus,
   listDictamenIdsParaProcesar,
@@ -767,6 +904,7 @@ export {
   updateEnrichmentFuentes,
   getExistingDictamenIds,
   insertDictamenBooleanosLLM,
+  clearEnrichmentDerivedData,
   insertDictamenReferencia,
   insertDictamenEtiquetaLLM,
   insertDictamenFuenteLegal,
@@ -775,5 +913,10 @@ export {
   insertDictamenRelacionJuridica,
   insertDictamenRelacionHuerfana,
   updateEnrichmentBooleanos,
-  getDictamenRelacionesJuridicas
+  getDictamenRelacionesJuridicas,
+  // Boletines
+  createBoletin,
+  getBoletin,
+  listBoletines,
+  getBoletinEntregables
 };

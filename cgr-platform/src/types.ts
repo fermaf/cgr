@@ -2,7 +2,19 @@ import type { Workflow, D1Database, KVNamespace } from '@cloudflare/workers-type
 
 // Estados del pipeline de procesamiento de dictámenes.
 // Ver tabla cat_estado_pipeline en D1.
-export type DictamenStatus = 'ingested' | 'processing' | 'enriched' | 'vectorized' | 'error' | 'error_longitud' | 'error_sin_KV_source' | 'error_quota';
+export type DictamenStatus =
+  | 'ingested'
+  | 'ingested_importante'
+  | 'ingested_trivial'
+  | 'processing'
+  | 'enriched'
+  | 'enriched_pending_vectorization'
+  | 'vectorized'
+  | 'error'
+  | 'error_longitud'
+  | 'error_sin_KV_source'
+  | 'error_quota'
+  | 'error_quota_pinecone';
 
 export type OrigenImportacion = 'mongoDb' | 'worker_cron_crawl' | 'worker_batch_ai' | 'worker_manual' | 'crawl_contraloria';
 
@@ -106,7 +118,11 @@ export type DictamenEventType =
   | 'KV_SOURCE_MISSING'
   | 'AI_QUOTA_EXCEEDED'
   | 'RETRO_UPDATE_APPLIED'
-  | 'RELATION_BACKFILL_SUCCESS';
+  | 'BACKFILL_QUOTA_ABORT_REVERT'
+  | 'RECOVERY_GEMINI_KEY_SWAP'
+  | 'RECOVERY_MISTRAL_KEY_SWAP'
+  | 'RELATION_BACKFILL_SUCCESS'
+  | 'PINECONE_QUOTA_EXCEEDED';
 
 // Fila de la nueva tabla dictamen_events.
 export interface DictamenEventRow {
@@ -218,6 +234,9 @@ export interface Env {
   MISTRAL_MIN_INTERVAL_MS?: string;
   MISTRAL_429_BACKOFF_MS?: string;
   MISTRAL_429_THRESHOLD?: string;
+  MISTRAL_API_KEYS?: string;
+  MISTRAL_2512_MONTHLY_RESET_DAY?: string;
+  MISTRAL_QUOTA_COOLDOWN_HOURS?: string;
   CRAWL_DAYS_LOOKBACK?: string;
   BACKFILL_BATCH_SIZE?: string;
   BACKFILL_DELAY_MS?: string;
@@ -225,6 +244,10 @@ export interface Env {
   LOG_LEVEL?: string;
   SKILL_TEST_ERROR?: string;
   SKILL_EXECUTION_ENABLED?: string;
+  GEMINI_API_KEYS?: string;
+  GEMINI_BLOCKED_API_KEYS?: string;
+  GEMINI_RPM_LIMIT_PER_KEY?: string;
+  GEMINI_DAILY_RESET_HOUR?: string;
 
   // Secrets
   PINECONE_API_KEY: string;

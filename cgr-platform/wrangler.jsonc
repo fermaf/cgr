@@ -88,10 +88,10 @@
     "BACKFILL_BATCH_SIZE": "40",
     "BACKFILL_DELAY_MS": "500",
     "ANALYTICS_CACHE_TTL_SECONDS": "900",
+    "GEMINI_RPM_LIMIT_PER_KEY": "2",
+    "MISTRAL_QUOTA_COOLDOWN_HOURS": "12",
     "INGEST_TRIGGER_TOKEN": "paz_mundial",
-        "GEMINI_API_KEY": "AIzaSyD6XExcvy0xh1Ue2hH9CJyGKCZs8_7ynHc",
         "ELEVENLABS_TOOL_SECRET": "elevenlabs.ioQazqaz1",
-        "GEMINI_API_URL": "https://gateway.ai.cloudflare.com/v1/63ac4f10cdedc71a1b09256622380278/cgr-gateway/google-ai-studio",
         "GEMINI_API_URL": "https://gateway.ai.cloudflare.com/v1/63ac4f10cdedc71a1b09256622380278/cgr-gateway/google-ai-studio"
   },
   "env": {
@@ -110,8 +110,9 @@
         "BACKFILL_BATCH_SIZE": "40",
         "BACKFILL_DELAY_MS": "500",
         "ANALYTICS_CACHE_TTL_SECONDS": "900",
+        "GEMINI_RPM_LIMIT_PER_KEY": "2",
+        "MISTRAL_QUOTA_COOLDOWN_HOURS": "12",
         "INGEST_TRIGGER_TOKEN": "paz_mundial",
-        "GEMINI_API_KEY": "AIzaSyD6XExcvy0xh1Ue2hH9CJyGKCZs8_7ynHc",
         "ELEVENLABS_TOOL_SECRET": "elevenlabs.ioQazqaz1",
         "GEMINI_API_URL": "https://gateway.ai.cloudflare.com/v1/63ac4f10cdedc71a1b09256622380278/cgr-gateway/google-ai-studio"
       },
@@ -180,8 +181,9 @@
         "BACKFILL_BATCH_SIZE": "40",
         "BACKFILL_DELAY_MS": "500",
         "ANALYTICS_CACHE_TTL_SECONDS": "900",
+        "GEMINI_RPM_LIMIT_PER_KEY": "2",
+        "MISTRAL_QUOTA_COOLDOWN_HOURS": "12",
         "INGEST_TRIGGER_TOKEN": "paz_mundial",
-        "GEMINI_API_KEY": "AIzaSyD6XExcvy0xh1Ue2hH9CJyGKCZs8_7ynHc",
         "ELEVENLABS_TOOL_SECRET": "elevenlabs.ioQazqaz1",
         "GEMINI_API_URL": "https://gateway.ai.cloudflare.com/v1/63ac4f10cdedc71a1b09256622380278/cgr-gateway/google-ai-studio"
       },

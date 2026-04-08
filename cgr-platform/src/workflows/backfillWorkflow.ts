@@ -8,7 +8,10 @@ import {
     listDictamenIdsParaProcesar,
     getLatestRawRef,
     getEnrichment,
+    getDictamenProcessingProfile,
+    clearEnrichmentDerivedData,
     insertEnrichment,
+    logDictamenEvent,
     updateDictamenStatus,
     insertDictamenBooleanosLLM,
     insertDictamenEtiquetaLLM,
@@ -18,7 +21,6 @@ import { logInfo, logError, logWarn, setLogLevel } from '../lib/log';
 import { applyRetroUpdates } from '../lib/relations';
 import { persistIncident } from '../storage/incident_d1';
 import { countTokens, MAX_MISTRAL_TOKENS, MAX_PINECONE_TOKENS } from '../lib/tokenizer';
-import { checkRateLimitGemini } from '../lib/rateLimiter';
 
 interface BackfillParams {
     batchSize?: number;
@@ -29,6 +31,13 @@ interface BackfillParams {
 
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function shouldForceReenrichment(statusFrom: string) {
+    return statusFrom === 'ingested'
+        || statusFrom === 'ingested_importante'
+        || statusFrom === 'ingested_trivial'
+        || statusFrom === 'error_quota';
+}
 
 export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
     async run(event: WorkflowEvent<BackfillParams>, step: WorkflowStep) {
@@ -96,58 +105,74 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
                             }
 
                             // Recuperar enriquecimiento existente si hay falla parcial previa
+                            const profile = await getDictamenProcessingProfile(db, id);
                             let enrichment = await getEnrichment(db, id, mistralModel);
-                            
                             let currentModel = mistralModel;
                             let llmError: string | undefined;
 
+                            if (shouldForceReenrichment(statusFrom)) {
+                                enrichment = null;
+                            }
+
                             if (!enrichment) {
-                                // 2.1 Ruteo y Enriquecimiento (Siguiendo Plan Aprobado)
-                                // ingested_importante o error_quota -> Gemini 3.1 Flash Lite
-                                // ingested_trivial -> Mistral Large 2411
-                                // ingested -> Mistral Original (2512 en vars)
-                                
-                                const isImportant = statusFrom === 'ingested_importante' || statusFrom === 'error_quota';
-                                const isTrivial = statusFrom === 'ingested_trivial';
                                 const geminiModel = "gemini-3.1-flash-lite-preview";
                                 const mistral2411 = "mistral-large-2411";
-                                
-                                if (isImportant) {
-                                    // Control de Rate Limit para Gemini
-                                    const quota = await checkRateLimitGemini(db);
-                                    if (!quota.allowed) {
-                                        logWarn('GEMINI_BACKFILL_QUOTA_WAIT', { id, statusFrom, retryAfter: quota.retryAfterSeconds });
-                                        if (quota.retryAfterSeconds && quota.retryAfterSeconds > 600) {
-                                            // Detener el procesamiento del chunk actual y señalar cuota excedida
-                                            (chunkResults as any).quotaExceeded = true;
-                                            return chunkResults;
-                                        }
-                                        await sleep(5000); 
+
+                                if (!profile) {
+                                    await updateDictamenStatus(db, id, 'error', 'SYSTEM_ERROR', { detail: 'Sin perfil de procesamiento' });
+                                    chunkResults.push({ id, ok: false });
+                                    continue;
+                                }
+
+                                if (profile.route === 'vectorize_only') {
+                                    await updateDictamenStatus(db, id, 'error', 'SYSTEM_ERROR', {
+                                        detail: 'Estado exige vectorización, pero no existe enriquecimiento reutilizable'
+                                    });
+                                    chunkResults.push({ id, ok: false });
+                                    continue;
+                                }
+
+                                await logDictamenEvent(db, {
+                                    dictamen_id: id,
+                                    event_type: 'AI_INFERENCE_START',
+                                    status_from: statusFrom,
+                                    status_to: 'processing',
+                                    metadata: {
+                                        route: profile.route,
+                                        target_status: profile.target_status
                                     }
-                                    
+                                });
+
+                                if (profile.route === 'gemini') {
                                     const { result, error } = await analyzeDictamenGemini(env, rawJson, geminiModel);
                                     enrichment = result;
                                     llmError = error;
                                     currentModel = geminiModel;
-                                    
-                                    // Delay de 1 minuto para respetar 1 RPM en Gemini
-                                    console.log(`[Backfill] Esperando 60s tras consulta a Gemini (1 RPM)... (${id})`);
-                                    await sleep(60000);
-                                } else if (isTrivial) {
-                                    // Triviales -> Mistral Large 2411
+                                } else if (profile.route === 'mistral_2411') {
                                     const { result, error } = await analyzeDictamen(env, rawJson, mistral2411);
                                     enrichment = result;
                                     llmError = error;
                                     currentModel = mistral2411;
                                 } else {
-                                    // Originales (2026) -> Mistral Original (2512)
-                                    const { result, error } = await analyzeDictamen(env, rawJson);
+                                    const { result, error } = await analyzeDictamen(env, rawJson, mistralModel);
                                     enrichment = result;
                                     llmError = error;
                                     currentModel = mistralModel;
                                 }
 
                                 if (enrichment) {
+                                    await logDictamenEvent(db, {
+                                        dictamen_id: id,
+                                        event_type: 'AI_INFERENCE_SUCCESS',
+                                        status_from: 'processing',
+                                        status_to: 'enriched',
+                                        metadata: {
+                                            modelo: currentModel,
+                                            route: profile.route,
+                                            target_status: profile.target_status
+                                        }
+                                    });
+
                                     // 2.2 GUARDADO PRIORITARIO EN KV (DICTAMENES_PASO)
                                     const now = new Date().toISOString();
                                     const sourceContent = rawJson._source ?? rawJson.source ?? (rawJson as any).raw_data ?? rawJson;
@@ -175,6 +200,7 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
                                     });
 
                                     // Guardar en tablas D1
+                                    await clearEnrichmentDerivedData(db, id);
                                     await insertEnrichment(db, {
                                         dictamen_id: id,
                                         titulo: enrichment.extrae_jurisprudencia.titulo,
@@ -245,9 +271,14 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
                                 chunkResults.push({ id, ok: true });
                             } else {
                                 if (llmError === 'QUOTA_EXCEEDED') {
-                                    await updateDictamenStatus(db, id, 'error_quota', 'AI_QUOTA_EXCEEDED', {
-                                        detail: `Límite de uso de ${currentModel} excedido.`
+                                    const fallbackStatus = profile?.target_status ?? (statusFrom as any);
+                                    await updateDictamenStatus(db, id, fallbackStatus, 'BACKFILL_QUOTA_ABORT_REVERT', {
+                                        route: profile?.route ?? 'desconocida',
+                                        previous_processing_state: statusFrom
                                     });
+                                    (chunkResults as any).quotaExceeded = true;
+                                    logWarn('GEMINI_LLM_QUOTA_REVERT', { id, model: currentModel });
+                                    return chunkResults;
                                 } else {
                                     await updateDictamenStatus(db, id, 'error', 'AI_INFERENCE_ERROR', {
                                         detail: `${currentModel} falló: ${llmError ?? 'enrichment null'}`
@@ -259,10 +290,18 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
                         } catch (e: any) {
                             console.error(`[Backfill][FATAL] ${id}:`, e);
                             try {
-                                await updateDictamenStatus(db, id, 'error', 'SYSTEM_ERROR', {
-                                    detail: e.message,
-                                    stack: e.stack
-                                });
+                                const isPineconeQuota = e.message?.includes('Pinecone') && (e.message?.includes('429') || e.message?.includes('RESOURCE_EXHAUSTED'));
+                                if (isPineconeQuota) {
+                                    await updateDictamenStatus(db, id, 'enriched_pending_vectorization', 'PINECONE_QUOTA_EXCEEDED', {
+                                        detail: e.message
+                                    });
+                                    (chunkResults as any).pineconeQuotaExceeded = true;
+                                } else {
+                                    await updateDictamenStatus(db, id, 'error', 'SYSTEM_ERROR', {
+                                        detail: e.message,
+                                        stack: e.stack
+                                    });
+                                }
                             } catch (dbErr) {
                                 console.error(`[Backfill][CRITICAL] No se pudo actualizar estado de error para ${id}:`, dbErr);
                             }
@@ -274,12 +313,20 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
 
                 results.forEach(r => { if (r.ok) ok++; else errores++; });
 
-                // Si detectamos cuota excedida, suspendemos el workflow por 1 hora
+                // Si detectamos cuota excedida de Pinecone, suspendemos hasta el 1 del próximo mes
+                if ((results as any).pineconeQuotaExceeded) {
+                    const now = new Date();
+                    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0);
+                    const seconds = Math.floor((nextMonth.getTime() - now.getTime()) / 1000);
+                    console.log(`[Backfill] Cuota mensual de Pinecone agotada (Hoy: ${now.toISOString()}). Suspendiendo instancia por ${seconds} segundos hasta el ${nextMonth.toISOString()}...`);
+                    await step.sleep('wait-for-pinecone-reset', `${seconds} seconds`);
+                    break;
+                }
+
+                // Si detectamos cuota excedida de LLM, suspendemos el workflow por 1 hora
                 if ((results as any).quotaExceeded) {
-                    console.log(`[Backfill] Cuota diaria agotada. Suspendiendo instancia por 1 hora por instrucción del usuario...`);
+                    console.log(`[Backfill] Cuota diaria de LLM agotada. Suspendiendo instancia por 1 hora...`);
                     await step.sleep('wait-for-quota-reset', '1 hour');
-                    // Salimos para permitir que el sistema recursivo re-intente más tarde
-                    // o podrías continuar el loop, pero return es más limpio para refrescar estado.
                     break; 
                 }
 

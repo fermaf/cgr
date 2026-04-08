@@ -3,10 +3,16 @@ import OpenAI from 'openai';
 import type { Env, DictamenRaw, DictamenSource } from '../types';
 import { logError, logWarn, setLogLevel } from '../lib/log';
 import { normalizeLegalSourceForStorage } from '../lib/legalSourcesCanonical';
+import {
+  recordProviderApiKeyFailure,
+  recordProviderApiKeySuccess,
+  selectProviderApiKey
+} from '../lib/providerKeyPool';
 
 const DOCTRINAL_METADATA_MODEL = 'mistral-large-2411';
+const DOCTRINAL_METADATA_TIMEOUT_MS = 45000;
 
-function getMistralClient(env: Env) {
+function getMistralClient(env: Env, apiKeyOverride?: string) {
   setLogLevel(env.LOG_LEVEL);
   const headers: Record<string, string> = {};
 
@@ -15,7 +21,7 @@ function getMistralClient(env: Env) {
   }
 
   return new OpenAI({
-    apiKey: env.MISTRAL_API_KEY,
+    apiKey: apiKeyOverride ?? env.MISTRAL_API_KEY,
     baseURL: env.MISTRAL_API_URL,
     defaultHeaders: headers,
   });
@@ -310,12 +316,16 @@ async function analyzeDoctrinalMetadata(
 
   while (attempts < maxAttempts) {
     try {
-      const response = await client.chat.completions.create({
+      const completionPromise = client.chat.completions.create({
         model,
         messages: [{ role: 'user', content: buildPromptDoctrinalMetadata(raw, context) }],
         temperature: 0.1,
         response_format: { type: 'json_object' }
       });
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('MISTRAL_DOCTRINAL_METADATA_TIMEOUT')), DOCTRINAL_METADATA_TIMEOUT_MS);
+      });
+      const response = await Promise.race([completionPromise, timeoutPromise]);
 
       const contentRaw = response.choices?.[0]?.message?.content;
       const content = typeof contentRaw === 'string' ? contentRaw : undefined;
@@ -352,15 +362,25 @@ async function analyzeDoctrinalMetadata(
       };
     } catch (error: any) {
       attempts++;
-      const isRateLimit = error.status === 429 || String(error).includes('429');
-      if (isRateLimit && attempts < maxAttempts) {
-        logWarn('MISTRAL_DOCTRINAL_METADATA_RATE_LIMIT_RETRY', { attempt: attempts, nextDelay: delay });
+      const message = error?.message || String(error);
+      const normalizedMessage = String(message);
+      const isRateLimit = error.status === 429 || normalizedMessage.includes('429');
+      const isProviderTransient = error.status === 400 && normalizedMessage.includes('code\\\":2005');
+      const isTimeout = normalizedMessage.includes('MISTRAL_DOCTRINAL_METADATA_TIMEOUT');
+      const shouldRetry = isRateLimit || isProviderTransient || isTimeout;
+
+      if (shouldRetry && attempts < maxAttempts) {
+        logWarn('MISTRAL_DOCTRINAL_METADATA_RATE_LIMIT_RETRY', {
+          attempt: attempts,
+          nextDelay: delay,
+          retryReason: isTimeout ? 'timeout' : isProviderTransient ? 'provider_transient' : 'rate_limit'
+        });
         await new Promise((resolve) => setTimeout(resolve, delay));
         delay *= 2;
         continue;
       }
 
-      const msg = error.message || String(error);
+      const msg = normalizedMessage;
       logError('MISTRAL_DOCTRINAL_METADATA_ERROR', error, { model, attempts });
       return { result: null, error: msg, model };
     }
@@ -370,13 +390,23 @@ async function analyzeDoctrinalMetadata(
 }
 
 async function analyzeDictamen(env: Env, raw: DictamenRaw, modelOverride?: string): Promise<{ result: any | null; error?: string }> {
-  const client = getMistralClient(env);
   const model = typeof modelOverride === 'string' && modelOverride.trim().length > 0 ? modelOverride.trim() : env.MISTRAL_MODEL;
   let attempts = 0;
   const maxAttempts = 5;
   let delay = 10000;
+  let lastKeyId: string | null = null;
 
   while (attempts < maxAttempts) {
+    const selection = await selectProviderApiKey(env.DB, env, 'mistral', model);
+    if (!selection.ok) {
+      return { result: null, error: 'QUOTA_EXCEEDED' };
+    }
+    if (lastKeyId && lastKeyId !== selection.keyId) {
+      logWarn('MISTRAL_KEY_ROTATED', { from: lastKeyId, to: selection.keyId, model, id: raw.id });
+    }
+    lastKeyId = selection.keyId;
+    const client = getMistralClient(env, selection.apiKey);
+
     try {
       const response = await client.chat.completions.create({
         model,
@@ -403,6 +433,8 @@ async function analyzeDictamen(env: Env, raw: DictamenRaw, modelOverride?: strin
       const booleanos = normalizeBooleanos(parsed.booleanos ?? {});
       const fuentes = normalizeFuentesLegales(parsed.fuentes_legales as any[]);
 
+      await recordProviderApiKeySuccess(env.DB, selection);
+
       return {
         result: {
           extrae_jurisprudencia,
@@ -422,18 +454,25 @@ async function analyzeDictamen(env: Env, raw: DictamenRaw, modelOverride?: strin
     } catch (error: any) {
       attempts++;
       const isRateLimit = error.status === 429 || String(error).includes('429');
+      const msg = error.message || String(error);
+      const isUnauthorized = error.status === 401 || msg.toLowerCase().includes('unauthorized');
+      const isQuota = isRateLimit || msg.toLowerCase().includes('quota');
+
+      if (isQuota || isUnauthorized) {
+        await recordProviderApiKeyFailure(env.DB, env, selection, isUnauthorized ? 'blocked' : 'quota', msg);
+        if (attempts < maxAttempts) {
+          continue;
+        }
+        return { result: null, error: 'QUOTA_EXCEEDED' };
+      }
+
+      await recordProviderApiKeyFailure(env.DB, env, selection, 'error', msg);
 
       if (isRateLimit && attempts < maxAttempts) {
         logWarn('MISTRAL_RATE_LIMIT_RETRY', { attempt: attempts, nextDelay: delay, id: raw.id });
         await new Promise(resolve => setTimeout(resolve, delay));
         delay *= 2;
         continue;
-      }
-
-      const msg = error.message || String(error);
-
-      if ((isRateLimit && attempts >= maxAttempts) || error.status === 401 || msg.toLowerCase().includes('unauthorized') || msg.toLowerCase().includes('quota')) {
-        return { result: null, error: 'QUOTA_EXCEEDED' };
       }
 
       logError('MISTRAL_ANALYZE_DICTAMEN_ERROR', error, { model, attempts });

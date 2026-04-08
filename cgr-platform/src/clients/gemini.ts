@@ -1,22 +1,24 @@
 import type { Env, DictamenRaw } from '../types';
 import { buildPromptConsolidado } from './mistral';
 import { logError, logWarn } from '../lib/log';
+import {
+  recordProviderApiKeyFailure,
+  recordProviderApiKeySuccess,
+  selectProviderApiKey
+} from '../lib/providerKeyPool';
 
 export async function analyzeDictamenGemini(
   env: Env, 
   raw: DictamenRaw, 
   modelName: string = "gemini-3.1-flash-lite-preview"
 ): Promise<{ result: any | null; error?: string }> {
-  const apiKey = env.GEMINI_API_KEY;
-  if (!apiKey) return { result: null, error: 'GEMINI_API_KEY_MISSING' };
-
   const prompt = buildPromptConsolidado(raw);
   const baseUrl = env.GEMINI_API_URL || 'https://generativelanguage.googleapis.com';
-  const url = `${baseUrl}/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
   let attempts = 0;
-  const maxAttempts = 3;
+  const maxAttempts = 5;
   let delay = 2000;
+  let lastKeyId: string | null = null;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -27,6 +29,16 @@ export async function analyzeDictamenGemini(
   }
 
   while (attempts < maxAttempts) {
+    const selection = await selectProviderApiKey(env.DB, env, 'gemini', modelName);
+    if (!selection.ok) {
+      return { result: null, error: selection.reason === 'NO_KEYS' ? 'GEMINI_API_KEY_MISSING' : 'QUOTA_EXCEEDED' };
+    }
+    if (lastKeyId && lastKeyId !== selection.keyId) {
+      logWarn('GEMINI_KEY_ROTATED', { from: lastKeyId, to: selection.keyId, modelName, id: raw.id });
+    }
+    lastKeyId = selection.keyId;
+    const url = `${baseUrl}/v1beta/models/${modelName}:generateContent?key=${selection.apiKey}`;
+
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -45,14 +57,12 @@ export async function analyzeDictamenGemini(
         const status = response.status;
         
         if (status === 429) {
-           if (attempts < maxAttempts - 1) {
-             logWarn('GEMINI_RATE_LIMIT_RETRY', { attempt: attempts + 1, modelName });
-             await new Promise(r => setTimeout(r, delay));
-             delay *= 2;
-             attempts++;
-             continue;
-           }
-           return { result: null, error: 'QUOTA_EXCEEDED' };
+          await recordProviderApiKeyFailure(env.DB, env, selection, 'quota', JSON.stringify(errorData.error || errorData));
+          attempts++;
+          if (attempts < maxAttempts) {
+            continue;
+          }
+          return { result: null, error: 'QUOTA_EXCEEDED' };
         }
         
         throw new Error(`Gemini API error (${status}): ${JSON.stringify(errorData.error || errorData)}`);
@@ -77,10 +87,22 @@ export async function analyzeDictamenGemini(
 
       // Normalización mínima para asegurar compatibilidad con el resto del sistema (D1, Pinecone)
       // Reusamos la estructura que el prompt ya exige.
+      await recordProviderApiKeySuccess(env.DB, selection);
       
       return { result: parsed };
 
     } catch (e: any) {
+      const message = e.message || String(e);
+      const isUnauthorized = e.status === 401 || message.toLowerCase().includes('api key not valid') || message.toLowerCase().includes('permission denied');
+      if (isUnauthorized) {
+        await recordProviderApiKeyFailure(env.DB, env, selection, 'blocked', message);
+        attempts++;
+        if (attempts < maxAttempts) {
+          continue;
+        }
+        return { result: null, error: 'QUOTA_EXCEEDED' };
+      }
+      await recordProviderApiKeyFailure(env.DB, env, selection, 'error', message);
       logError('GEMINI_ANALYZE_ERROR', e, { modelName, id: raw.id, attempt: attempts + 1 });
       attempts++;
       if (attempts >= maxAttempts) {
