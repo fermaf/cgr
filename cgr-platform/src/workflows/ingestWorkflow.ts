@@ -194,10 +194,10 @@ export class IngestWorkflow extends WorkflowEntrypoint<Env, IngestParams> {
       // Lógica de encadenamiento automático:
       // Si insertamos nuevos dictámenes exitosamente, disparamos su enriquecimiento.
       let backfillInstanceId = null;
-      if (totalIngested > 0 && env.BACKFILL_WORKFLOW) {
-        logInfo('INGEST_TRIGGERING_BACKFILL', { count: totalIngested });
-        const bfInstance = await env.BACKFILL_WORKFLOW.create({
-          params: { batchSize: totalIngested } // Le decimos al backfill que trabaje el lote recién ingresado
+      if (totalIngested > 0 && env.ENRICHMENT_WORKFLOW) {
+        logInfo('INGEST_TRIGGERING_ENRICHMENT', { count: totalIngested });
+        const bfInstance = await env.ENRICHMENT_WORKFLOW.create({
+          params: { batchSize: totalIngested }
         });
         backfillInstanceId = bfInstance.id;
       }

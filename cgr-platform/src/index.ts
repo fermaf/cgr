@@ -22,7 +22,8 @@ import {
 } from './storage/d1';
 import type { Env, DictamenRaw } from './types';
 import { IngestWorkflow } from './workflows/ingestWorkflow';
-import { BackfillWorkflow } from './workflows/backfillWorkflow';
+import { EnrichmentWorkflow } from './workflows/enrichmentWorkflow';
+import { VectorizationWorkflow } from './workflows/vectorizationWorkflow';
 import { KVSyncWorkflow } from './workflows/kvSyncWorkflow';
 import { CanonicalRelationsWorkflow } from './workflows/canonicalRelationsWorkflow';
 import { DoctrinalMetadataWorkflow } from './workflows/doctrinalMetadataWorkflow';
@@ -287,7 +288,8 @@ async function getSourceJsonWithFallback(env: Env, rawKey: string): Promise<unkn
 // Exportamos las clases Workflow para que Cloudflare pueda asociarlas (bind)
 export {
   IngestWorkflow,
-  BackfillWorkflow,
+  EnrichmentWorkflow,
+  VectorizationWorkflow,
   KVSyncWorkflow,
   CanonicalRelationsWorkflow,
   DoctrinalMetadataWorkflow,
@@ -1539,11 +1541,37 @@ app.post('/api/v1/dictamenes/batch-enrich', async (c) => {
   const batchSize = parsePositiveInt(body.batchSize, defaultBatch, 1, 500);
   const delayMs = parsePositiveInt(body.delayMs, defaultDelay, 0, 60000);
   const recursive = body.recursive !== undefined ? isTruthy(body.recursive) : true;
+  const requestedStatuses = Array.isArray(body.allowedStatuses)
+    ? body.allowedStatuses.filter((value): value is 'ingested' | 'ingested_importante' | 'ingested_trivial' | 'error_quota' =>
+      value === 'ingested' || value === 'ingested_importante' || value === 'ingested_trivial' || value === 'error_quota')
+    : undefined;
+  const allowedStatuses = requestedStatuses && requestedStatuses.length > 0 ? requestedStatuses : undefined;
 
-  const instance = await c.env.BACKFILL_WORKFLOW.create({
+  const instance = await c.env.ENRICHMENT_WORKFLOW.create({
+    params: { batchSize, delayMs, recursive, allowedStatuses }
+  });
+  logInfo('ENRICHMENT_WORKFLOW_CREATED', { workflowId: instance.id, batchSize, delayMs, recursive, allowedStatuses: allowedStatuses ?? null });
+  return c.json({ success: true, workflowId: instance.id, params: { batchSize, delayMs, recursive, allowedStatuses: allowedStatuses ?? null } });
+});
+
+app.post('/api/v1/dictamenes/batch-vectorize', async (c) => {
+  if (c.env.ENVIRONMENT === 'prod') {
+    const token = c.req.header('x-admin-token');
+    if (!token || token !== c.env.INGEST_TRIGGER_TOKEN) {
+      return c.json({ error: 'Unauthorized' }, 403);
+    }
+  }
+  const body = await readJsonBody(c);
+  const defaultBatch = parsePositiveInt(c.env.BACKFILL_BATCH_SIZE, 100, 1, 500);
+  const defaultDelay = parsePositiveInt(c.env.BACKFILL_DELAY_MS, 500, 0, 60000);
+  const batchSize = parsePositiveInt(body.batchSize, defaultBatch, 1, 500);
+  const delayMs = parsePositiveInt(body.delayMs, defaultDelay, 0, 60000);
+  const recursive = body.recursive !== undefined ? isTruthy(body.recursive) : true;
+
+  const instance = await c.env.VECTORIZATION_WORKFLOW.create({
     params: { batchSize, delayMs, recursive }
   });
-  logInfo('BACKFILL_WORKFLOW_CREATED', { workflowId: instance.id, batchSize, delayMs, recursive });
+  logInfo('VECTORIZATION_WORKFLOW_CREATED', { workflowId: instance.id, batchSize, delayMs, recursive });
   return c.json({ success: true, workflowId: instance.id, params: { batchSize, delayMs, recursive } });
 });
 
@@ -1647,7 +1675,7 @@ app.post('/api/v1/dictamenes/:id/re-process', async (c) => {
     // RETRO-UPDATES: Propagar cambios a dictámenes históricos
     await applyRetroUpdates(c.env, id, enrichment.acciones_juridicas_emitidas);
 
-    await updateDictamenStatus(db, id, 'enriched', 'MANUAL_UPDATE', {
+    await updateDictamenStatus(db, id, 'enriched_pending_vectorization', 'MANUAL_UPDATE', {
       detail: 'Re-proceso integral (Ingest + Mistral) desde API',
       model: c.env.MISTRAL_MODEL
     });

@@ -260,7 +260,7 @@ async function listCandidateRows(
   const result = await env.DB.prepare(
     `SELECT d.id, d.materia, COALESCE(d.fecha_documento, d.created_at) AS fecha_documento
      FROM dictamenes d
-     WHERE d.estado IN ('enriched', 'vectorized')
+     WHERE d.estado IN ('enriched_pending_vectorization', 'vectorized')
        AND COALESCE(NULLIF(TRIM(d.materia), ''), 'Sin materia') = ?
        AND (? IS NULL OR COALESCE(d.fecha_documento, d.created_at) >= ?)
        AND (? IS NULL OR COALESCE(d.fecha_documento, d.created_at) <= ?)

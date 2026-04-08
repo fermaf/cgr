@@ -28,6 +28,16 @@
 - priorización por vigencia doctrinal
 - remediación estructural de líneas doctrinales
 
+## Notas operativas del pipeline
+
+- La ingesta distingue backlog `ingested`, `ingested_importante` e `ingested_trivial` para enrutar modelos distintos en enrichment.
+- El pipeline productivo ya no usa un workflow mixto: existe un `EnrichmentWorkflow` para LLM y un `VectorizationWorkflow` para Pinecone.
+- Los estados transitorios correctos son `enriching_ingested`, `enriching_importante`, `enriching_trivial` y `vectorizing`.
+- Cuando Pinecone queda sin cuota, el estado operativo correcto del dictamen es `enriched_pending_vectorization`, no un error genérico de enrichment.
+- El workflow de enrichment termina en `enriched_pending_vectorization`; no debe vectorizar dentro de la misma corrida.
+- Ambos workflows seleccionan primero los dictámenes más recientes (`fecha_documento DESC`, `numero DESC`).
+- La trazabilidad histórica de cambios de estado debe vivir en `dictamen_events`.
+
 ## Grafo jurídico
 
 La red principal vive en:

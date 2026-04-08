@@ -119,7 +119,7 @@ En lugar de extraer solo "a quién cita este dictamen", este endpoint extrae en 
 Endpoints dedicados a mantener la higiene del Datalake. Requieren el Token protegido.
 
 ### `POST /api/v1/dictamenes/batch-enrich`
-Dispara el motor de Mistral AI asíncronamente a través del `BackfillWorkflow`. Esta ruta es la encargada de transformar un JSON muerto en Conocimiento Estructurado (Atributos LLM, Fuentes, Booleanos).
+Dispara el `EnrichmentWorkflow`. Esta ruta ejecuta exclusivamente enrichment con LLM y persistencia en KV/D1. No hace vectorización.
 
 #### Parámetros del Body (JSON)
 | Parámetro | Default | Razón de ser / Riesgos de Operación |
@@ -127,6 +127,7 @@ Dispara el motor de Mistral AI asíncronamente a través del `BackfillWorkflow`.
 | `batchSize` | `50` | Define cuántos registros se envían al Worker a procesar en una sola corrida. Cloudflare Workers mata la ejecución al cabo de cierto tiempo de CPU. Si lo subes a `500`, el Workflow reventará por *Memory Exceeded* o Timeout. Mantenlo en `50` o `100`. |
 | `delayMs` | `500` | Tiempo de respiración (en milisegundos) inyectado entre las llamadas a Mistral AI. Mistral (Cloudflare AI Gateway) expulsa *Rate Limits* (Error 429) si llamas a inferencia masiva agresivamente. Al situarlo en `500`, limitas la inferencia a 2 requests por segundo estabilizando la ingesta sin quebrar el pipeline. |
 | `recursive` | `true` | **El parámetro MÁS vital de orquestación**. Si es `true`, al terminar el lote de 50, el Worker se inspecciona a sí mismo; si nota que quedan más registros en gris, levanta **otra instancia clonada de sí mismo** en Cloudflare y sigue consumiendo. Si lo pasas en `false`, procesa solo 1 lote de 50 y se apaga (Ideal para depurar el proceso en Staging sin quemar 5.000 tokens probando un Prompt). |
+| `allowedStatuses` | `["ingested","ingested_importante","ingested_trivial"]` | Permite segmentar la cola de enrichment. Úsalo para correr solo 2026, solo importantes o solo triviales, según la cuota disponible por proveedor. |
 
 #### Ejemplo CURL
 ```bash
@@ -136,8 +137,33 @@ curl -X POST "https://cgr-platform.abogado.workers.dev/api/v1/dictamenes/batch-e
      -H "Content-Type: application/json" \
      -d '{
            "batchSize": 5,
-           "delayMs": 1000,
-           "recursive": false
+            "delayMs": 1000,
+           "recursive": false,
+           "allowedStatuses": ["ingested_importante"]
+         }'
+```
+
+---
+
+### `POST /api/v1/dictamenes/batch-vectorize`
+Dispara el `VectorizationWorkflow`. Esta ruta solo procesa dictámenes en `enriched_pending_vectorization` y los sube a Pinecone.
+
+#### Parámetros del Body (JSON)
+| Parámetro | Default | Razón de ser / Riesgos de Operación |
+| :--- | :--- | :--- |
+| `batchSize` | `50` | Controla cuántos dictámenes enriquecidos se intentan vectorizar por corrida. |
+| `delayMs` | `500` | Introduce un respiro entre upserts para no castigar la cuota de Pinecone. |
+| `recursive` | `true` | Si es `true`, el workflow sigue consumiendo lotes pendientes hasta vaciar la cola o toparse con cuota. |
+
+#### Ejemplo CURL
+```bash
+curl -X POST "https://cgr-platform.abogado.workers.dev/api/v1/dictamenes/batch-vectorize" \
+     -H "x-admin-token: <<TU_TOKEN_SECRETO>>" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "batchSize": 25,
+           "delayMs": 750,
+           "recursive": true
          }'
 ```
 

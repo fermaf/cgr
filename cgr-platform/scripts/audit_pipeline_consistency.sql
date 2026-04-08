@@ -52,7 +52,7 @@ ORDER BY e.fecha_enriquecimiento DESC, d.id ASC;
 SELECT d.id, d.estado, e.modelo_llm, e.fecha_enriquecimiento
 FROM dictamenes d
 LEFT JOIN enriquecimiento e ON e.dictamen_id = d.id
-WHERE (d.estado IN ('enriched', 'vectorized', 'enriched_pending_vectorization') AND e.dictamen_id IS NULL)
+WHERE (d.estado IN ('enriched', 'vectorized', 'enriched_pending_vectorization', 'vectorizing') AND e.dictamen_id IS NULL)
    OR (d.estado = 'vectorized' AND e.dictamen_id IS NULL)
 ORDER BY d.estado, d.id;
 
@@ -66,6 +66,6 @@ ORDER BY d.updated_at DESC, d.id ASC;
 -- 7. Procesamientos trabados.
 SELECT id, estado, updated_at
 FROM dictamenes
-WHERE estado = 'processing'
+WHERE estado IN ('processing', 'enriching_ingested', 'enriching_importante', 'enriching_trivial', 'vectorizing')
   AND updated_at < datetime('now', '-2 hours')
 ORDER BY updated_at ASC;

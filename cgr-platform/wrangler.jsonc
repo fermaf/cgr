@@ -17,9 +17,14 @@
       "class_name": "IngestWorkflow"
     },
     {
-      "name": "backfill-workflow",
-      "binding": "BACKFILL_WORKFLOW",
-      "class_name": "BackfillWorkflow"
+      "name": "enrichment-workflow",
+      "binding": "ENRICHMENT_WORKFLOW",
+      "class_name": "EnrichmentWorkflow"
+    },
+    {
+      "name": "vectorization-workflow",
+      "binding": "VECTORIZATION_WORKFLOW",
+      "class_name": "VectorizationWorkflow"
     },
     {
       "name": "kv-sync-workflow",
@@ -90,9 +95,7 @@
     "ANALYTICS_CACHE_TTL_SECONDS": "900",
     "GEMINI_RPM_LIMIT_PER_KEY": "2",
     "MISTRAL_QUOTA_COOLDOWN_HOURS": "12",
-    "INGEST_TRIGGER_TOKEN": "paz_mundial",
-        "ELEVENLABS_TOOL_SECRET": "elevenlabs.ioQazqaz1",
-        "GEMINI_API_URL": "https://gateway.ai.cloudflare.com/v1/63ac4f10cdedc71a1b09256622380278/cgr-gateway/google-ai-studio"
+    "GEMINI_API_URL": "https://gateway.ai.cloudflare.com/v1/63ac4f10cdedc71a1b09256622380278/cgr-gateway/google-ai-studio"
   },
   "env": {
     "staging": {
@@ -112,8 +115,6 @@
         "ANALYTICS_CACHE_TTL_SECONDS": "900",
         "GEMINI_RPM_LIMIT_PER_KEY": "2",
         "MISTRAL_QUOTA_COOLDOWN_HOURS": "12",
-        "INGEST_TRIGGER_TOKEN": "paz_mundial",
-        "ELEVENLABS_TOOL_SECRET": "elevenlabs.ioQazqaz1",
         "GEMINI_API_URL": "https://gateway.ai.cloudflare.com/v1/63ac4f10cdedc71a1b09256622380278/cgr-gateway/google-ai-studio"
       },
       "kv_namespaces": [
@@ -140,9 +141,14 @@
           "class_name": "IngestWorkflow"
         },
         {
-          "name": "backfill-workflow",
-          "binding": "BACKFILL_WORKFLOW",
-          "class_name": "BackfillWorkflow"
+          "name": "enrichment-workflow",
+          "binding": "ENRICHMENT_WORKFLOW",
+          "class_name": "EnrichmentWorkflow"
+        },
+        {
+          "name": "vectorization-workflow",
+          "binding": "VECTORIZATION_WORKFLOW",
+          "class_name": "VectorizationWorkflow"
         },
         {
           "name": "kv-sync-workflow",
@@ -183,8 +189,6 @@
         "ANALYTICS_CACHE_TTL_SECONDS": "900",
         "GEMINI_RPM_LIMIT_PER_KEY": "2",
         "MISTRAL_QUOTA_COOLDOWN_HOURS": "12",
-        "INGEST_TRIGGER_TOKEN": "paz_mundial",
-        "ELEVENLABS_TOOL_SECRET": "elevenlabs.ioQazqaz1",
         "GEMINI_API_URL": "https://gateway.ai.cloudflare.com/v1/63ac4f10cdedc71a1b09256622380278/cgr-gateway/google-ai-studio"
       },
       "queues": {
@@ -227,9 +231,14 @@
           "class_name": "IngestWorkflow"
         },
         {
-          "name": "backfill-workflow",
-          "binding": "BACKFILL_WORKFLOW",
-          "class_name": "BackfillWorkflow"
+          "name": "enrichment-workflow",
+          "binding": "ENRICHMENT_WORKFLOW",
+          "class_name": "EnrichmentWorkflow"
+        },
+        {
+          "name": "vectorization-workflow",
+          "binding": "VECTORIZATION_WORKFLOW",
+          "class_name": "VectorizationWorkflow"
         },
         {
           "name": "kv-sync-workflow",

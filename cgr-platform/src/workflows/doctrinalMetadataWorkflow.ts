@@ -57,7 +57,7 @@ export class DoctrinalMetadataWorkflow extends WorkflowEntrypoint<Env, Doctrinal
         const rows = await db.prepare(
           `SELECT id
            FROM dictamenes
-           WHERE estado IN ('enriched', 'vectorized')
+           WHERE estado IN ('enriched_pending_vectorization', 'vectorized')
            ORDER BY COALESCE(fecha_documento, created_at) DESC, id DESC
            LIMIT ? OFFSET ?`
         ).bind(limit, offset).all<{ id: string }>();

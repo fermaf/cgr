@@ -13,9 +13,9 @@ El sistema ejecuta su escaneo inicial automáticamente utilizando un *Cron Trigg
 - **Ventana de Observación (Lookback)**: Utiliza la variable `CRAWL_DAYS_LOOKBACK` (por defecto `3`) para asegurar que no haya pérdida de datos si el portal de la CGR experimentó caídas en los días previos.
 
 ### Monitoreo del Workflow
-Cada ejecución de Ingesta o Backfill puede y debe ser auditada desde el **Cloudflare Dashboard (Workers > Workflows)**:
+Cada ejecución de Ingesta, Enrichment o Vectorización puede y debe ser auditada desde el **Cloudflare Dashboard (Workers > Workflows)**:
 1. **Pausas y Reintentos**: Si un paso (`step.do`) falla, por ejemplo, por un *timeout* en la recolección, el Workflow no descarta lo avanzado. Espera con un *backoff* exponencial.
-2. **Backfill Batching**: El `BackfillWorkflow` procesa en lotes (definidos por `BACKFILL_BATCH_SIZE`). Si notas que un lote particular siempre falla, verifica los IDs en D1 con `estado = 'ingested'`.
+2. **Lotes separados**: El `EnrichmentWorkflow` procesa solo `ingested*`; el `VectorizationWorkflow` procesa solo `enriched_pending_vectorization`. Si notas un atasco, verifica cuál de las dos colas crece.
 
 ---
 
@@ -45,9 +45,9 @@ Cada ejecución de Ingesta o Backfill puede y debe ser auditada desde el **Cloud
    ```sql
    SELECT estado, count(*) FROM dictamenes GROUP BY estado;
    ```
-   Si la mayoría está en `ingested`, el `BackfillWorkflow` está atascado.
-2. **Revisa la Cuota de Mistral AI**: Ingresa al Cloudflare AI Gateway. ¿Alcanzaste el límite de tokens diarios o rate-limits?
-3. **Validación de Metadata v2**: Si ves los dictámenes pero fallan los filtros por materia, es porque aún no cuentan con la metadata cruzada Pinecone v2. Usa el endpoint `/api/v1/dictamenes/batch-enrich`.
+   Si la mayoría está en `ingested*`, la cola de enrichment está detenida. Si la mayoría está en `enriched_pending_vectorization`, el bloqueo está en Pinecone.
+2. **Revisa la cuota correcta**: Para `ingested_importante`, revisa Gemini. Para `ingested` y `ingested_trivial`, revisa Mistral. Para `enriched_pending_vectorization`, revisa Pinecone.
+3. **Validación de Metadata v2**: Si el enrichment ya existe pero faltan efectos visibles de búsqueda, usa `/api/v1/dictamenes/batch-vectorize` antes de asumir que falló el LLM.
 
 ### Problema B: Modificaciones en origen de CGR
 A veces, la Contraloría añade un nuevo tipo de norma o campo al buscador que rompe nuestro parser.

@@ -356,6 +356,9 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
             if (remainingCount && isRecursive) {
                 await step.sleep('wait-between-batches', '10 seconds');
                 await step.do('trigger-next-batch', async () => {
+                    if (!env.BACKFILL_WORKFLOW) {
+                        return;
+                    }
                     await env.BACKFILL_WORKFLOW.create({
                         params: { 
                             batchSize, 

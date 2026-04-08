@@ -828,7 +828,7 @@ async function searchDoctrineLexically(env: Env, q: string, limit: number) {
        e.analisis
      FROM dictamenes d
      LEFT JOIN enriquecimiento e ON e.dictamen_id = d.id
-     WHERE d.estado IN ('enriched', 'vectorized')
+     WHERE d.estado IN ('enriched_pending_vectorization', 'vectorized')
      ORDER BY COALESCE(d.fecha_documento, d.created_at) DESC
      LIMIT ?`
   ).bind(Math.min(limit * 20, 120)).all<LexicalDoctrineSearchRow>();

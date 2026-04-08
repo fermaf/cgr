@@ -6,9 +6,13 @@ export type DictamenStatus =
   | 'ingested'
   | 'ingested_importante'
   | 'ingested_trivial'
+  | 'enriching_ingested'
+  | 'enriching_importante'
+  | 'enriching_trivial'
   | 'processing'
   | 'enriched'
   | 'enriched_pending_vectorization'
+  | 'vectorizing'
   | 'vectorized'
   | 'error'
   | 'error_longitud'
@@ -211,7 +215,9 @@ export interface BoletinEntregableRow {
 export interface Env {
   // Bindings
   WORKFLOW: Workflow;
-  BACKFILL_WORKFLOW: Workflow;
+  BACKFILL_WORKFLOW?: Workflow;
+  ENRICHMENT_WORKFLOW: Workflow;
+  VECTORIZATION_WORKFLOW: Workflow;
   KV_SYNC_WORKFLOW: Workflow;
   CANONICAL_RELATIONS_WORKFLOW: Workflow;
   DOCTRINAL_METADATA_WORKFLOW: Workflow;

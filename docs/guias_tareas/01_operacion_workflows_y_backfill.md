@@ -22,23 +22,30 @@ Por eso **CGR-Platform confía su pipeline a `Cloudflare Workflows`**: una primi
 
 ---
 
-## 🔄 2. Anatomía de la Recursividad (El Backfill de Estado)
+## 🔄 2. Anatomía de la Recursividad (Colas Separadas)
 
-El `BackfillWorkflow` (`src/workflows/backfillWorkflow.ts`) es un devorador de estado. Su única misión es despertar, escudriñar la base de datos `dictamenes` buscando estados igual a `ingested`, atraparlos atómicamente pasándolos a `processing`, inyectarles la jurisprudencia de IA y sellarlos en `vectorized`.
+La arquitectura vigente separa el pipeline en dos workflows:
+
+1. `EnrichmentWorkflow` (`src/workflows/enrichmentWorkflow.ts`)
+   Consume `ingested`, `ingested_importante` e `ingested_trivial`, los pasa a `enriching_*` y termina en `enriched_pending_vectorization`.
+2. `VectorizationWorkflow` (`src/workflows/vectorizationWorkflow.ts`)
+   Consume `enriched_pending_vectorization`, los pasa a `vectorizing` y termina en `vectorized`.
+
+La separación evita que una cuota agotada de LLM frene la vectorización, o que una cuota agotada de Pinecone ensucie la cola de enrichment.
 
 ### La Flag Mágica: `recursive`
 
 Si has disparado el endpoint de `batch-enrich`:
 ```bash
 curl -X POST "https://cgr-platform.abogado.workers.dev/api/v1/dictamenes/batch-enrich" \
-  -d '{"batchSize": 50, "delayMs": 500, "recursive": true}'
+  -d '{"batchSize": 50, "delayMs": 500, "recursive": true, "allowedStatuses": ["ingested_importante"]}'
 ```
 
 Lo que ocurre a nivel de código es vital para la ingeniería inversa:
-1. El Workflow inicial levanta 50 registros en bloques (*chunks*) de 1, esperando (`delayMs=500`) medio segundo entre ellos para no saturar Cloudflare AI Gateway (Prevención de Error `429 Too Many Requests`).
-2. Al finalizar el registro N° 50, el Worker escanea rápidamente D1. **¿Quedan más registros `ingested` en la base?**
-3. Si `recursive=true` y la respuesta es SÍ: El Worker actual **crea una nueva instancia clonada de sí mismo** en Cloudflare Workflows enviándole los mismos parámetros, y procede a autodestruirse (Finalización exitosa).
-4. El nuevo Worker nace 10 segundos después y engulle los siguientes 50 registros.
+1. El workflow inicial levanta un lote desde una sola cola operativa.
+2. Cada dictamen pasa a un estado transitorio explícito (`enriching_ingested`, `enriching_importante`, `enriching_trivial` o `vectorizing`).
+3. Al finalizar el lote, el workflow consulta si siguen quedando pendientes en su misma cola.
+4. Si `recursive=true` y la respuesta es SÍ, crea una nueva instancia de sí mismo y sigue consumiendo solo esa etapa.
 
 **Casos de Uso Operativos:**
 - **Re-Ingesta Total (Destrucción y Recreación):** Si acabas de actualizar la base de datos completa reseteando el estado de 30.000 dictámenes, usas `recursive: true` para que el orquestador trabaje solo durante 3 días ininterrumpidos.
@@ -74,7 +81,7 @@ Mucha de la ingeniería inversa sobre los fallos de 2017 hacia atrás revelará 
 // Extraer documento_completo -> Sino, extraer materia -> Sino extraer texto.
 const sourceContent = rawJson._source ?? rawJson.source ?? (rawJson as any).raw_data ?? rawJson;
 ```
-Esto certifica que la matriz de inferencia para Mistral jamás sea enviada en blanco, rescatando al menos la Metadata estructurada de los años 90.
+Esto certifica que la matriz de inferencia jamás sea enviada en blanco, rescatando al menos la Metadata estructurada de los años 90.
 
 ---
 
@@ -87,4 +94,5 @@ El ciclo de vida del Workflow clasifica las interrupciones en estados semántico
 | `error` | Fallo técnico general (AI_INFERENCE_ERROR, D1, Logging). | Revisar eventos en `dictamen_events` y reintentar si es transitorio. |
 | `error_longitud` | Cantidad de tokens superó los 32k o límites del modelo AI. | Evaluar sustracción manual o acotar texto indexable. |
 | `error_sin_KV_source` | El ID existe en D1 pero falta el Raw JSON original en Storage. | Disparar Scraping Forzado del tramo de fechas. |
-| `error_quota` | **Límite Excedido**: API de Mistral rechazó inferencia por falta de fondos o Rate Limit extremo. | Rotar token en `.dev.vars` / Cloudflare Secrets y hacer UPDATE a `ingested`. |
+| `enriched_pending_vectorization` | El enrichment ya está persistido y solo falta Pinecone. | Disparar `batch-vectorize` o esperar el siguiente ciclo de vectorización. |
+| `error_quota` | **Legacy**. El flujo actual debe reencolar al estado `ingested*` correcto en vez de quedarse aquí. | Normalizarlo y dejar trazabilidad en `dictamen_events`. |

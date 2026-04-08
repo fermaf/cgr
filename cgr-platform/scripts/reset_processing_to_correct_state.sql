@@ -1,4 +1,4 @@
--- Resetea dictámenes trabados en processing a su estado operativo correcto
+-- Resetea dictámenes trabados en estados transitorios a su estado operativo correcto
 -- y deja trazabilidad en dictamen_events.
 
 INSERT INTO dictamen_events (dictamen_id, event_type, status_from, status_to, metadata, created_at)
@@ -22,7 +22,7 @@ SELECT d.id,
 FROM dictamenes d
 LEFT JOIN atributos_juridicos a ON a.dictamen_id = d.id
 LEFT JOIN enriquecimiento e ON e.dictamen_id = d.id
-WHERE d.estado = 'processing';
+WHERE d.estado IN ('processing', 'enriching_ingested', 'enriching_importante', 'enriching_trivial', 'vectorizing');
 
 UPDATE dictamenes
 SET estado = CASE
@@ -37,4 +37,4 @@ SET estado = CASE
       ELSE 'ingested_trivial'
     END,
     updated_at = CURRENT_TIMESTAMP
-WHERE estado = 'processing';
+WHERE estado IN ('processing', 'enriching_ingested', 'enriching_importante', 'enriching_trivial', 'vectorizing');
