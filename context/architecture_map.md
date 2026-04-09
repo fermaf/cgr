@@ -21,12 +21,13 @@
 
 1. ingestión de dictámenes
 2. enrichment jurídico
-3. persistencia estructurada en D1/KV
-4. embeddings en Pinecone
-5. retrieval semántico
-6. agrupación doctrinal
-7. prioridad jurídica y vigencia
-8. render visible en frontend
+3. metadata doctrinal automática post-enrichment
+4. persistencia estructurada en D1/KV
+5. embeddings en Pinecone
+6. retrieval semántico
+7. agrupación doctrinal
+8. prioridad jurídica y vigencia
+9. render visible en frontend
 
 ## Archivos clave del core
 

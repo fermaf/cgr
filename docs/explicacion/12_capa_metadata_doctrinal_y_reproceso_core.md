@@ -183,7 +183,6 @@ Valores iniciales sugeridos:
 - `aclaracion`
 - `complemento`
 - `ajuste`
-- `limitacion`
 - `desplazamiento`
 - `reactivacion`
 - `cierre_competencial`
@@ -199,6 +198,12 @@ Debe permitirse:
 - un rol principal;
 - roles secundarios;
 - confianza por rol.
+
+Nota operativa posterior:
+
+- `limitacion` no debe persistirse como `rol_principal`;
+- si aparece como matiz útil, debe quedar solo en `roles_secundarios` o en `evidence_summary_json`;
+- como rol principal, el core debe remapearla a `aclaracion`, `ajuste`, `abstencion` o `materia_litigiosa`, según intervención, vigencia y función de lectura.
 
 ### 6.2 Estado de intervención de la CGR
 
@@ -758,6 +763,99 @@ La capa será correcta si logra esto:
 - mejor capacidad para reconstruir la línea temporal real.
 
 Señales observables de éxito:
+
+## 18. Operación del Workflow
+
+El workflow productivo de reproceso doctrinal debe operar sobre backlog faltante, no sobre páginas inestables por `OFFSET`.
+
+Desde `2026-04-08`, la forma operativa correcta del sistema ya no es depender solo de backfills manuales:
+
+- `EnrichmentWorkflow` dispara automáticamente uno o más sub-batches de `DoctrinalMetadataWorkflow` para los dictámenes enriquecidos con éxito;
+- el cálculo doctrinal queda desacoplado de Pinecone y ocurre antes o en paralelo lógico a la vectorización;
+- si el disparo doctrinal falla, enrichment no debe retroceder ni bloquear el resto del pipeline;
+- el reproceso manual y recursivo sigue existiendo para backfill, remediación y auditorías dirigidas.
+
+Regla operativa correcta:
+
+- seleccionar siempre el siguiente lote de dictámenes elegibles sin fila en `dictamen_metadata_doctrinal`;
+- limitar el universo a `estado IN ('enriched_pending_vectorization', 'vectorized')`;
+- ordenar por `fecha_documento DESC, id DESC`;
+- reprocesar por lotes pequeños y recontar backlog remanente después de cada batch;
+- despachar la siguiente instancia solo si sigue existiendo backlog sin metadata.
+
+Qué evitar:
+
+- encadenar batches por `LIMIT/OFFSET` sobre un conjunto mutable;
+- asumir que un batch final pequeño significa que no quedan huecos;
+- mezclar en el mismo criterio de paginación dictámenes nuevos que entran a `vectorized` durante una corrida larga.
+
+Riesgo real identificado:
+
+- cuando el backlog cambia durante el backfill, `OFFSET` puede saltarse dictámenes y dejar huecos dispersos en años distintos.
+
+## 19. Snapshot de Auditoría Operativa
+
+Estado auditado al `2026-04-08`:
+
+- `dictamen_metadata_doctrinal`: `25.900` filas;
+- universo objetivo del workflow (`vectorized` + `enriched_pending_vectorization`): `26.748`;
+- cobertura operativa: `25.835 / 26.748` (`96,6%`);
+- backlog remanente detectado: `913`.
+
+Distribución del backlog remanente:
+
+- `598` en `enriched_pending_vectorization`;
+- `315` en `vectorized`.
+
+Lectura correcta de esa auditoría:
+
+- la cadena recursiva puede haber terminado sin error;
+- eso no prueba cierre total del backlog;
+- si quedan huecos dispersos, el problema probable es selección por páginas inestables y no falta de cuota del modelo.
+
+## 20. Snapshot de Calidad de Datos
+
+Estado auditado al `2026-04-08`:
+
+- `avg(confidence_global) = 0,689`;
+- `22.355` filas `auto_ready`;
+- `3.545` filas `needs_review`;
+- `1.975` filas con `confidence_global < 0,5`.
+
+Señales positivas:
+
+- `evidence_summary_json` completo en todas las filas auditadas;
+- sin contaminación de enums en `reading_role`;
+- sin contaminación de enums en `rol_principal`;
+- `692` filas en `reading_role = estado_actual`, con solo `2` bajo `0,6` de confianza.
+
+Riesgos visibles:
+
+- `aplicacion` sigue sobrerrepresentado como `rol_principal`;
+- hay dictámenes con señales fuertes de abstención/litigiosidad/cierre que aún no siempre escalan a un rol doctrinal más expresivo;
+- la capa modela mejor lo vigente que lo histórico, por lo que todavía conviene auditar `valor_historico`, `ancla_historica` y desplazamiento.
+
+## 21. Regla de Taxonomía Endurecida
+
+Cuando la heurística estructural detecta una señal fuerte de:
+
+- `abstencion_visible`
+- `materia_litigiosa`
+- `signals_competence_closure`
+
+el merge final con LLM no debe permitir que el caso vuelva trivialmente a `rol_principal = aplicacion` si el texto además contiene:
+
+- fórmula de abstención visible;
+- incompetencia o remisión a competencia exclusiva de otro órgano;
+- litigiosidad explícita;
+- o una regla general visible (`corresponde`, `debe`, `en los términos que se indican`).
+
+Lectura operativa de esta regla:
+
+- `aplicacion` debe quedar reservada para resolución de caso concreto sin señal fuerte de cierre, abstención o cambio de régimen;
+- si la pieza aplica doctrina pero su efecto visible principal es abstenerse, no tomar razón, no emitir pronunciamiento o remitir a competencia ajena, debe escalar a una categoría doctrinal más expresiva;
+- `limitacion` no debe usarse como rol principal autónomo: como categoría principal generaba ambigüedad y terminaba mezclando aclaración, ajuste y abstención;
+- la taxonomía no debe degradar una señal fuerte de intervención a un rol residual solo porque el LLM describió el caso como aplicación.
 
 - más consultas donde el sistema distingue correctamente entre foco directo y estado actual;
 - menos necesidad de reglas ad hoc por materia;

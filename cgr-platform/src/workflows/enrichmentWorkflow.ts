@@ -27,6 +27,15 @@ interface EnrichmentParams {
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const DOCTRINAL_METADATA_AUTO_BATCH_SIZE = 100;
+
+function chunkIds(ids: string[], chunkSize: number): string[][] {
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    chunks.push(ids.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
 
 function getEnrichingStatus(statusFrom: string | null): DictamenStatus {
   switch (statusFrom) {
@@ -72,6 +81,7 @@ export class EnrichmentWorkflow extends WorkflowEntrypoint<Env, EnrichmentParams
 
       let ok = 0;
       let errores = 0;
+      const enrichedIds: string[] = [];
 
       for (let i = 0; i < dictamenesParaEnriquecer.length; i += 1) {
         const item = dictamenesParaEnriquecer[i];
@@ -226,7 +236,10 @@ export class EnrichmentWorkflow extends WorkflowEntrypoint<Env, EnrichmentParams
           }
         });
 
-        if (result.ok) ok += 1;
+        if (result.ok) {
+          ok += 1;
+          enrichedIds.push(item.id);
+        }
         else errores += 1;
 
         if (result.quotaExceeded) {
@@ -250,7 +263,49 @@ export class EnrichmentWorkflow extends WorkflowEntrypoint<Env, EnrichmentParams
         error: errores,
         mensaje: `Lote de enrichment completado: ${ok} ok, ${errores} errores de ${dictamenesParaEnriquecer.length}. Quedan más: ${remainingCount}.`
       };
-      logInfo('ENRICHMENT_RUN_DONE', { instanceId: event.instanceId, ...resumen });
+
+      let doctrinalMetadataTriggered = 0;
+      if (enrichedIds.length > 0 && env.DOCTRINAL_METADATA_WORKFLOW) {
+        try {
+          doctrinalMetadataTriggered = await step.do('trigger-doctrinal-metadata-from-enrichment', async () => {
+            const doctrinalChunks = chunkIds(enrichedIds, DOCTRINAL_METADATA_AUTO_BATCH_SIZE);
+            let triggered = 0;
+            for (let index = 0; index < doctrinalChunks.length; index += 1) {
+              const dictamenIds = doctrinalChunks[index];
+              const instance = await env.DOCTRINAL_METADATA_WORKFLOW.create({
+                params: {
+                  dictamenIds,
+                  delayMs: Math.min(delayMs, 250),
+                  recursive: false,
+                  sourceSnapshotVersion: 'auto_from_enrichment_v1',
+                  runTag: `autoenrich-${event.instanceId}-${index + 1}`.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24)
+                }
+              });
+              triggered += 1;
+              logInfo('ENRICHMENT_TRIGGER_DOCTRINAL_METADATA', {
+                instanceId: event.instanceId,
+                doctrinalWorkflowId: instance.id,
+                chunkIndex: index,
+                chunkSize: dictamenIds.length
+              });
+            }
+            return triggered;
+          });
+        } catch (error: any) {
+          logWarn('ENRICHMENT_DOCTRINAL_METADATA_TRIGGER_FAILED', {
+            instanceId: event.instanceId,
+            enrichedIds: enrichedIds.length,
+            error: error?.message ?? String(error)
+          });
+        }
+      }
+
+      logInfo('ENRICHMENT_RUN_DONE', {
+        instanceId: event.instanceId,
+        doctrinalMetadataTriggered,
+        enrichedIds: enrichedIds.length,
+        ...resumen
+      });
 
       if (remainingCount && (params.recursive ?? true)) {
         await step.sleep('wait-between-enrichment-batches', '10 seconds');
@@ -266,7 +321,10 @@ export class EnrichmentWorkflow extends WorkflowEntrypoint<Env, EnrichmentParams
         });
       }
 
-      return resumen;
+      return {
+        ...resumen,
+        doctrinalMetadataTriggered
+      };
     } catch (error: any) {
       logError('ENRICHMENT_RUN_ERROR', error, { instanceId: event.instanceId });
       await persistIncident(this.env, error, 'cgr-platform', 'enrichmentWorkflow', event.instanceId ?? 'n/a');
