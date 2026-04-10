@@ -265,6 +265,43 @@ async function upsertNormasRegimen(
 }
 
 /**
+ * Persiste la tabla puente regimen_dictamenes.
+ * Permite listar los dictámenes de un régimen sin recalcular el grafo.
+ * Se llama siempre después de upsertRegimen.
+ */
+async function upsertRegimenDictamenes(
+  db: D1Database,
+  regimenId: string,
+  candidate: RegimenCandidate
+): Promise<number> {
+  let count = 0;
+  for (const member of candidate.members) {
+    const rol: string =
+      member.direccion === 'semilla'
+        ? 'semilla'
+        : member.direccion === 'entrante'
+        ? 'referencia_entrante'
+        : 'miembro';
+
+    await db.prepare(`
+      INSERT INTO regimen_dictamenes (regimen_id, dictamen_id, rol, distancia, estado_vigencia)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(regimen_id, dictamen_id) DO UPDATE SET
+        rol = CASE WHEN excluded.rol = 'semilla' THEN 'semilla' ELSE regimen_dictamenes.rol END,
+        estado_vigencia = COALESCE(excluded.estado_vigencia, regimen_dictamenes.estado_vigencia)
+    `).bind(
+      regimenId,
+      member.dictamen_id,
+      rol,
+      member.hop_distance ?? 1,
+      member.estado_vigencia ?? null
+    ).run();
+    count++;
+  }
+  return count;
+}
+
+/**
  * Construye y persiste el timeline del régimen.
  * Identifica eventos clave: fundación, actividad, y estado actual.
  */
@@ -363,6 +400,7 @@ export async function buildAndPersistRegimen(
   await upsertRegimen(db, regimenId, nombre, candidate);
   await upsertNormasRegimen(db, regimenId, candidate);
   const timelineEvents = await buildRegimenTimeline(db, regimenId, candidate);
+  const memberCount = await upsertRegimenDictamenes(db, regimenId, candidate);
 
   const { estado } = calcularEstadoRegimen(candidate);
 
@@ -416,6 +454,7 @@ export async function buildAndPersistRegimenBatch(
       await upsertRegimen(db, regimenId, nombre, candidate);
       await upsertNormasRegimen(db, regimenId, candidate);
       const timelineEvents = await buildRegimenTimeline(db, regimenId, candidate);
+      await upsertRegimenDictamenes(db, regimenId, candidate);
       const { estado } = calcularEstadoRegimen(candidate);
 
       persistidos.push({

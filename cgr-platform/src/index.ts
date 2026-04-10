@@ -2217,7 +2217,150 @@ app.post('/api/v1/pilot/regimenes/backfill', async (c) => {
   }
 });
 
+// ── Endpoints PÚBLICOS de regímenes (sin autenticación) ──────────────
+// Usados por el frontend para mostrar el contexto jurisprudencial.
+
+// GET /api/v1/public/regimenes — Lista regímenes con paginación y filtros
+app.get('/api/v1/public/regimenes', async (c) => {
+  try {
+    const estado  = c.req.query('estado') ?? null;
+    const limit   = parsePositiveInt(c.req.query('limit'),  20, 1, 100);
+    const offset  = parsePositiveInt(c.req.query('offset'),  0, 0, 10000);
+
+    const validEstados = ['activo', 'desplazado', 'zona_litigiosa', 'en_transicion'];
+    const estadoFiltro = estado && validEstados.includes(estado) ? estado : null;
+
+    let query = `
+      SELECT r.id, r.nombre, r.estado,
+             r.estabilidad, r.confianza,
+             r.fecha_criterio_fundante, r.fecha_ultimo_pronunciamiento,
+             r.dictamen_rector_id,
+             COUNT(DISTINCT nr.norma_key) as normas_count
+      FROM regimenes_jurisprudenciales r
+      LEFT JOIN norma_regimen nr ON nr.regimen_id = r.id
+    `;
+    const bindings: (string | number)[] = [];
+    if (estadoFiltro) { query += ` WHERE r.estado = ?`; bindings.push(estadoFiltro); }
+    query += ` GROUP BY r.id ORDER BY r.confianza DESC, r.estabilidad DESC LIMIT ? OFFSET ?`;
+    bindings.push(limit, offset);
+
+    const rows = await c.env.DB.prepare(query).bind(...bindings).all<Record<string, unknown>>();
+    return c.json({
+      total: rows.results?.length ?? 0,
+      offset,
+      limit,
+      regimenes: rows.results ?? []
+    });
+  } catch (e: unknown) {
+    logError('PUBLIC_REGIMENES_LIST_ERROR', e);
+    return c.json({ error: 'Error interno' }, 500);
+  }
+});
+
+// GET /api/v1/public/regimenes/:id — Detalle de un régimen con normas y timeline
+app.get('/api/v1/public/regimenes/:id', async (c) => {
+  const id = c.req.param('id');
+  try {
+    const regimen = await c.env.DB.prepare(
+      `SELECT id, nombre, estado, estado_razon,
+              estabilidad, confianza,
+              fecha_criterio_fundante, fecha_ultimo_pronunciamiento,
+              dictamen_rector_id, dictamen_fundante_id
+       FROM regimenes_jurisprudenciales WHERE id = ?`
+    ).bind(id).first<Record<string, unknown>>();
+    if (!regimen) return c.json({ error: `Régimen no encontrado` }, 404);
+
+    const normas = await c.env.DB.prepare(
+      `SELECT norma_key, tipo_norma, numero, articulo, centralidad, dictamenes_count
+       FROM norma_regimen WHERE regimen_id = ?
+       ORDER BY dictamenes_count DESC LIMIT 20`
+    ).bind(id).all<Record<string, unknown>>();
+
+    const timeline = await c.env.DB.prepare(
+      `SELECT rt.dictamen_id, rt.fecha, rt.tipo_evento, rt.descripcion, rt.impacto,
+              e.titulo
+       FROM regimen_timeline rt
+       LEFT JOIN enriquecimiento e ON e.dictamen_id = rt.dictamen_id
+       WHERE rt.regimen_id = ?
+       ORDER BY rt.fecha ASC`
+    ).bind(id).all<Record<string, unknown>>();
+
+    return c.json({
+      regimen,
+      normas: normas.results ?? [],
+      timeline: timeline.results ?? []
+    });
+  } catch (e: unknown) {
+    logError('PUBLIC_REGIMEN_DETAIL_ERROR', e);
+    return c.json({ error: 'Error interno' }, 500);
+  }
+});
+
+// GET /api/v1/public/regimenes/:id/dictamenes — Dictámenes miembros de un régimen
+app.get('/api/v1/public/regimenes/:id/dictamenes', async (c) => {
+  const id    = c.req.param('id');
+  const limit = parsePositiveInt(c.req.query('limit'), 20, 1, 100);
+  const rol   = c.req.query('rol') ?? null; // 'semilla' | 'miembro' | 'referencia_entrante'
+  try {
+    const existe = await c.env.DB.prepare(
+      `SELECT id FROM regimenes_jurisprudenciales WHERE id = ?`
+    ).bind(id).first<{ id: string }>();
+    if (!existe) return c.json({ error: 'Régimen no encontrado' }, 404);
+
+    let q = `
+      SELECT rd.dictamen_id, rd.rol, rd.estado_vigencia,
+             e.titulo, d.fecha_documento,
+             at.accion_cgr
+      FROM regimen_dictamenes rd
+      JOIN dictamenes d ON d.id = rd.dictamen_id
+      LEFT JOIN enriquecimiento e ON e.dictamen_id = rd.dictamen_id
+      LEFT JOIN atributos_juridicos at ON at.dictamen_id = rd.dictamen_id
+      WHERE rd.regimen_id = ?
+    `;
+    const binds: (string | number)[] = [id];
+    if (rol) { q += ` AND rd.rol = ?`; binds.push(rol); }
+    q += ` ORDER BY rd.rol = 'semilla' DESC, d.fecha_documento DESC LIMIT ?`;
+    binds.push(limit);
+
+    const members = await c.env.DB.prepare(q).bind(...binds).all<Record<string, unknown>>();
+    return c.json({
+      regimen_id: id,
+      total: members.results?.length ?? 0,
+      dictamenes: members.results ?? []
+    });
+  } catch (e: unknown) {
+    logError('PUBLIC_REGIMEN_MEMBERS_ERROR', e);
+    return c.json({ error: 'Error interno' }, 500);
+  }
+});
+
+// GET /api/v1/public/dictamenes/:id/regimen — ¿A qué régimen pertenece un dictamen?
+app.get('/api/v1/public/dictamenes/:id/regimen', async (c) => {
+  const dictamenId = c.req.param('id');
+  try {
+    const rows = await c.env.DB.prepare(`
+      SELECT r.id, r.nombre, r.estado, r.confianza, r.estabilidad,
+             r.fecha_criterio_fundante, r.fecha_ultimo_pronunciamiento,
+             r.dictamen_rector_id, rd.rol
+      FROM regimen_dictamenes rd
+      JOIN regimenes_jurisprudenciales r ON r.id = rd.regimen_id
+      WHERE rd.dictamen_id = ?
+      ORDER BY r.confianza DESC
+    `).bind(dictamenId).all<Record<string, unknown>>();
+
+    if (!rows.results?.length) {
+      return c.json({ dictamen_id: dictamenId, regimen: null });
+    }
+    // Devuelve el régimen de mayor confianza al que pertenece este dictamen
+    return c.json({ dictamen_id: dictamenId, regimen: rows.results[0] });
+  } catch (e: unknown) {
+    logError('PUBLIC_DICTAMEN_REGIMEN_ERROR', e);
+    return c.json({ error: 'Error interno' }, 500);
+  }
+});
+
 // ── Endpoint: Consultar regímenes ya persistidos en D1 ────────────────
+
 app.get('/api/v1/regimenes', async (c) => {
   const token = c.req.header('x-admin-token');
   if (!token || token !== c.env.INGEST_TRIGGER_TOKEN) {
