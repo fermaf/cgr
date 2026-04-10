@@ -1,6 +1,7 @@
 import { analyzeDoctrinalMetadata, DOCTRINAL_METADATA_MODEL } from '../clients/mistral';
 import { classifyRelationEffect } from './doctrinalGraph';
 import type { DictamenRaw, Env } from '../types';
+import { logDictamenEvent } from '../storage/d1';
 
 export const DOCTRINAL_METADATA_PIPELINE_VERSION = 'doctrinal_metadata_v1';
 
@@ -185,6 +186,10 @@ type ReprocessOptions = {
   sourceSnapshotVersion?: string;
 };
 
+type LoadDoctrinalMetadataOptions = {
+  computeMissing?: boolean;
+};
+
 type ReprocessResult = {
   processed: number;
   dictamen_ids: string[];
@@ -217,6 +222,27 @@ function normalizeDoctrinalRole(value: unknown): DoctrinalRole | null {
   if (typeof value !== 'string') return null;
   const normalized = value.trim() as DoctrinalRole;
   return VALID_DOCTRINAL_ROLES.has(normalized) ? normalized : null;
+}
+
+function canonicalizePrimaryDoctrinalRole(params: {
+  role: DoctrinalRole;
+  intervention: CgrInterventionState;
+  validity: DoctrinalValidityState;
+  readingRole: ReadingRole;
+  supportsStateCurrent: number;
+}): DoctrinalRole {
+  const { role, intervention, validity, readingRole, supportsStateCurrent } = params;
+  if (role !== 'limitacion') return role;
+
+  if (intervention === 'abstencion_visible') return 'abstencion';
+  if (intervention === 'materia_litigiosa') return 'materia_litigiosa';
+  if (readingRole === 'pivote_de_cambio' || ['desplazado', 'desplazado_parcialmente', 'vigente_en_revision'].includes(validity)) {
+    return 'ajuste';
+  }
+  if (readingRole === 'entrada_doctrinal' || readingRole === 'estado_actual' || supportsStateCurrent > 0) {
+    return 'aclaracion';
+  }
+  return 'aclaracion';
 }
 
 function normalizeInterventionState(value: unknown): CgrInterventionState | null {
@@ -393,11 +419,15 @@ function buildDeterministicRoleOverrides(params: {
   const hasInstructionFrame = /\bimparte instrucciones\b|\blineamientos\b|\bcriterios\b/.test(materia);
   const rejectsReconsideration = /\bno accede a la solicitud de reconsideracion\b|\bdesestima la solicitud de reconsideracion\b|\bse rechaza la reconsideracion\b/.test(materia);
   const hasGeneralRule = /\ben los terminos que se indican\b|\bcon las limitaciones que se indican\b|\bdebe\b|\bcorresponde\b/.test(materia);
+  const hasAbstentionFrame = /\bse abstiene\b|\bse abstendra\b|\bno corresponde\b|\bno compete\b|\bno compete a esta contraloria\b|\bno corresponde que esta contraloria\b|\bse abstiene de tomar razon\b|\bse abstiene de dar curso\b|\brestituye sin tramitar\b/.test(materia);
+  const hasExclusiveCompetenceFrame = /\bcompetencia exclusiva\b|\batribuciones exclusivas\b|\bcorresponde exclusivamente\b|\bservicio electoral\b|\bsuperintendencia de seguridad social\b|\btribunales de justicia\b/.test(materia);
+  const hasLitigiousFrame = /\blitigios[ao]\b|\bdevino en litigiosa\b|\bha devenido en litigiosa\b|\bjuicios?\b|\bcausas judiciales\b|\bsede contenciosa\b/.test(materia);
 
   const override: {
     role?: DoctrinalRole;
     readingRole?: ReadingRole;
     validity?: DoctrinalValidityState;
+    intervention?: CgrInterventionState;
     confidenceDelta?: number;
     reason?: string;
   } = {};
@@ -433,6 +463,77 @@ function buildDeterministicRoleOverrides(params: {
       ? 'vigente_visible'
       : params.heuristic.estado_vigencia;
     override.reason = 'override_regla_operativa_general';
+    override.confidenceDelta = 0.08;
+    return override;
+  }
+
+  if (
+    llmRole === 'aplicacion'
+    && params.heuristic.estado_intervencion_cgr === 'abstencion_visible'
+    && (
+      hasAbstentionFrame
+      || hasGeneralRule
+      || hasExclusiveCompetenceFrame
+      || params.heuristic.reading_role === 'entrada_doctrinal'
+    )
+  ) {
+    override.role = 'abstencion';
+    override.intervention = 'abstencion_visible';
+    override.readingRole = (
+      hasGeneralRule
+      || hasExclusiveCompetenceFrame
+      || params.heuristic.currentness_score >= 0.56
+    )
+      ? 'entrada_doctrinal'
+      : 'soporte_contextual';
+    override.validity = params.heuristic.estado_vigencia === 'indeterminado'
+      ? (override.readingRole === 'entrada_doctrinal' ? 'vigente_visible' : 'vigente_tensionado')
+      : params.heuristic.estado_vigencia;
+    override.reason = 'override_abstencion_visible_textual';
+    override.confidenceDelta = 0.07;
+    return override;
+  }
+
+  if (
+    llmRole === 'aplicacion'
+    && params.heuristic.estado_intervencion_cgr === 'materia_litigiosa'
+    && (
+      hasLitigiousFrame
+      || hasExclusiveCompetenceFrame
+      || hasGeneralRule
+    )
+  ) {
+    override.role = 'materia_litigiosa';
+    override.intervention = 'materia_litigiosa';
+    override.readingRole = (
+      hasGeneralRule
+      || params.heuristic.currentness_score >= 0.56
+    )
+      ? 'estado_actual'
+      : 'entrada_doctrinal';
+    override.validity = params.heuristic.estado_vigencia === 'indeterminado'
+      ? 'vigente_tensionado'
+      : params.heuristic.estado_vigencia;
+    override.reason = 'override_materia_litigiosa_textual';
+    override.confidenceDelta = 0.08;
+    return override;
+  }
+
+  if (
+    llmRole === 'aplicacion'
+    && params.heuristic.signals_competence_closure > 0
+    && (
+      hasExclusiveCompetenceFrame
+      || hasGeneralRule
+    )
+  ) {
+    override.role = 'cierre_competencial';
+    override.intervention = 'intervencion_residual';
+    override.readingRole = 'entrada_doctrinal';
+    override.validity = params.heuristic.estado_vigencia === 'indeterminado'
+      ? 'vigente_tensionado'
+      : params.heuristic.estado_vigencia;
+    override.reason = 'override_cierre_competencial_textual';
     override.confidenceDelta = 0.08;
     return override;
   }
@@ -791,7 +892,7 @@ function buildComputation(
   } else if (attrs.complementado) {
     rolPrincipal = 'complemento';
   } else if (attrs.alterado || attrs.reconsideradoParcialmente) {
-    rolPrincipal = attrs.reconsideradoParcialmente ? 'limitacion' : 'ajuste';
+    rolPrincipal = attrs.reconsideradoParcialmente ? 'aclaracion' : 'ajuste';
   } else if (doctrinalCentralityScore >= 0.64) {
     rolPrincipal = 'nucleo_doctrinal';
   } else if (historicalSignificanceScore >= 0.66 && currentnessScore < 0.52) {
@@ -860,6 +961,14 @@ function buildComputation(
     },
     visible_topics: topics.temaOperativoVisible
   };
+
+  rolPrincipal = canonicalizePrimaryDoctrinalRole({
+    role: rolPrincipal,
+    intervention: estadoIntervencion,
+    validity: estadoVigencia,
+    readingRole,
+    supportsStateCurrent: supportsStateCurrent ? 1 : 0
+  });
 
   const confidenceGlobal = roundScore(
     0.28
@@ -1078,9 +1187,20 @@ function mergeWithLlmComputation(params: {
   if (deterministicOverride.validity) {
     merged.estado_vigencia = deterministicOverride.validity;
   }
+  if (deterministicOverride.intervention) {
+    merged.estado_intervencion_cgr = deterministicOverride.intervention;
+  }
   if (typeof deterministicOverride.confidenceDelta === 'number') {
     merged.confidence_global = roundScore(Math.min(1, merged.confidence_global + deterministicOverride.confidenceDelta));
   }
+
+  merged.rol_principal = canonicalizePrimaryDoctrinalRole({
+    role: merged.rol_principal,
+    intervention: merged.estado_intervencion_cgr,
+    validity: merged.estado_vigencia,
+    readingRole: merged.reading_role,
+    supportsStateCurrent: merged.supports_state_current
+  });
 
   const summary = {
     ...(merged.evidence_summary_json ? JSON.parse(merged.evidence_summary_json) : {}),
@@ -1307,12 +1427,29 @@ async function computeAndPersistDictamenMetadata(env: Env, dictamenId: string, s
   }
 
   await persistComputation(env, merged.row, merged.evidence, merged.row.source_snapshot_version);
+  await logDictamenEvent(env.DB, {
+    dictamen_id: dictamenId,
+    event_type: 'DOCTRINAL_METADATA_SUCCESS',
+    metadata: {
+      pipeline_version: DOCTRINAL_METADATA_PIPELINE_VERSION,
+      source_snapshot_version: merged.row.source_snapshot_version,
+      rol_principal: merged.row.rol_principal,
+      reading_role: merged.row.reading_role,
+      estado_intervencion_cgr: merged.row.estado_intervencion_cgr,
+      confidence_global: merged.row.confidence_global,
+      model: DOCTRINAL_METADATA_MODEL
+    }
+  });
   return {
     ...merged.row
   } satisfies DictamenMetadataDoctrinalRow;
 }
 
-export async function loadDoctrinalMetadataByIds(env: Env, dictamenIds: string[]) {
+export async function loadDoctrinalMetadataByIds(
+  env: Env,
+  dictamenIds: string[],
+  options: LoadDoctrinalMetadataOptions = {}
+) {
   await ensureDoctrinalMetadataSchema(env);
   const uniqueIds = [...new Set(dictamenIds.filter(Boolean))];
   if (uniqueIds.length === 0) return {} as Record<string, DictamenMetadataDoctrinalRow>;
@@ -1326,6 +1463,9 @@ export async function loadDoctrinalMetadataByIds(env: Env, dictamenIds: string[]
   ).bind(DOCTRINAL_METADATA_PIPELINE_VERSION, ...uniqueIds).all<DictamenMetadataDoctrinalRow>();
 
   const byId = Object.fromEntries((existing.results ?? []).map((row) => [row.dictamen_id, row]));
+  if (options.computeMissing === false) {
+    return byId;
+  }
   const missingIds = uniqueIds.filter((id) => !byId[id]);
 
   for (const id of missingIds) {

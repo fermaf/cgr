@@ -2,6 +2,7 @@ import { WorkflowEntrypoint, WorkflowEvent, WorkflowStep } from 'cloudflare:work
 import type { Env } from '../types';
 import { reprocessDoctrinalMetadata } from '../lib/doctrinalMetadata';
 import { logError, logInfo, logWarn, setLogLevel } from '../lib/log';
+import { logDictamenEvent } from '../storage/d1';
 
 interface DoctrinalMetadataWorkflowParams {
   limit?: number;
@@ -52,29 +53,56 @@ export class DoctrinalMetadataWorkflow extends WorkflowEntrypoint<Env, Doctrinal
         mistralApiUrl: env.MISTRAL_API_URL
       });
 
+      if (explicitIds.length === 0 && offset > 0) {
+        logWarn('DOCTRINAL_METADATA_WORKFLOW_OFFSET_IGNORED', {
+          instanceId: event.instanceId,
+          offset,
+          runTag
+        });
+      }
+
+      const remainingBefore = await step.do('count-doctrinal-metadata-remaining-before', async () => {
+        if (explicitIds.length > 0) return explicitIds.length;
+        const row = await db.prepare(
+          `SELECT COUNT(*) AS total
+           FROM dictamenes d
+           LEFT JOIN dictamen_metadata_doctrinal md
+             ON md.dictamen_id = d.id
+            AND md.pipeline_version = 'doctrinal_metadata_v1'
+           WHERE d.estado IN ('enriched_pending_vectorization', 'vectorized')
+             AND md.dictamen_id IS NULL`
+        ).first<{ total: number }>();
+        return Number(row?.total ?? 0);
+      });
+
       const dictamenIds = await step.do('fetch-doctrinal-metadata-batch', async () => {
         if (explicitIds.length > 0) return explicitIds;
         const rows = await db.prepare(
-          `SELECT id
-           FROM dictamenes
-           WHERE estado IN ('enriched_pending_vectorization', 'vectorized')
-           ORDER BY COALESCE(fecha_documento, created_at) DESC, id DESC
-           LIMIT ? OFFSET ?`
-        ).bind(limit, offset).all<{ id: string }>();
+          `SELECT d.id
+           FROM dictamenes d
+           LEFT JOIN dictamen_metadata_doctrinal md
+             ON md.dictamen_id = d.id
+            AND md.pipeline_version = 'doctrinal_metadata_v1'
+           WHERE d.estado IN ('enriched_pending_vectorization', 'vectorized')
+             AND md.dictamen_id IS NULL
+           ORDER BY COALESCE(d.fecha_documento, d.created_at) DESC, d.id DESC
+           LIMIT ?`
+        ).bind(limit).all<{ id: string }>();
         return rows.results?.map((row) => row.id) ?? [];
       });
 
       if (dictamenIds.length === 0) {
         logInfo('DOCTRINAL_METADATA_WORKFLOW_EMPTY', {
           instanceId: event.instanceId,
-          offset,
           limit,
-          runTag
+          runTag,
+          remainingBefore
         });
         return {
           done: true,
           processedInBatch: 0,
-          nextOffset: offset
+          remainingBefore,
+          remainingAfter: 0
         };
       }
 
@@ -121,6 +149,17 @@ export class DoctrinalMetadataWorkflow extends WorkflowEntrypoint<Env, Doctrinal
           processed += 1;
         } catch (error) {
           failures += 1;
+          await logDictamenEvent(db, {
+            dictamen_id: dictamenId,
+            event_type: 'DOCTRINAL_METADATA_ERROR',
+            metadata: {
+              instanceId: event.instanceId,
+              sourceSnapshotVersion,
+              runTag,
+              model: 'mistral-large-2411',
+              error: error instanceof Error ? error.message : String(error)
+            }
+          });
           logError('DOCTRINAL_METADATA_DOC_FAILED_AFTER_RETRIES', error, {
             instanceId: event.instanceId,
             dictamenId,
@@ -138,7 +177,6 @@ export class DoctrinalMetadataWorkflow extends WorkflowEntrypoint<Env, Doctrinal
 
       logInfo('DOCTRINAL_METADATA_WORKFLOW_BATCH_DONE', {
         instanceId: event.instanceId,
-        offset,
         limit,
         requested: dictamenIds.length,
         processed,
@@ -146,6 +184,7 @@ export class DoctrinalMetadataWorkflow extends WorkflowEntrypoint<Env, Doctrinal
         recursive,
         explicitIds: explicitIds.length,
         runTag,
+        remainingBefore,
         mistralModel: 'mistral-large-2411',
         aiGatewayEnabled
       });
@@ -157,16 +196,26 @@ export class DoctrinalMetadataWorkflow extends WorkflowEntrypoint<Env, Doctrinal
         });
       }
 
-      if (explicitIds.length === 0 && recursive && dictamenIds.length === limit) {
-        const nextOffset = offset + limit;
-        const childInstanceId = `doctrinal-metadata-${runTag}-${nextOffset}`;
+      const remainingAfter = await step.do('count-doctrinal-metadata-remaining-after', async () => {
+        if (explicitIds.length > 0) return 0;
+        const row = await db.prepare(
+          `SELECT COUNT(*) AS total
+           FROM dictamenes d
+           LEFT JOIN dictamen_metadata_doctrinal md
+             ON md.dictamen_id = d.id
+            AND md.pipeline_version = 'doctrinal_metadata_v1'
+           WHERE d.estado IN ('enriched_pending_vectorization', 'vectorized')
+             AND md.dictamen_id IS NULL`
+        ).first<{ total: number }>();
+        return Number(row?.total ?? 0);
+      });
+
+      if (explicitIds.length === 0 && recursive && remainingAfter > 0) {
         await step.sleep('wait-next-doctrinal-batch', '5 seconds');
         await step.do('dispatch-next-doctrinal-batch', async () => {
           await env.DOCTRINAL_METADATA_WORKFLOW.create({
-            id: childInstanceId,
             params: {
               limit,
-              offset: nextOffset,
               recursive: true,
               delayMs,
               sourceSnapshotVersion,
@@ -177,10 +226,11 @@ export class DoctrinalMetadataWorkflow extends WorkflowEntrypoint<Env, Doctrinal
       }
 
       return {
-        done: explicitIds.length > 0 ? true : dictamenIds.length < limit,
+        done: explicitIds.length > 0 ? true : remainingAfter === 0,
         processedInBatch: processed,
         failures,
-        nextOffset: offset + limit
+        remainingBefore,
+        remainingAfter
       };
     } catch (error) {
       logError('DOCTRINAL_METADATA_WORKFLOW_ERROR', error, { instanceId: event.instanceId });

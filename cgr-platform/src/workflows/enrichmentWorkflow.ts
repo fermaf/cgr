@@ -50,6 +50,33 @@ function getEnrichingStatus(statusFrom: string | null): DictamenStatus {
   }
 }
 
+async function logDoctrinalTriggerFailureEvents(
+  db: Env['DB'],
+  dictamenIds: string[],
+  params: {
+    enrichmentInstanceId: string;
+    reason: string;
+    sourceSnapshotVersion: string;
+  }
+) {
+  const { enrichmentInstanceId, reason, sourceSnapshotVersion } = params;
+  for (const dictamenId of dictamenIds) {
+    await logDictamenEvent(db, {
+      dictamen_id: dictamenId,
+      event_type: 'DOCTRINAL_METADATA_ERROR',
+      status_from: 'enriched_pending_vectorization',
+      status_to: 'enriched_pending_vectorization',
+      metadata: {
+        source: 'enrichment_workflow',
+        enrichment_instance_id: enrichmentInstanceId,
+        source_snapshot_version: sourceSnapshotVersion,
+        model: 'mistral-large-2411',
+        error: reason
+      }
+    });
+  }
+}
+
 export class EnrichmentWorkflow extends WorkflowEntrypoint<Env, EnrichmentParams> {
   async run(event: WorkflowEvent<EnrichmentParams>, step: WorkflowStep) {
     try {
@@ -288,16 +315,48 @@ export class EnrichmentWorkflow extends WorkflowEntrypoint<Env, EnrichmentParams
                 chunkIndex: index,
                 chunkSize: dictamenIds.length
               });
+              for (const dictamenId of dictamenIds) {
+                await logDictamenEvent(db, {
+                  dictamen_id: dictamenId,
+                  event_type: 'DOCTRINAL_METADATA_QUEUED',
+                  status_from: 'enriched_pending_vectorization',
+                  status_to: 'enriched_pending_vectorization',
+                  metadata: {
+                    source: 'enrichment_workflow',
+                    enrichment_instance_id: event.instanceId,
+                    doctrinal_workflow_id: instance.id,
+                    chunk_index: index,
+                    source_snapshot_version: 'auto_from_enrichment_v1',
+                    model: 'mistral-large-2411'
+                  }
+                });
+              }
             }
             return triggered;
           });
         } catch (error: any) {
+          await logDoctrinalTriggerFailureEvents(db, enrichedIds, {
+            enrichmentInstanceId: event.instanceId,
+            reason: error?.message ?? String(error),
+            sourceSnapshotVersion: 'auto_from_enrichment_v1'
+          });
           logWarn('ENRICHMENT_DOCTRINAL_METADATA_TRIGGER_FAILED', {
             instanceId: event.instanceId,
             enrichedIds: enrichedIds.length,
             error: error?.message ?? String(error)
           });
         }
+      } else if (enrichedIds.length > 0) {
+        await logDoctrinalTriggerFailureEvents(db, enrichedIds, {
+          enrichmentInstanceId: event.instanceId,
+          reason: 'Binding DOCTRINAL_METADATA_WORKFLOW no disponible',
+          sourceSnapshotVersion: 'auto_from_enrichment_v1'
+        });
+        logWarn('ENRICHMENT_DOCTRINAL_METADATA_TRIGGER_FAILED', {
+          instanceId: event.instanceId,
+          enrichedIds: enrichedIds.length,
+          error: 'Binding DOCTRINAL_METADATA_WORKFLOW no disponible'
+        });
       }
 
       logInfo('ENRICHMENT_RUN_DONE', {

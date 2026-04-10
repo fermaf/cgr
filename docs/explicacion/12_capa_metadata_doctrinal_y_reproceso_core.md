@@ -773,6 +773,7 @@ Desde `2026-04-08`, la forma operativa correcta del sistema ya no es depender so
 - `EnrichmentWorkflow` dispara automáticamente uno o más sub-batches de `DoctrinalMetadataWorkflow` para los dictámenes enriquecidos con éxito;
 - el cálculo doctrinal queda desacoplado de Pinecone y ocurre antes o en paralelo lógico a la vectorización;
 - si el disparo doctrinal falla, enrichment no debe retroceder ni bloquear el resto del pipeline;
+- la trazabilidad operativa mínima debe persistirse además en `dictamen_events`, con eventos `DOCTRINAL_METADATA_QUEUED`, `DOCTRINAL_METADATA_SUCCESS` y `DOCTRINAL_METADATA_ERROR`; si el disparo desde `EnrichmentWorkflow` falla antes de crear el subworkflow, el error debe quedar igualmente persistido por dictamen;
 - el reproceso manual y recursivo sigue existiendo para backfill, remediación y auditorías dirigidas.
 
 Regla operativa correcta:

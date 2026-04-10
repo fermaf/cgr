@@ -81,6 +81,7 @@ Notas operativas relevantes:
 - desde `2026-04-08`, `EnrichmentWorkflow` dispara automáticamente sub-batches de `DoctrinalMetadataWorkflow` para los IDs enriquecidos exitosamente;
 - ese disparo doctrinal es no bloqueante: si falla, enrichment no retrocede ni bloquea vectorización;
 - la metadata doctrinal se calcula lo antes posible tras enrichment, no después de Pinecone;
+- la observabilidad operativa de esta rama no depende solo de logs Cloudflare: `dictamen_events` registra `DOCTRINAL_METADATA_QUEUED`, `DOCTRINAL_METADATA_SUCCESS` y `DOCTRINAL_METADATA_ERROR`; si el trigger desde `EnrichmentWorkflow` falla o falta el binding, el error también debe persistirse por dictamen en D1;
 - una cadena recursiva puede terminar con backlog pendiente si la selección por páginas se desalineó con entradas nuevas o reinicios del workflow;
 - la auditoría al `2026-04-08` dejó cobertura doctrinal de `96,6%` sobre ese universo y backlog remanente de `913` filas.
 

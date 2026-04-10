@@ -126,7 +126,10 @@ export type DictamenEventType =
   | 'RECOVERY_GEMINI_KEY_SWAP'
   | 'RECOVERY_MISTRAL_KEY_SWAP'
   | 'RELATION_BACKFILL_SUCCESS'
-  | 'PINECONE_QUOTA_EXCEEDED';
+  | 'PINECONE_QUOTA_EXCEEDED'
+  | 'DOCTRINAL_METADATA_QUEUED'
+  | 'DOCTRINAL_METADATA_SUCCESS'
+  | 'DOCTRINAL_METADATA_ERROR';
 
 // Fila de la nueva tabla dictamen_events.
 export interface DictamenEventRow {
