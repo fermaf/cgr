@@ -1,119 +1,130 @@
-# Cambio de Paradigma: del Clustering Semántico a Regímenes Jurisprudenciales
+# Arquitectura de Regímenes Jurisprudenciales — Indubia
 
-## 1. Contexto
+## Propósito
 
-Múltiples iteraciones del core dejaron una conclusión estable:
+Modelar el espacio de decisión administrativa de la CGR como **Regímenes Jurisprudenciales**: estructuras de estabilidad interpretativa descubiertas *bottom-up* desde el grafo real del corpus.
 
-- el retrieval semántico encuentra buenos candidatos;
-- la organización posterior degrada la calidad jurídica visible;
-- el problema no se resuelve con más ranking, scoring o penalizaciones;
-- la unidad de organización (cluster semántico) es conceptualmente incorrecta.
+La unidad de organización no es el cluster semántico (demasiado amplio) ni el dictamen individual (demasiado atómico). Es el **Régimen**: una constelación de dictámenes que aplican un mismo criterio jurídico compartido.
 
-## 2. Distinción fundamental: jurisprudencia vs. doctrina
+> **Nota terminológica**: el sistema gestiona **jurisprudencia** administrativa (fuente vinculante del derecho administrativo chileno), no doctrina académica. La distinción es jurídicamente relevante y se mantiene en todos los nombres de tablas, endpoints y logs.
 
-La plataforma organiza **jurisprudencia administrativa**, no doctrina.
+---
 
-- **Jurisprudencia**: criterios establecidos por la CGR a través de sus dictámenes. Son vinculantes dentro del ámbito de competencia de la Contraloría.
-- **Doctrina**: opinión de juristas y académicos sobre el derecho. No es vinculante.
+## Arquitectura de 4 capas
 
-Esta distinción debe reflejarse en:
+| Capa | Entidad | Tabla D1 | Descripción |
+|------|---------|----------|-------------|
+| 1 | Acto interpretado | `dictamenes` | Dictamen individual |
+| 2 | Problema Jurídico Operativo (PJO) | `problemas_juridicos_operativos` | Pregunta jurídica concreta resuelta |
+| 3 | Régimen Jurisprudencial | `regimenes_jurisprudenciales` | Estructura de estabilidad interpretativa |
+| 4 | Topología normativa | `norma_regimen` | Normas que anclan el régimen |
 
-- naming de código (no `doctrine-*` sino `jurisprudencia-*` donde corresponda);
-- textos de UI (el usuario lee "jurisprudencia", no "doctrina");
-- documentación interna.
+---
 
-Nota: la migración de naming en código existente será gradual. El código nuevo debe usar el naming correcto desde el inicio.
+## Principio de supremacía temporal
 
-## 3. Principio de supremacía temporal
+El dictamen **más reciente** dentro de un Régimen gobierna la lectura vigente.
 
-Un solo dictamen reciente puede destruir una línea jurisprudencial completa.
+- Si ese dictamen tiene `estado_vigencia = 'desplazado'`, el régimen se marca `estado = 'desplazado'` y toda la línea anterior degrada a antecedente histórico.
+- Si hay alta proporción de reconsideraciones (> 30%), el régimen se marca `zona_litigiosa`.
+- El `dictamen_rector_id` siempre apunta al dictamen que rige la lectura actual.
 
-Ejemplo:
+---
 
-- La CGR sostuvo durante 10 años que X era procedente.
-- Un dictamen de 2024 cambia el criterio: X ya no es procedente.
-- Toda la línea anterior queda como antecedente histórico, no como verdad jurídica.
+## Identidad normativa (buildNormaCanonicalKey)
 
-El sistema debe detectar esto naturalmente:
+La construcción de la clave canónica respeta la jerarquía del derecho chileno:
 
-- El dictamen más reciente dentro de un Régimen hereda el peso máximo.
-- Si ese dictamen contradice o desplaza el criterio previo, el Régimen cambia de estado.
-- La línea anterior se degrada a contexto histórico, no se elimina.
+| Tipo | Identificación | Ejemplo de clave |
+|------|---------------|-----------------|
+| Ley | Solo número | `Ley\|18834\|10` |
+| DL (Decreto Ley) | Solo número | `DL\|3500\|76` |
+| LOCBGAE, LBPA, Ley Karin... | Alias → número | `Ley\|18575\|3` |
+| Código del Trabajo, Civil... | Nombre canónico + artículo | `Código\|Código del Trabajo\|159` |
+| DFL | Número + año + órgano (5 chars) | `DFL\|1\|2005\|salud\|4` |
+| Decreto / Resolución | Número + año + órgano | `Decreto\|250\|2004\|hacie\|22` |
+| CPR | Descartada (siempre transversal) | `null` |
+| LOCBGAE sin artículo | Descartada (transversal) | `null` |
 
-Regla operativa: **fecha + tipo_accion > cualquier score heurístico**.
+---
 
-## 4. Arquitectura de 4 capas
+## Pipeline de descubrimiento (Fase 0 → Fase 1)
 
-| Capa | Concepto | Unidad |
-|------|----------|--------|
-| 1 | Acto interpretado | Dictamen individual |
-| 2 | Operación jurídica | Problema Jurídico Operativo (PJO) |
-| 3 | Régimen jurisprudencial | Agrupación estable de PJOs |
-| 4 | Topología normativa | Norma ↔ PJO ↔ Régimen |
+### Fase 0 — Exploración
 
-### Capa 1: ya existe
+```
+GET /api/v1/pilot/regimenes/seeds
+  → Lista 20 semillas de máxima centralidad jurisprudencial
 
-`dictamenes` + `enriquecimiento` + `atributos_juridicos` + `dictamen_metadata_doctrinal`.
+GET /api/v1/pilot/regimenes?seedIndex=N
+  → Expande la semilla N y devuelve la comunidad descubierta (no persiste)
+```
 
-### Capa 2: PJO
+### Fase 1 — Backfill persistente
 
-Un PJO es una pregunta jurídica concreta que la CGR ha resuelto, está resolviendo, o dejó de resolver.
+```
+POST /api/v1/pilot/regimenes/backfill
+  → Dispara RegimenBackfillWorkflow (CF Workflows)
+  → Procesa semillas 0..19 (o las especificadas en seedIndexes)
+  → Cada semilla = un step.do() independiente con reintentos
 
-Un PJO NO es:
+GET /api/v1/regimenes?estado=activo&limit=50
+  → Lista regímenes persistidos en D1
 
-- una materia amplia;
-- un descriptor semántico;
-- un fact pattern (incendio ≠ inundación, pero ambos pueden ser "fuerza mayor").
+GET /api/v1/regimenes/:id
+  → Detalle: régimen + normas nucleares + timeline
+```
 
-### Capa 3: Régimen jurisprudencial
+---
 
-Un Régimen agrupa PJOs que comparten estructura normativa y evolución jurisprudencial.
+## Algoritmo de descubrimiento (regimenDiscovery.ts)
 
-Se descubre bottom-up desde:
+1. **Semilla**: dictamen de alta centralidad (`nucleo_doctrinal` o `criterio_operativo_actual`, score ≥ 0.7)
+2. **Expansión por grafo**: 1 hop en `dictamen_relaciones_juridicas` (82K aristas), entrantes y salientes
+3. **Normas compartidas**: busca en `dictamen_fuentes_legales` (152K referencias) normas que aparezcan en ≥ 2 miembros
+4. **Filtrado canonical**: aplica `buildNormaCanonicalKey()` — descarta transversales (CPR, LOCBGAE sin art.), ambiguas (DFL sin año) y de relleno
+5. **Metadata jurisprudencial**: enriquece con `dictamen_metadata_doctrinal` (rol, vigencia, scores)
+6. **Señales de estado**: reconsideraciones, desplazamientos, proporción de acciones
 
-1. cadenas de relaciones jurídicas (grafo de 82K aristas);
-2. normas compartidas (152K referencias, 5K normas únicas);
-3. metadata jurisprudencial existente (17K registros).
+---
 
-El LLM solo nombra y formula preguntas. No descubre estructura.
+## Estado en producción (D1 cgr-dictamenes)
 
-### Capa 4: topología normativa
+| Tabla | Filas | Descripción |
+|-------|-------|-------------|
+| `regimenes_jurisprudenciales` | 6 (piloto) | Regímenes descubiertos |
+| `norma_regimen` | 36 | Normas asociadas a cada régimen |
+| `regimen_timeline` | 11 | Eventos de evolución temporal |
+| `problemas_juridicos_operativos` | 0 | Pendiente Fase 2 |
+| `pjo_dictamenes` | 0 | Pendiente Fase 2 |
 
-Conecta normas con Regímenes y PJOs. Permite detectar qué normas participan en múltiples regímenes y cuáles son genéricas (deben penalizarse como señal).
+### Regímenes del piloto
 
-## 5. Supremacía temporal en el Régimen
+| Nombre | Estado | Estabilidad | Span temporal |
+|--------|--------|-------------|---------------|
+| Confianza legítima en contratas | activo | 0.91 | 2010–2024 |
+| Contratación a honorarios | activo | 1.00 | 1987–2024 |
+| Permiso de edificación y PRC | activo | 1.00 | 2008–2023 |
+| Competencias alcaldes COVID-19 | activo | 1.00 | 1999–2021 |
+| Reajuste remuneraciones 2016 | activo | 1.00 | 2007–2018 |
+| Adjudicación licitación pública | **desplazado** | 0.55 | 2010–2023 |
 
-Cada Régimen tiene un timeline:
+---
 
-- fundación: primer dictamen que estableció el criterio;
-- consolidación: dictámenes que aplicaron y confirmaron;
-- ajuste: dictámenes que modificaron parcialmente;
-- desplazamiento: dictamen que cambió el criterio;
-- abstención: dictamen que declaró que la CGR ya no interviene.
+## Archivos clave
 
-El dictamen más reciente gobierna. Si cambia el criterio, todo lo anterior es antecedente histórico.
+| Archivo | Propósito |
+|---------|-----------|
+| `cgr-platform/src/lib/regimenDiscovery.ts` | Descubrimiento bottom-up (grafo + normas) |
+| `cgr-platform/src/lib/regimenBuilder.ts` | Persistencia en D1 (upsert, normas, timeline) |
+| `cgr-platform/src/workflows/regimenBackfillWorkflow.ts` | Workflow resiliente de backfill |
+| `cgr-platform/migrations/0009_create_regimenes_jurisprudenciales.sql` | Migración D1 |
 
-## 6. Plan de implementación
+---
 
-### Fase 0: prueba conceptual manual
+## Próximos pasos (Fase 2)
 
-Crear un script que expanda comunidades desde dictámenes de alta centralidad y genere candidatos a Régimen para evaluación manual.
-
-### Fase 1: pipeline de descubrimiento
-
-Automatizar la detección de Regímenes sobre todo el corpus vectorizado.
-
-### Fase 2: integración en búsqueda
-
-La búsqueda devuelve Regímenes y PJOs, no clusters semánticos.
-
-### Fase 3: frontend
-
-La experiencia visible habla de jurisprudencia, no de doctrina ni de metalenguaje del sistema.
-
-## 7. Relación con el core existente
-
-- `doctrine-search` y `doctrine-lines` siguen operando como fallback;
-- el nuevo flujo se activa progresivamente;
-- la metadata jurisprudencial existente se reutiliza íntegramente;
-- los embeddings siguen siendo la puerta de entrada para retrieval.
+1. **PJOs (Problemas Jurídicos Operativos)**: extraer la pregunta jurídica concreta de cada régimen usando LLM ligero (gemini-flash)
+2. **Integración con búsqueda**: asociar dictámenes recuperados por Pinecone con su Régimen jurisprudencial
+3. **API pública**: exponer `GET /api/v1/regimenes` sin autenticación admin (datos de lectura)
+4. **Frontend**: componente de timeline jurisprudencial que muestre la evolución del régimen
