@@ -27,6 +27,7 @@ import { VectorizationWorkflow } from './workflows/vectorizationWorkflow';
 import { KVSyncWorkflow } from './workflows/kvSyncWorkflow';
 import { CanonicalRelationsWorkflow } from './workflows/canonicalRelationsWorkflow';
 import { DoctrinalMetadataWorkflow } from './workflows/doctrinalMetadataWorkflow';
+import { RegimenBackfillWorkflow } from './workflows/regimenBackfillWorkflow';
 import { BoletinMultimediaWorkflow } from './workflows/boletinMultimediaWorkflow';
 import { analyzeDictamen } from './clients/mistral';
 import { fetchDictamenesSearchPage } from './clients/cgr';
@@ -2177,27 +2178,118 @@ app.post('/api/v1/test/pinecone', async (c) => {
 //   3) GET /api/v1/pilot/regimenes?seedIndex=1     → expande la semilla índice 1
 //   ... etc.
 
-// Persistir UN régimen en D1 (una semilla a la vez)
-app.post('/api/v1/pilot/regimenes/persist', async (c) => {
+// ── Endpoint: Dispara el Workflow de backfill de regímenes ────────────
+// El pipeline de buildAndPersistRegimen es demasiado pesado para un
+// request HTTP directo (timeout). Se delega al Workflow de CF que
+// maneja cada semilla como un step.do() independiente con reintentos.
+app.post('/api/v1/pilot/regimenes/backfill', async (c) => {
   const token = c.req.header('x-admin-token');
   if (!token || token !== c.env.INGEST_TRIGGER_TOKEN) {
     return c.json({ error: 'Se requiere autenticación admin' }, 403);
   }
-  const seedIndex = parsePositiveInt(c.req.query('seedIndex'), 0, 0, 29);
   try {
-    const startedAt = Date.now();
-    const result = await buildAndPersistRegimen(c.env, seedIndex);
-    const elapsed = Date.now() - startedAt;
-    if (!result) {
-      return c.json({ success: false, message: `Semilla ${seedIndex} no encontrada o comunidad demasiado pequeña` }, 404);
-    }
-    logInfo('REGIMEN_PERSISTIDO', { ...result, seedIndex, elapsed_ms: elapsed });
-    return c.json({ success: true, elapsed_ms: elapsed, result });
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const seedIndexes = Array.isArray(body.seedIndexes) ? body.seedIndexes as number[] : undefined;
+    const forceUpdate = typeof body.forceUpdate === 'boolean' ? body.forceUpdate : false;
+    const pipelineVersion = typeof body.pipelineVersion === 'string' ? body.pipelineVersion : '1.0.0-pilot';
+    const runTag = typeof body.runTag === 'string' ? body.runTag : undefined;
+
+    const instance = await c.env.REGIMEN_BACKFILL_WORKFLOW.create({
+      params: { seedIndexes, forceUpdate, pipelineVersion, runTag }
+    });
+
+    logInfo('REGIMEN_BACKFILL_WORKFLOW_TRIGGERED', {
+      instanceId: instance.id,
+      seedIndexes: seedIndexes ?? 'all-0-19',
+      forceUpdate,
+      pipelineVersion
+    });
+
+    return c.json({
+      success: true,
+      message: 'Workflow de backfill de regímenes iniciado',
+      instanceId: instance.id,
+      params: { seedIndexes: seedIndexes ?? 'all-0-19', forceUpdate, pipelineVersion }
+    });
   } catch (e: unknown) {
-    logError('REGIMEN_PERSIST_ERROR', e);
+    logError('REGIMEN_BACKFILL_TRIGGER_ERROR', e);
     return c.json({ error: errorMessage(e) }, 500);
   }
 });
+
+// ── Endpoint: Consultar regímenes ya persistidos en D1 ────────────────
+app.get('/api/v1/regimenes', async (c) => {
+  const token = c.req.header('x-admin-token');
+  if (!token || token !== c.env.INGEST_TRIGGER_TOKEN) {
+    return c.json({ error: 'Se requiere autenticación admin' }, 403);
+  }
+  try {
+    const estado = c.req.query('estado') ?? null;
+    const limit  = parsePositiveInt(c.req.query('limit'), 50, 1, 200);
+
+    let query = `
+      SELECT r.id, r.nombre, r.estado, r.estado_razon,
+             r.estabilidad, r.confianza, r.cobertura_corpus,
+             r.fecha_criterio_fundante, r.fecha_ultimo_pronunciamiento,
+             r.dictamen_rector_id, r.dictamen_fundante_id,
+             COUNT(DISTINCT nr.norma_key) as normas_count,
+             COUNT(DISTINCT rt.id) as timeline_count
+      FROM regimenes_jurisprudenciales r
+      LEFT JOIN norma_regimen nr ON nr.regimen_id = r.id
+      LEFT JOIN regimen_timeline rt ON rt.regimen_id = r.id
+    `;
+    const bindings: (string | number)[] = [];
+    if (estado) { query += ` WHERE r.estado = ?`; bindings.push(estado); }
+    query += ` GROUP BY r.id ORDER BY r.confianza DESC, r.estabilidad DESC LIMIT ?`;
+    bindings.push(limit);
+
+    const rows = await c.env.DB.prepare(query).bind(...bindings).all<Record<string, unknown>>();
+    return c.json({ total: rows.results?.length ?? 0, regimenes: rows.results ?? [] });
+  } catch (e: unknown) {
+    logError('REGIMENES_LIST_ERROR', e);
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+// ── Endpoint: Detalle de un régimen con sus normas y timeline ─────────
+app.get('/api/v1/regimenes/:id', async (c) => {
+  const token = c.req.header('x-admin-token');
+  if (!token || token !== c.env.INGEST_TRIGGER_TOKEN) {
+    return c.json({ error: 'Se requiere autenticación admin' }, 403);
+  }
+  const id = c.req.param('id');
+  try {
+    const regimen = await c.env.DB.prepare(
+      `SELECT * FROM regimenes_jurisprudenciales WHERE id = ?`
+    ).bind(id).first<Record<string, unknown>>();
+    if (!regimen) return c.json({ error: `Régimen '${id}' no encontrado` }, 404);
+
+    const normas = await c.env.DB.prepare(
+      `SELECT norma_key, tipo_norma, numero, articulo, centralidad, dictamenes_count
+       FROM norma_regimen WHERE regimen_id = ?
+       ORDER BY dictamenes_count DESC`
+    ).bind(id).all<Record<string, unknown>>();
+
+    const timeline = await c.env.DB.prepare(
+      `SELECT rt.dictamen_id, rt.fecha, rt.tipo_evento, rt.descripcion, rt.impacto,
+              e.titulo
+       FROM regimen_timeline rt
+       LEFT JOIN enriquecimiento e ON e.dictamen_id = rt.dictamen_id
+       WHERE rt.regimen_id = ?
+       ORDER BY rt.fecha ASC`
+    ).bind(id).all<Record<string, unknown>>();
+
+    return c.json({
+      regimen,
+      normas: normas.results ?? [],
+      timeline: timeline.results ?? []
+    });
+  } catch (e: unknown) {
+    logError('REGIMEN_DETAIL_ERROR', e);
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
 
 app.get('/api/v1/pilot/regimenes/seeds', async (c) => {
   const token = c.req.header('x-admin-token');
@@ -2271,6 +2363,7 @@ app.get('/api/v1/pilot/regimenes', async (c) => {
 });
 
 
+export { RegimenBackfillWorkflow };
 export default {
   fetch: app.fetch,
 

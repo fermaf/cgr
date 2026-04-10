@@ -45,6 +45,11 @@
       "name": "doctrinal-metadata-workflow",
       "binding": "DOCTRINAL_METADATA_WORKFLOW",
       "class_name": "DoctrinalMetadataWorkflow"
+    },
+    {
+      "name": "regimen-backfill-workflow",
+      "binding": "REGIMEN_BACKFILL_WORKFLOW",
+      "class_name": "RegimenBackfillWorkflow"
     }
   ],
   "kv_namespaces": [
@@ -169,6 +174,11 @@
           "name": "doctrinal-metadata-workflow",
           "binding": "DOCTRINAL_METADATA_WORKFLOW",
           "class_name": "DoctrinalMetadataWorkflow"
+        },
+        {
+          "name": "regimen-backfill-workflow",
+          "binding": "REGIMEN_BACKFILL_WORKFLOW",
+          "class_name": "RegimenBackfillWorkflow"
         }
       ]
     },
@@ -259,6 +269,11 @@
           "name": "doctrinal-metadata-workflow",
           "binding": "DOCTRINAL_METADATA_WORKFLOW",
           "class_name": "DoctrinalMetadataWorkflow"
+        },
+        {
+          "name": "regimen-backfill-workflow",
+          "binding": "REGIMEN_BACKFILL_WORKFLOW",
+          "class_name": "RegimenBackfillWorkflow"
         }
       ]
     }
