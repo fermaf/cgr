@@ -1,292 +1,139 @@
 # Capa de Metadata Doctrinal y Reproceso del Core
 
-## 1. Motivo
+## 1. Qué es este documento
 
-Las iteraciones recientes dejaron una conclusión estable:
+Este documento explica una pieza central de Indubia:
 
-- el retrieval semántico ya encuentra buenos puntos de entrada;
-- el sistema todavía falla al convertir esos puntos de entrada en lectura doctrinal robusta;
-- el problema ya no es solo de ranking, sino de modelado del corpus.
+- qué problema resuelve la metadata doctrinal;
+- dónde se ubica dentro del pipeline del producto;
+- cómo se modela;
+- cómo se calcula;
+- cómo se opera;
+- cómo se audita;
+- y cómo reconstruirla si alguien nuevo necesita entenderla o rehacerla.
 
-En términos prácticos, hoy el core distingue razonablemente bien:
+Debe servir para tres perfiles distintos:
 
-- dictámenes cercanos a la consulta;
-- algunas familias doctrinales plausibles;
-- parte de la vigencia visible derivada del grafo.
+1. alguien nuevo en el proyecto que necesita entender de qué se está hablando;
+2. alguien técnico que necesita operar o depurar el sistema;
+3. alguien experto que quiera revisar el modelo doctrinal o hacer ingeniería inversa del core.
 
-Pero todavía no distingue de forma suficientemente estable entre cosas distintas:
+No es una bitácora de experimentos. Es una descripción estructural del sistema tal como existe hoy.
 
-- dictamen históricamente relevante;
-- dictamen operativo actual;
-- dictamen que ajusta o desplaza criterio;
-- dictamen que transforma la materia en litigiosa;
-- dictamen en que la CGR se abstiene de intervenir;
-- dictamen meramente aplicativo o contextual.
+## 2. Resumen ejecutivo
 
-Mientras esa distinción no exista como capa estructural del corpus, seguiremos iterando sobre síntomas:
+Indubia no es solo un buscador semántico. Es una plataforma que intenta organizar jurisprudencia administrativa en una lectura doctrinal útil.
 
-- un caso mejora;
-- otro se degrada;
-- una familia densa del corpus desplaza a una lectura jurídicamente más correcta;
-- el flujo guiado obliga a navegar familias que todavía no están bien tipificadas.
+La búsqueda semántica encuentra dictámenes cercanos a una consulta. Pero eso no basta para responder preguntas jurídicas de verdad. Entre dos dictámenes cercanos puede haber diferencias doctrinales decisivas:
 
-La solución de fondo es introducir una capa nueva y explícita:
+- uno puede ser el criterio vigente;
+- otro puede ser solo un antecedente histórico;
+- otro puede solo aplicar un criterio ya conocido;
+- otro puede mostrar que la Contraloría dejó de intervenir;
+- otro puede indicar que la materia pasó a ser litigiosa;
+- otro puede cerrar la competencia del órgano.
 
-- `metadata doctrinal` por dictamen;
-- derivada del corpus completo;
-- trazable a evidencia;
-- recalculable;
-- diseñada para alimentar tanto `doctrine-search` como el flujo guiado.
+La capa de metadata doctrinal existe para resolver exactamente ese problema.
 
-## 2. Principio Rector
+Su función no es reemplazar embeddings, clustering o relaciones jurídicas. Su función es agregar una capa estable de lectura por dictamen, de modo que el sistema no solo encuentre documentos parecidos, sino que también sepa cómo leerlos dentro de la evolución doctrinal de una materia.
 
-La búsqueda semántica sigue mandando.
+## 3. Problema que aborda
 
-La metadata doctrinal no debe reemplazar el retrieval ni convertirse en una taxonomía rígida del derecho administrativo.
+### 3.1 El límite del retrieval semántico
 
-Su función es otra:
+El retrieval semántico responde bien a esta pregunta:
 
-- traducir el corpus en señales doctrinales operativas;
-- separar función jurídica, vigencia y estado de intervención;
-- permitir que la doctrina organice mejor lo que la búsqueda ya encontró.
+> ¿Qué dictámenes son cercanos a esta consulta?
 
-Regla central:
+Pero no responde por sí solo a estas otras preguntas:
 
-- embeddings encuentran candidatos;
-- relaciones y metadata doctrinal deciden cómo deben leerse.
+- ¿Cuál debe leerse primero?
+- ¿Cuál expresa el estado actual de la materia?
+- ¿Cuál solo sirve como contexto?
+- ¿Cuál tiene valor histórico?
+- ¿Cuál alteró el criterio previo?
+- ¿Cuál muestra abstención o litigiosidad?
 
-## 3. Diagnóstico del Límite Actual
+### 3.2 El límite del grafo jurídico
 
-Hoy el sistema ya tiene piezas valiosas:
+La tabla `dictamen_relaciones_juridicas` ya permite saber que existen vínculos entre dictámenes. Pero una arista no equivale a una lectura consolidada.
+
+El grafo puede decir:
+
+- este dictamen aclara a otro;
+- este otro complementa;
+- este otro reconsidera parcialmente.
+
+Pero todavía hace falta convertir ese conjunto de relaciones, fechas, señales textuales y atributos en una lectura operativa:
+
+- rol doctrinal;
+- vigencia;
+- tipo de intervención de la CGR;
+- peso de lectura;
+- utilidad para búsqueda doctrinal.
+
+### 3.3 El problema real del producto
+
+Sin esa capa, el sistema tiende a mezclar:
+
+- afinidad semántica;
+- importancia histórica;
+- vigencia doctrinal;
+- valor operativo actual;
+- y estado de intervención del órgano.
+
+Eso produce una experiencia inestable:
+
+- una consulta mejora y otra empeora;
+- una familia densa del corpus desplaza una lectura más correcta;
+- el sistema encuentra antecedentes, pero no siempre organiza bien el estado actual de la materia.
+
+## 4. Dónde encaja en la arquitectura
+
+La metadata doctrinal está en el backend productivo [`cgr-platform/`](/home/bilbao3561/github/cgr/cgr-platform).
+
+Se apoya en estas capas previas:
 
 - `dictamenes`
 - `enriquecimiento`
 - `atributos_juridicos`
 - `dictamen_relaciones_juridicas`
-- `semantic_anchor_dictamen`
-- `graph_doctrinal_status`
-- `query_intent`
-- `query_subtopic`
-- flujo guiado por pasos
+- `dictamen_fuentes_legales`
 
-Sin embargo, esas piezas aún no resuelven la pregunta doctrinal de más alto nivel:
+Y alimenta principalmente estas salidas:
 
-“qué función cumple este dictamen dentro de la evolución real de la materia”.
+- `doctrine-search`
+- `doctrine-lines`
+- `doctrine-guided`
+- selección de `estado_actual_materia`
+- jerarquía de lectura visible en frontend
 
-Los déficits estructurales son estos:
+Secuencia lógica:
 
-### 3.1 Se mezcla afinidad temática con función jurídica
+1. se ingesta un dictamen;
+2. se enriquece con LLM;
+3. se calcula metadata doctrinal;
+4. luego puede vectorizarse en Pinecone;
+5. la búsqueda semántica recupera candidatos;
+6. la metadata doctrinal organiza cómo deben leerse.
 
-Un dictamen puede ser cercano a la query pero cumplir roles muy distintos:
+Principio rector:
 
-- núcleo doctrinal;
-- ajuste;
-- aplicación;
-- desplazamiento;
-- abstención;
-- cierre práctico de intervención.
+- la búsqueda semántica manda;
+- la doctrina organiza.
 
-Hoy ese rol no está modelado como dato estable.
+## 5. Qué produce esta capa
 
-### 3.2 `atributos_juridicos` no bastan
+La capa doctrinal produce dos artefactos persistidos:
 
-Los booleanos actuales son útiles, pero insuficientes:
+### 5.1 Tabla principal
 
-- resumen efectos escalares;
-- no expresan prioridad doctrinal;
-- no distinguen bien entre historia doctrinal y estado operativo actual;
-- no permiten razonar bien sobre cierres, abstenciones o litigiosidad.
+`dictamen_metadata_doctrinal`
 
-### 3.3 `dictamen_relaciones_juridicas` captura aristas, no lectura doctrinal consolidada
+Es un snapshot consolidado por dictamen. Tiene una fila por dictamen y versión de pipeline.
 
-La tabla relacional ya es esencial, pero por sí sola no responde:
+Guarda, entre otros, estos campos:
 
-- qué dictamen debe ser la puerta principal de lectura;
-- qué dictamen solo aporta contexto;
-- qué dictamen alteró el régimen de intervención de la CGR;
-- cuál es el estado actual de una materia y no solo su historia.
-
-### 3.4 El flujo guiado todavía depende demasiado del clustering
-
-La navegación por pasos mejora la interacción, pero todavía sufre si el backend no sabe distinguir:
-
-- foco directo;
-- familia corroborada;
-- estado actual de la materia;
-- intervención vigente o abstención.
-
-## 4. Objetivo de la Nueva Capa
-
-Crear una capa estructural y recalculable que permita responder, por cada dictamen relevante:
-
-- qué rol doctrinal cumple;
-- qué señal de vigencia proyecta;
-- qué efecto temporal tiene sobre la materia;
-- qué tipo de intervención mantiene la CGR;
-- cuánto peso debe tener como puerta de entrada;
-- en qué familias doctrinales puede participar sin contaminar la lectura principal.
-
-El objetivo no es adivinar doctrina perfecta.
-
-El objetivo es reducir ambigüedad operacional y volver explícitas tres dimensiones distintas:
-
-1. `foco semántico`
-2. `rol doctrinal`
-3. `estado actual de la materia`
-
-## 5. Propuesta General
-
-La solución recomendada no es solo una tabla aislada.
-
-La pieza central sí debe ser una tabla nueva de metadata doctrinal, pero acompañada por una capa de evidencia y por un reproceso completo del corpus.
-
-Arquitectura propuesta:
-
-1. **Fuentes base existentes**
-   - `dictamenes`
-   - `enriquecimiento`
-   - `atributos_juridicos`
-   - `dictamen_relaciones_juridicas`
-   - fuentes legales canónicas
-
-2. **Capa nueva de evidencia doctrinal**
-   - señales observadas por dictamen
-   - trazables a texto, relaciones, fechas y atributos
-
-3. **Tabla principal de metadata doctrinal**
-   - un snapshot consolidado por dictamen
-   - recalculable por versión del pipeline
-
-4. **Proyecciones derivadas**
-   - ranking doctrinal
-   - selección de `estado_actual_materia`
-   - puertas de lectura
-   - familias guiadas
-   - timeline y ramas
-
-## 6. Modelo Conceptual
-
-La unidad nueva no debe ser “el cluster” ni “el flag”.
-
-Debe ser el **perfil doctrinal operativo del dictamen**.
-
-Ese perfil debe capturar, al menos, estas dimensiones:
-
-### 6.1 Rol doctrinal
-
-Qué función cumple el dictamen en la evolución de la materia.
-
-Valores iniciales sugeridos:
-
-- `nucleo_doctrinal`
-- `aplicacion`
-- `aclaracion`
-- `complemento`
-- `ajuste`
-- `desplazamiento`
-- `reactivacion`
-- `cierre_competencial`
-- `materia_litigiosa`
-- `abstencion`
-- `criterio_operativo_actual`
-- `hito_historico`
-- `contexto_no_central`
-
-No todos son mutuamente excluyentes.
-Debe permitirse:
-
-- un rol principal;
-- roles secundarios;
-- confianza por rol.
-
-Nota operativa posterior:
-
-- `limitacion` no debe persistirse como `rol_principal`;
-- si aparece como matiz útil, debe quedar solo en `roles_secundarios` o en `evidence_summary_json`;
-- como rol principal, el core debe remapearla a `aclaracion`, `ajuste`, `abstencion` o `materia_litigiosa`, según intervención, vigencia y función de lectura.
-
-### 6.2 Estado de intervención de la CGR
-
-Esta dimensión debe quedar separada del tema doctrinal.
-
-Valores sugeridos:
-
-- `intervencion_normal`
-- `intervencion_condicionada`
-- `intervencion_residual`
-- `abstencion_visible`
-- `materia_litigiosa`
-- `sin_senal_clara`
-
-Esto es crítico porque en varias materias el problema ya no es “qué criterio aplica”, sino:
-
-- si la CGR sigue entrando;
-- si la materia cambió de régimen de resolución o de intervención;
-- si la doctrina histórica sigue siendo solo contexto.
-
-### 6.3 Estado de vigencia doctrinal
-
-Debe convivir con `graph_doctrinal_status`, pero en un nivel más interpretativo por dictamen.
-
-Valores sugeridos:
-
-- `vigente_visible`
-- `vigente_tensionado`
-- `vigente_en_revision`
-- `desplazado_parcialmente`
-- `desplazado`
-- `valor_historico`
-- `indeterminado`
-
-### 6.4 Peso de lectura
-
-El sistema necesita una señal operativa para responder:
-
-- “este dictamen debe leerse primero”;
-- “este dictamen explica el origen”;
-- “este dictamen explica el estado actual”.
-
-Por eso la metadata doctrinal debe incluir al menos:
-
-- `reading_weight`
-- `reading_role`
-
-Valores sugeridos para `reading_role`:
-
-- `entrada_semantica`
-- `entrada_doctrinal`
-- `estado_actual`
-- `ancla_historica`
-- `pivote_de_cambio`
-- `soporte_contextual`
-
-### 6.5 Cobertura temática
-
-Para no crear una taxonomía rígida, la capa debe guardar solo lo necesario:
-
-- `tema_canonico`
-- `subtema_canonico`
-- `tema_operativo_visible`
-- `keywords_compuestas`
-
-Esto debe ser lo suficientemente compacto para no reemplazar al retrieval, pero suficiente para evitar drift temático grueso.
-
-## 7. Tabla Principal Propuesta
-
-Nombre sugerido:
-
-- `dictamen_metadata_doctrinal`
-
-Una fila por dictamen y por versión del pipeline activo.
-
-Campos sugeridos:
-
-- `dictamen_id`
-- `pipeline_version`
-- `computed_at`
-- `materia_base`
-- `tema_canonico`
-- `subtema_canonico`
 - `rol_principal`
 - `roles_secundarios_json`
 - `estado_intervencion_cgr`
@@ -304,590 +151,442 @@ Campos sugeridos:
 - `signals_abstention`
 - `signals_competence_closure`
 - `signals_operational_rule`
-- `anchor_norma_principal`
-- `anchor_dictamen_referido`
-- `evidence_summary_json`
 - `confidence_global`
 - `manual_review_status`
 - `source_snapshot_version`
-- `created_at`
-- `updated_at`
 
-### 7.1 Regla de diseño
+### 5.2 Tabla de evidencia
 
-Esta tabla no debe contener texto libre excesivo ni resúmenes largos.
+`dictamen_metadata_doctrinal_evidence`
 
-Debe ser:
+Persiste la evidencia usada para justificar la fila principal.
 
-- estructurada;
-- recalculable;
-- fácil de consultar desde el core;
-- adecuada para ranking y navegación.
+Su objetivo es permitir:
 
-## 8. Capa de Evidencia Recomendada
+- auditoría;
+- depuración;
+- revisión jurídica;
+- recalculo conservando trazabilidad.
 
-Aunque la tabla principal sea la pieza central, no conviene construirla sin trazabilidad.
+No basta con saber que un dictamen quedó como `abstencion` o `criterio_operativo_actual`. También hay que poder explicar por qué.
 
-Por eso se recomienda una tabla complementaria:
+## 6. Unidad conceptual del modelo
 
-- `dictamen_metadata_doctrinal_evidence`
+La unidad conceptual de esta capa no es:
 
-Campos sugeridos:
+- el cluster;
+- el embedding;
+- ni la arista jurídica aislada.
 
-- `id`
-- `dictamen_id`
-- `pipeline_version`
-- `evidence_type`
-- `signal_type`
-- `signal_value`
-- `score`
-- `confidence`
-- `source_table`
-- `source_locator`
-- `snippet`
-- `detected_by`
-- `created_at`
+La unidad conceptual es el **perfil doctrinal operativo del dictamen**.
 
-Tipos de evidencia iniciales:
+Ese perfil intenta responder:
 
-- `relation_graph`
-- `atributo_juridico`
-- `enrichment_text`
-- `materia_text`
-- `titulo_text`
-- `resumen_text`
-- `legal_source`
-- `temporal_pattern`
-- `manual_review`
+> ¿Qué función cumple este dictamen dentro de la evolución real de la materia y cómo debería ser leído por el sistema?
 
-Esto permite algo clave:
+Eso obliga a separar dimensiones distintas.
 
-- la tabla principal responde rápido;
-- la tabla de evidencia explica por qué ese rol fue asignado.
+## 7. Dimensiones principales del perfil doctrinal
 
-## 9. Cómo se Relaciona con las Tablas Existentes
+### 7.1 Rol doctrinal
 
-### 9.1 `atributos_juridicos`
+Describe la función principal del dictamen en la materia.
 
-Debe seguir existiendo.
+Valores hoy usados por el core:
 
-Rol futuro:
+- `nucleo_doctrinal`
+- `aplicacion`
+- `aclaracion`
+- `complemento`
+- `ajuste`
+- `desplazamiento`
+- `reactivacion`
+- `cierre_competencial`
+- `materia_litigiosa`
+- `abstencion`
+- `criterio_operativo_actual`
+- `hito_historico`
+- `contexto_no_central`
 
-- señales de bajo nivel;
-- insumo escalar;
-- proyección parcial de efectos.
+Reglas importantes:
 
-No debe seguir siendo la principal capa interpretativa.
+- existe un `rol_principal`;
+- pueden existir roles secundarios;
+- el rol principal debe ser normalizado por el core;
+- `limitacion` no debe quedar como rol principal persistido.
 
-### 9.2 `dictamen_relaciones_juridicas`
+### 7.2 Estado de intervención de la CGR
 
-Sigue siendo el grafo jurídico principal.
+Describe si la Contraloría sigue interviniendo normalmente en la materia o si el régimen cambió.
 
-Rol futuro:
+Valores:
 
-- origen de causalidad doctrinal;
-- evidencia temporal fuerte;
-- base para detectar ajuste, desplazamiento, reactivación y continuidad.
+- `intervencion_normal`
+- `intervencion_condicionada`
+- `intervencion_residual`
+- `abstencion_visible`
+- `materia_litigiosa`
+- `sin_senal_clara`
 
-No debe absorber por sí sola toda la interpretación doctrinal.
+Esta dimensión es distinta del rol doctrinal. Un dictamen puede ser doctrinalmente relevante y, al mismo tiempo, mostrar abstención o litigiosidad.
 
-### 9.3 `enriquecimiento`
+### 7.3 Estado de vigencia doctrinal
 
-Debe seguir aportando:
+Describe cómo debe leerse el dictamen en términos temporales y de vigencia visible.
 
-- título
-- resumen
-- descriptores
-- señales semánticas
+Valores:
 
-Pero su función debe ser de apoyo, no de verdad doctrinal final.
+- `vigente_visible`
+- `vigente_tensionado`
+- `vigente_en_revision`
+- `desplazado_parcialmente`
+- `desplazado`
+- `valor_historico`
+- `indeterminado`
 
-### 9.4 `doctrine-search`
+### 7.4 Rol de lectura
 
-Debe consumir la nueva tabla para distinguir:
+No todo dictamen doctrinalmente correcto debe leerse igual.
 
-- foco semántico;
-- estado actual de la materia;
-- línea doctrinal plausible;
-- dictámenes meramente contextuales.
+Valores principales:
 
-### 9.5 Flujo guiado
+- `entrada_semantica`
+- `entrada_doctrinal`
+- `estado_actual`
+- `ancla_historica`
+- `pivote_de_cambio`
+- `soporte_contextual`
 
-Debe usar esta capa para decidir:
+Esto se complementa con `reading_weight`, que cuantifica cuánto debe pesar un dictamen al construir la respuesta visible.
 
-- cuándo hay familias reales;
-- cuándo hay solo lectura directa;
-- cuándo hay un estado actual que domina sobre la historia doctrinal;
-- cómo presentar pasos de investigación sin inventar ramas.
+### 7.5 Señales booleanas y scores
 
-## 10. Señales que Deben Alimentar la Metadata
+La fila doctrinal también guarda señales e intensidades que el sistema usa para ranking y selección:
 
-La metadata doctrinal no puede depender de una sola fuente.
+- `supports_state_current`
+- `signals_litigious_matter`
+- `signals_abstention`
+- `signals_competence_closure`
+- `signals_operational_rule`
+- `currentness_score`
+- `doctrinal_centrality_score`
+- `historical_significance_score`
+- `shift_intensity_score`
 
-Debe combinar, con jerarquía explícita:
+Estas señales no reemplazan al rol principal. Sirven para decidir mejor cuándo una materia tiene un “estado actual” dominante y cuándo la doctrina previa debe degradarse a contexto histórico.
 
-### 10.1 Señales temporales
+## 8. Cómo se calcula
 
-- fecha del dictamen
-- secuencia temporal dentro de la familia
-- densidad de relaciones posteriores
-- presencia de pivotes recientes
+El cálculo está centralizado en [`doctrinalMetadata.ts`](/home/bilbao3561/github/cgr/cgr-platform/src/lib/doctrinalMetadata.ts).
 
-### 10.2 Señales relacionales
+El proceso mezcla tres niveles:
 
-- tipo de acción jurídica
-- cantidad y calidad de entrantes
-- cantidad y calidad de salientes
-- si un dictamen es fortalecido, desarrollado, limitado o desplazado
+### 8.1 Base estructural
 
-### 10.3 Señales textuales
-
-- materia
-- título
-- resumen
-- expresiones jurídicas compuestas
-- vocabulario de abstención, litigiosidad, improcedencia o cierre
-
-### 10.4 Señales normativas
-
-- norma principal citada
-- cambios de fuente legal dominante
-- concentración normativa de la línea
-
-### 10.5 Señales de centralidad
-
-- recurrencia del dictamen dentro del grafo
-- rol como representante, ancla o pivote
-- estabilidad del dictamen en distintas consultas del set canónico
-
-## 11. Jerarquía de Confianza
-
-La capa nueva debe explicitar su jerarquía de evidencia.
-
-Orden recomendado:
-
-1. relaciones oficiales o estructuradas de alta confianza
-2. atributos jurídicos consolidados
-3. fecha y secuencia temporal corroborada
-4. materia, título y resumen consistentes
-5. enrichment semántico y descriptores
-6. inferencia derivada de contexto
-
-Regla práctica:
-
-- una inferencia débil nunca debe desplazar una señal estructural fuerte;
-- la metadata puede quedar incompleta;
-- es preferible `indeterminado` antes que pseudo-precisión jurídica.
-
-## 12. Preguntas que la Nueva Capa Debe Poder Responder
-
-Antes de implementarla, conviene fijar sus preguntas objetivo.
-
-Por dictamen:
-
-- ¿es puerta principal de lectura o solo contexto?
-- ¿expresa doctrina histórica o estado actual?
-- ¿la CGR mantiene intervención o aparece abstención/litigiosidad?
-- ¿fortalece, ajusta, limita o desplaza criterio?
-- ¿es un hito central o un caso aplicativo?
-
-Por materia o familia:
-
-- ¿cuál es la lectura actual?
-- ¿cuál es el ancla histórica?
-- ¿qué dictamen pivote marca cambio?
-- ¿qué parte de la familia conserva vigencia?
-- ¿qué parte solo tiene valor histórico?
-
-Por consulta:
-
-- ¿el mejor primer paso es leer un dictamen directo?
-- ¿hay una familia doctrinal consolidada?
-- ¿hay un estado actual de la materia que debe mostrarse antes?
-
-## 13. Reproceso del Core
-
-Esta capa no puede poblarse con parches incrementales aislados.
-
-Se requiere reproceso del corpus.
-
-## 13.1 Alcance del reproceso
-
-Debe recalcular, al menos:
-
-- metadata doctrinal por dictamen;
-- señales de vigencia y estado de intervención;
-- elegibilidad de familia;
-- puertas de lectura;
-- proyecciones para guided flow y doctrine search.
-
-## 13.2 Fuentes a releer
+Se extraen datos de:
 
 - `dictamenes`
 - `enriquecimiento`
 - `atributos_juridicos`
 - `dictamen_relaciones_juridicas`
-- fuentes legales canónicas
-- overrides estructurales ya existentes
+- `dictamen_fuentes_legales`
 
-## 13.3 Orden recomendado del reproceso
+Con eso se arma una fotografía base del dictamen:
 
-1. congelar esquema canónico
-2. construir extractor de evidencia doctrinal
-3. poblar `dictamen_metadata_doctrinal_evidence`
-4. consolidar `dictamen_metadata_doctrinal`
-5. auditar cobertura y falsos positivos
-6. activar consumo progresivo en endpoints
+- materia;
+- criterio;
+- resumen;
+- atributos jurídicos;
+- densidad relacional;
+- relaciones entrantes y salientes;
+- fuentes legales principales.
 
-## 13.4 Estrategia de ejecución
+### 8.2 Heurística doctrinal
 
-No conviene reemplazar el comportamiento productivo en un solo salto.
+El core construye una primera hipótesis doctrinal determinista:
 
-Se recomienda:
+- rol;
+- intervención;
+- vigencia;
+- reading role;
+- scores;
+- señales fuertes.
 
-- backfill completo offline;
-- auditoría con set canónico y queries de borde;
-- activación progresiva por lectura, no por escritura;
-- cache versionada;
-- rollback simple cambiando la versión consumida.
+Esta etapa existe para que el sistema no dependa totalmente del LLM y mantenga un comportamiento conservador y reproducible.
 
-## 14. Fases de Implementación
+### 8.3 Fusión con LLM
 
-## Fase 0: Alineación de realidad
+Luego se llama a `mistral-large-2411` para obtener una lectura doctrinal más fina.
 
-Objetivo:
+Pero el LLM no manda de forma absoluta.
 
-- alinear documentación, tipos y esquema efectivo.
+El resultado final sale de un merge entre:
 
-Tareas:
+- heurística base;
+- propuesta del LLM;
+- overrides deterministas;
+- normalización estricta de enums.
 
-- inventariar tablas reales en D1 vinculadas a doctrina;
-- fijar naming canónico;
-- decidir si la tabla nueva será 1 fila por dictamen o 1 fila por dictamen y versión.
+Eso permite:
 
-Salida:
+- usar inteligencia contextual del modelo;
+- evitar que salidas libres contaminen el esquema;
+- corregir casos donde el LLM degrada demasiado una señal fuerte;
+- mantener trazabilidad de qué vino del LLM y qué corrigió el core.
 
-- esquema estable.
+## 9. Decisiones de diseño importantes
 
-## Fase 1: Diseño de dominio
+### 9.1 La metadata doctrinal no reemplaza embeddings
 
-Objetivo:
+Los embeddings siguen siendo la puerta de entrada a la consulta.
 
-- definir taxonomía mínima de rol doctrinal e intervención.
+La metadata doctrinal aparece después, para organizar mejor los resultados recuperados.
 
-Tareas:
+### 9.2 El modelo no es una taxonomía cerrada del derecho administrativo
 
-- cerrar enumeraciones iniciales;
-- definir campos obligatorios;
-- separar señales fuertes de inferencias débiles;
-- definir umbrales de `indeterminado`.
+No intenta “entender todo el derecho”.
 
-Salida:
+Intenta resolver un problema más acotado y operativo:
 
-- contrato lógico del modelo.
+- cómo leer correctamente un dictamen dentro de una familia doctrinal.
 
-## Fase 2: Capa de evidencia
+### 9.3 La capa debe ser recalculable
 
-Objetivo:
+Nada de esta metadata se trata como verdad irreversible.
 
-- no asignar metadata sin trazabilidad.
+Por eso existe:
 
-Tareas:
+- `pipeline_version`
+- `source_snapshot_version`
+- reproceso administrable
+- capa de evidencia
 
-- implementar `dictamen_metadata_doctrinal_evidence`;
-- extraer señales desde relaciones, atributos, enrichment y temporalidad;
-- versionar extractores.
+### 9.4 La observabilidad no puede depender solo de logs Cloudflare
 
-Salida:
+Los logs de Cloudflare Workflows pueden ser útiles, pero no son suficientes como base de operación.
 
-- evidencia doctrinal auditable.
+La trazabilidad mínima de esta rama debe vivir también en D1, mediante `dictamen_events`.
 
-## Fase 3: Consolidación
+Eventos doctrinales clave:
 
-Objetivo:
+- `DOCTRINAL_METADATA_QUEUED`
+- `DOCTRINAL_METADATA_SUCCESS`
+- `DOCTRINAL_METADATA_ERROR`
 
-- construir el snapshot principal.
+Esto permite auditar el pipeline incluso si los logs de Workflows fallan, cambian o no son parseables por herramientas externas.
 
-Tareas:
+## 10. Cómo se opera hoy
 
-- resolver rol principal;
-- calcular vigencia;
-- detectar abstención, litigiosidad y cierre;
-- calcular pesos de lectura y centralidad;
-- marcar elegibilidad de familia.
+### 10.1 Flujo automático
 
-Salida:
+Desde `2026-04-08`, el cálculo doctrinal se integra automáticamente al pipeline principal.
 
-- `dictamen_metadata_doctrinal`.
+Secuencia:
 
-## Fase 4: Auditoría
+1. `EnrichmentWorkflow` procesa dictámenes;
+2. cuando un dictamen queda en `enriched_pending_vectorization`, el workflow acumula sus IDs;
+3. dispara uno o más sub-batches de `DoctrinalMetadataWorkflow`;
+4. la metadata doctrinal se calcula sin bloquear el resto del pipeline.
 
-Objetivo:
+Detalles importantes:
 
-- evitar una capa nueva opaca.
+- el disparo es no bloqueante;
+- si falla, enrichment no debe retroceder;
+- la metadata doctrinal se calcula antes o en paralelo lógico a la vectorización;
+- el snapshot automático queda marcado con `source_snapshot_version = auto_from_enrichment_v1|mistral-large-2411`.
 
-Tareas:
+### 10.2 Reproceso manual o dirigido
 
-- construir consultas de validación;
-- revisar materias de borde;
-- medir falsos positivos de `estado_actual`;
-- medir drift de familias.
+Además del flujo automático, existe reproceso administrable para:
 
-Salida:
+- backfill;
+- remediación;
+- auditorías dirigidas;
+- cambios de heurística o taxonomía.
 
-- umbrales corregidos antes de consumo productivo.
+El reproceso se orquesta mediante [`doctrinalMetadataWorkflow.ts`](/home/bilbao3561/github/cgr/cgr-platform/src/workflows/doctrinalMetadataWorkflow.ts).
 
-## Fase 5: Consumo en backend
+### 10.3 Regla operativa del backlog
 
-Objetivo:
+El workflow doctrinal no debe paginar con `OFFSET` sobre un universo mutable.
 
-- mover los endpoints al nuevo modelo.
+La estrategia correcta es:
+
+- seleccionar siempre dictámenes elegibles sin metadata doctrinal (`md IS NULL`);
+- procesar ese lote;
+- volver a consultar el faltante;
+- continuar mientras queden pendientes.
+
+Esto evita saltos y huecos cuando entran nuevos dictámenes o cuando cambian estados en paralelo.
+
+## 11. Cómo usa esto el producto
+
+La metadata doctrinal influye directamente en:
+
+### 11.1 `doctrine-search`
+
+Usos principales:
+
+- priorizar dictámenes con `reading_weight` alto;
+- preferir `estado_actual` cuando existe señal fuerte;
+- degradar doctrina previa a contexto histórico cuando una materia cambió de régimen;
+- ordenar mejor líneas doctrinales.
+
+### 11.2 `doctrine-guided`
+
+Usos principales:
+
+- detectar foco directo;
+- construir “estado actual de la materia”;
+- seleccionar hitos, pivotes y ramas;
+- separar estado vigente de historia doctrinal.
+
+### 11.3 Render visible
+
+En frontend, la metadata doctrinal permite mostrar mejor:
+
+- qué leer primero;
+- qué es estado actual;
+- qué es solo antecedente;
+- qué dictamen opera como pivote o hito;
+- cuándo la CGR ya no está interviniendo del mismo modo.
+
+## 12. Observabilidad y auditoría
+
+### 12.1 Qué mirar
+
+Para auditar esta capa hay que mirar al menos cuatro cosas:
+
+1. cobertura;
+2. calidad estructural;
+3. calidad doctrinal;
+4. salud operativa del pipeline.
+
+### 12.2 Cobertura
+
+Preguntas mínimas:
+
+- cuántos dictámenes elegibles tienen metadata;
+- cuántos faltan;
+- qué cohorte los generó;
+- si el backlog está drenando o se estancó.
+
+### 12.3 Calidad estructural
+
+Chequeos mínimos:
+
+- enums válidos en `rol_principal`;
+- enums válidos en `reading_role`;
+- `evidence_summary_json` no vacío;
+- `source_snapshot_version` consistente;
+- ausencia de contaminación histórica.
+
+### 12.4 Calidad doctrinal
+
+Chequeos mínimos:
+
+- exceso de `aplicacion`;
+- subexpresión de `estado_actual`;
+- confusión entre abstención y aplicación;
+- poca separación entre doctrina vigente e historia doctrinal;
+- coherencia entre `rol_principal`, `estado_intervencion_cgr` y `reading_role`.
+
+### 12.5 Salud operativa
+
+La fuente operativa más confiable es hoy:
+
+- `dictamen_events`
+
+Eventos relevantes:
+
+- `AI_INFERENCE_SUCCESS`
+- `DOCTRINAL_METADATA_QUEUED`
+- `DOCTRINAL_METADATA_SUCCESS`
+- `DOCTRINAL_METADATA_ERROR`
+
+Eso permite reconstruir la secuencia:
+
+1. enrichment terminó;
+2. se encoló metadata doctrinal;
+3. se calculó correctamente o falló.
+
+## 13. Riesgos conocidos
+
+Esta capa resuelve un problema real, pero no elimina todos los riesgos.
+
+Riesgos todavía vigentes:
+
+- exceso de `aplicacion` en parte del corpus;
+- tendencia del sistema a modelar mejor lo vigente que lo histórico;
+- residuos de `entrada_semantica` que siguen siendo poco doctrinales;
+- materias donde señales fuertes todavía no dominan totalmente la lectura;
+- dependencia parcial de heurísticas que pueden necesitar nuevas categorías.
+
+En otras palabras:
+
+- la capa ya es útil;
+- pero sigue siendo una aproximación operativa, no una ontología jurídica perfecta.
+
+## 14. Mapa para ingeniería inversa
+
+Si alguien nuevo necesita reconstruir esta capa, debe partir por estos archivos:
+
+### 14.1 Core de cálculo
+
+- [`doctrinalMetadata.ts`](/home/bilbao3561/github/cgr/cgr-platform/src/lib/doctrinalMetadata.ts)
+- [`mistral.ts`](/home/bilbao3561/github/cgr/cgr-platform/src/clients/mistral.ts)
+
+### 14.2 Orquestación
+
+- [`doctrinalMetadataWorkflow.ts`](/home/bilbao3561/github/cgr/cgr-platform/src/workflows/doctrinalMetadataWorkflow.ts)
+- [`enrichmentWorkflow.ts`](/home/bilbao3561/github/cgr/cgr-platform/src/workflows/enrichmentWorkflow.ts)
+
+### 14.3 Consumo en producto
+
+- [`doctrineLines.ts`](/home/bilbao3561/github/cgr/cgr-platform/src/lib/doctrineLines.ts)
+- [`doctrineGuided.ts`](/home/bilbao3561/github/cgr/cgr-platform/src/lib/doctrineGuided.ts)
+- [`Home.tsx`](/home/bilbao3561/github/cgr/frontend/src/pages/Home.tsx)
+
+### 14.4 Persistencia y trazabilidad
+
+- `dictamen_metadata_doctrinal`
+- `dictamen_metadata_doctrinal_evidence`
+- `dictamen_events`
+
+### 14.5 Preguntas correctas para reconstruirla
+
+No partir preguntando “qué prompt usa”.
+
+Partir preguntando:
+
+- cuál es la unidad conceptual del modelo;
+- qué variables quiere producir;
+- qué parte es heurística y qué parte es LLM;
+- cómo se normaliza;
+- qué señales gobiernan la respuesta visible;
+- cómo se opera y audita en producción.
+
+## 15. Cómo leer este documento si eres nuevo
 
 Orden recomendado:
 
-1. guided flow
-2. `doctrine-search`
-3. `doctrine-lines`
+1. leer las secciones 2, 3 y 4 para entender el problema;
+2. leer las secciones 6, 7 y 8 para entender el modelo;
+3. leer las secciones 10 y 12 para operar el sistema;
+4. leer la sección 14 si quieres seguir el rastro en código.
 
-Primero guided flow porque es donde más valor agrega separar:
+## 16. Estado actual del diseño
 
-- `focus_directo`
-- `estado_actual_materia`
-- `familias_candidatas`
+La conclusión práctica hoy es esta:
 
-## Fase 6: Reproyección visible
+- la metadata doctrinal ya es una pieza estructural del producto;
+- ya no es un experimento lateral;
+- su integración automática al pipeline está operativa;
+- su trazabilidad en D1 también está operativa;
+- el problema abierto ya no es si la capa debe existir, sino cómo seguir refinando su taxonomía y su capacidad para gobernar mejor la lectura doctrinal del corpus.
 
-Objetivo:
+## 17. Idea fuerza final
 
-- trasladar la mejora al frontend sin metalenguaje.
+Si hubiera que resumir toda esta capa en una sola frase:
 
-Tareas:
-
-- cambiar textos de UI para hablar de:
-  - lectura actual
-  - hito histórico
-  - materia litigiosa
-  - abstención visible
-  - pivote de cambio
-- no mostrar categorías internas innecesarias.
-
-## 15. Cambios Esperados en el Producto
-
-Si esta capa se implementa bien, el sistema debería comportarse mejor en tres frentes:
-
-### 15.1 Búsqueda doctrinal
-
-Mejor separación entre:
-
-- resultado semánticamente cercano;
-- lectura doctrinal principal;
-- estado actual de la materia.
-
-### 15.2 Investigación guiada
-
-Menos ramas falsas.
-
-Mejor decisión sobre:
-
-- cuándo abrir familias;
-- cuándo seguir desde un dictamen directo;
-- cuándo advertir que la materia cambió de régimen.
-
-### 15.3 Vigencia visible
-
-La plataforma debería explicar mejor:
-
-- qué sigue vigente;
-- qué está tensionado;
-- qué fue desplazado;
-- cuándo la CGR se abstiene o deja de intervenir.
-
-## 16. Riesgos
-
-### 16.1 Taxonomía demasiado ambiciosa
-
-Riesgo:
-
-- crear una ontología jurídica inmantenible.
-
-Mitigación:
-
-- empezar con un set mínimo y operativo;
-- priorizar roles que afectan lectura visible.
-
-### 16.2 Falsos positivos de cierre o abstención
-
-Riesgo:
-
-- sobrerreaccionar a texto ambiguo.
-
-Mitigación:
-
-- exigir evidencia compuesta;
-- permitir `sin_senal_clara`;
-- no promover una señal débil a lectura principal.
-
-### 16.3 Reproceso costoso y difícil de auditar
-
-Riesgo:
-
-- poblar una tabla nueva sin saber por qué cada fila quedó así.
-
-Mitigación:
-
-- evidencia versionada;
-- consultas de auditoría;
-- consumo progresivo.
-
-### 16.4 Nueva capa que duplique al core
-
-Riesgo:
-
-- crear una arquitectura paralela.
-
-Mitigación:
-
-- usar la tabla como proyección estructural del core existente;
-- no reemplazar `dictamen_relaciones_juridicas`;
-- no reemplazar embeddings;
-- no mover lógica central al frontend.
-
-## 17. Criterios de Éxito
-
-La capa será correcta si logra esto:
-
-- menos familias laterales visibles;
-- mejor separación entre historia doctrinal y estado actual;
-- mejor priorización de dictámenes que cierran, condicionan o desplazan intervención;
-- menos pseudo-precisión;
-- mejor capacidad para reconstruir la línea temporal real.
-
-Señales observables de éxito:
-
-## 18. Operación del Workflow
-
-El workflow productivo de reproceso doctrinal debe operar sobre backlog faltante, no sobre páginas inestables por `OFFSET`.
-
-Desde `2026-04-08`, la forma operativa correcta del sistema ya no es depender solo de backfills manuales:
-
-- `EnrichmentWorkflow` dispara automáticamente uno o más sub-batches de `DoctrinalMetadataWorkflow` para los dictámenes enriquecidos con éxito;
-- el cálculo doctrinal queda desacoplado de Pinecone y ocurre antes o en paralelo lógico a la vectorización;
-- si el disparo doctrinal falla, enrichment no debe retroceder ni bloquear el resto del pipeline;
-- la trazabilidad operativa mínima debe persistirse además en `dictamen_events`, con eventos `DOCTRINAL_METADATA_QUEUED`, `DOCTRINAL_METADATA_SUCCESS` y `DOCTRINAL_METADATA_ERROR`; si el disparo desde `EnrichmentWorkflow` falla antes de crear el subworkflow, el error debe quedar igualmente persistido por dictamen;
-- el reproceso manual y recursivo sigue existiendo para backfill, remediación y auditorías dirigidas.
-
-Regla operativa correcta:
-
-- seleccionar siempre el siguiente lote de dictámenes elegibles sin fila en `dictamen_metadata_doctrinal`;
-- limitar el universo a `estado IN ('enriched_pending_vectorization', 'vectorized')`;
-- ordenar por `fecha_documento DESC, id DESC`;
-- reprocesar por lotes pequeños y recontar backlog remanente después de cada batch;
-- despachar la siguiente instancia solo si sigue existiendo backlog sin metadata.
-
-Qué evitar:
-
-- encadenar batches por `LIMIT/OFFSET` sobre un conjunto mutable;
-- asumir que un batch final pequeño significa que no quedan huecos;
-- mezclar en el mismo criterio de paginación dictámenes nuevos que entran a `vectorized` durante una corrida larga.
-
-Riesgo real identificado:
-
-- cuando el backlog cambia durante el backfill, `OFFSET` puede saltarse dictámenes y dejar huecos dispersos en años distintos.
-
-## 19. Snapshot de Auditoría Operativa
-
-Estado auditado al `2026-04-08`:
-
-- `dictamen_metadata_doctrinal`: `25.900` filas;
-- universo objetivo del workflow (`vectorized` + `enriched_pending_vectorization`): `26.748`;
-- cobertura operativa: `25.835 / 26.748` (`96,6%`);
-- backlog remanente detectado: `913`.
-
-Distribución del backlog remanente:
-
-- `598` en `enriched_pending_vectorization`;
-- `315` en `vectorized`.
-
-Lectura correcta de esa auditoría:
-
-- la cadena recursiva puede haber terminado sin error;
-- eso no prueba cierre total del backlog;
-- si quedan huecos dispersos, el problema probable es selección por páginas inestables y no falta de cuota del modelo.
-
-## 20. Snapshot de Calidad de Datos
-
-Estado auditado al `2026-04-08`:
-
-- `avg(confidence_global) = 0,689`;
-- `22.355` filas `auto_ready`;
-- `3.545` filas `needs_review`;
-- `1.975` filas con `confidence_global < 0,5`.
-
-Señales positivas:
-
-- `evidence_summary_json` completo en todas las filas auditadas;
-- sin contaminación de enums en `reading_role`;
-- sin contaminación de enums en `rol_principal`;
-- `692` filas en `reading_role = estado_actual`, con solo `2` bajo `0,6` de confianza.
-
-Riesgos visibles:
-
-- `aplicacion` sigue sobrerrepresentado como `rol_principal`;
-- hay dictámenes con señales fuertes de abstención/litigiosidad/cierre que aún no siempre escalan a un rol doctrinal más expresivo;
-- la capa modela mejor lo vigente que lo histórico, por lo que todavía conviene auditar `valor_historico`, `ancla_historica` y desplazamiento.
-
-## 21. Regla de Taxonomía Endurecida
-
-Cuando la heurística estructural detecta una señal fuerte de:
-
-- `abstencion_visible`
-- `materia_litigiosa`
-- `signals_competence_closure`
-
-el merge final con LLM no debe permitir que el caso vuelva trivialmente a `rol_principal = aplicacion` si el texto además contiene:
-
-- fórmula de abstención visible;
-- incompetencia o remisión a competencia exclusiva de otro órgano;
-- litigiosidad explícita;
-- o una regla general visible (`corresponde`, `debe`, `en los términos que se indican`).
-
-Lectura operativa de esta regla:
-
-- `aplicacion` debe quedar reservada para resolución de caso concreto sin señal fuerte de cierre, abstención o cambio de régimen;
-- si la pieza aplica doctrina pero su efecto visible principal es abstenerse, no tomar razón, no emitir pronunciamiento o remitir a competencia ajena, debe escalar a una categoría doctrinal más expresiva;
-- `limitacion` no debe usarse como rol principal autónomo: como categoría principal generaba ambigüedad y terminaba mezclando aclaración, ajuste y abstención;
-- la taxonomía no debe degradar una señal fuerte de intervención a un rol residual solo porque el LLM describió el caso como aplicación.
-
-- más consultas donde el sistema distingue correctamente entre foco directo y estado actual;
-- menos necesidad de reglas ad hoc por materia;
-- guided flow más estable frente a queries cortas o ambiguas;
-- auditoría doctrinal más explicable para cada decisión visible.
-
-## 18. Plan Operativo Recomendado
-
-Orden realista para empezar:
-
-1. cerrar diseño del esquema nuevo;
-2. implementar tablas y tipos TypeScript;
-3. construir extractor de evidencia doctrinal;
-4. correr backfill completo sobre todo el corpus;
-5. auditar una batería canónica de consultas y dictámenes;
-6. conectar primero el flujo guiado;
-7. conectar después `doctrine-search`;
-8. documentar nuevas consultas de auditoría y rollback.
-
-## 19. Decisión Recomendada
-
-La siguiente etapa del proyecto no debe ser otro ajuste fino del ranking visible.
-
-Debe ser:
-
-- modelar `metadata doctrinal` como capa estructural del corpus;
-- reprocesar el core para poblarla;
-- usarla como intermediaria entre búsqueda semántica y organización doctrinal.
-
-Eso mantiene el principio del proyecto:
-
-- la búsqueda semántica manda;
-- la doctrina organiza;
-- y la organización doctrinal deja de depender solo de clustering y heurísticas locales.
+> El retrieval semántico encuentra candidatos; la metadata doctrinal convierte esos candidatos en lectura jurídica usable.
