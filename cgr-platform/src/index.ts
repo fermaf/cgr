@@ -2433,6 +2433,76 @@ app.get('/api/v1/regimenes/:id', async (c) => {
   }
 });
 
+// ── Endpoints de PJOs (Problemas Jurídicos Operativos) ────────────────
+
+// POST /api/v1/admin/regimenes/:id/pjo — Extrae y persiste el PJO de un régimen
+app.post('/api/v1/admin/regimenes/:id/pjo', async (c) => {
+  const token = c.req.header('x-admin-token');
+  if (!token || token !== c.env.INGEST_TRIGGER_TOKEN) {
+    return c.json({ error: 'Se requiere autenticación admin' }, 403);
+  }
+  const id = c.req.param('id');
+  try {
+    const { extractAndPersistPJO } = await import('./lib/pjoExtractor');
+    const startedAt = Date.now();
+    const result = await extractAndPersistPJO(c.env, id);
+    const elapsed = Date.now() - startedAt;
+
+    if ('error' in result) {
+      return c.json({ success: false, error: result.error }, 'QUOTA_EXCEEDED' === result.error ? 429 : 500);
+    }
+
+    logInfo('PJO_ENDPOINT_OK', { regimenId: id, ...result, elapsed_ms: elapsed });
+    return c.json({ success: true, elapsed_ms: elapsed, ...result });
+  } catch (e: unknown) {
+    logError('PJO_ENDPOINT_ERROR', e);
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+// GET /api/v1/admin/pjos — Lista todos los PJOs extraídos
+app.get('/api/v1/admin/pjos', async (c) => {
+  const token = c.req.header('x-admin-token');
+  if (!token || token !== c.env.INGEST_TRIGGER_TOKEN) {
+    return c.json({ error: 'Se requiere autenticación admin' }, 403);
+  }
+  try {
+    const limit = parsePositiveInt(c.req.query('limit'), 50, 1, 200);
+    const rows = await c.env.DB.prepare(`
+      SELECT p.id, p.regimen_id, p.pregunta, p.estado, p.keywords_json,
+             r.nombre as regimen_nombre, r.estado as regimen_estado,
+             r.confianza as regimen_confianza
+      FROM problemas_juridicos_operativos p
+      JOIN regimenes_jurisprudenciales r ON r.id = p.regimen_id
+      ORDER BY r.confianza DESC
+      LIMIT ?
+    `).bind(limit).all<Record<string, unknown>>();
+    return c.json({ total: rows.results?.length ?? 0, pjos: rows.results ?? [] });
+  } catch (e: unknown) {
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+// GET /api/v1/public/pjos — Lista PJOs (público, campos de presentación)
+app.get('/api/v1/public/pjos', async (c) => {
+  try {
+    const limit = parsePositiveInt(c.req.query('limit'), 20, 1, 100);
+    const offset = parsePositiveInt(c.req.query('offset'), 0, 0, 10000);
+    const rows = await c.env.DB.prepare(`
+      SELECT p.id, p.regimen_id, p.pregunta, p.estado, p.respuesta_sintetica,
+             p.dictamen_rector_id, p.keywords_json,
+             r.nombre as regimen_nombre, r.estado as regimen_estado,
+             r.fecha_criterio_fundante, r.fecha_ultimo_pronunciamiento
+      FROM problemas_juridicos_operativos p
+      JOIN regimenes_jurisprudenciales r ON r.id = p.regimen_id
+      ORDER BY r.confianza DESC
+      LIMIT ? OFFSET ?
+    `).bind(limit, offset).all<Record<string, unknown>>();
+    return c.json({ total: rows.results?.length ?? 0, offset, limit, pjos: rows.results ?? [] });
+  } catch (e: unknown) {
+    return c.json({ error: 'Error interno' }, 500);
+  }
+});
 
 app.get('/api/v1/pilot/regimenes/seeds', async (c) => {
   const token = c.req.header('x-admin-token');
