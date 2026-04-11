@@ -2,34 +2,22 @@
 
 ## Prioridad 1
 
-Completar el backfill de Regímenes Jurisprudenciales (Fase 1).
+Integrar la doctrina (Fase 1 y 2) en el servicio de Búsqueda principal.
 
 Estado actual:
-- Pipeline de descubrimiento: **en producción** (`regimenDiscovery.ts`)
-- Pipeline de persistencia: **en producción** (`regimenBuilder.ts`)
-- Workflow de backfill: **desplegado y disparado** (`RegimenBackfillWorkflow`)
-- 6 regímenes piloto en D1 (5 activos, 1 desplazado)
+- Base de datos D1 ya contiene la tabla puente `regimen_dictamenes` (396 filas) y `problemas_juridicos_operativos` (extracción completada con Gemini).
+- Workflow de metadata e ingestión operativos.
 
 Próximo paso inmediato:
-- Verificar que el Workflow completa las 20 semillas correctamente
-- Si el backfill falla en semillas sin metadata, investigar cobertura de `dictamen_metadata_doctrinal`
+- Modificar el backend endpoint de public search (`GET /api/v1/buscar` / Pinecone integration) para inyectar la pregunta del PJO y la metadata del Régimen a cada dictamen devuelto que pertenezca a uno.
 
 ## Prioridad 2
 
-Mejorar valor jurídico visible sin perder recall semántico.
+Reflejar la madurez de la plataforma Indubia en el Frontend.
 
 Esto incluye:
-
-- integrar los Regímenes descubiertos en el retrieval de búsqueda;
-- mostrar estado del régimen (activo/desplazado/zona_litigiosa) junto al dictamen;
-- endurecer fuentes legales y vigencia visible.
-
-## Prioridad 3
-
-Extracción de PJOs (Problemas Jurídicos Operativos) — Fase 2.
-
-- Usar LLM ligero (gemini-flash) para formular la pregunta jurídica de cada régimen
-- Poblar `problemas_juridicos_operativos` y `pjo_dictamenes`
+- crear un "PJO Badge" en la tarjeta de dictamen que muestre clara y visualmente la Pregunta y si el régimen está activo, en transición o desplazado.
+- crear una "Página o Modal de Detalle de Régimen" que conecte cronológicamente los dictámenes y presente la evolución del problema jurídico resuelto (timeline y normas nucleares).
 
 ## Qué evitar
 
