@@ -31,6 +31,22 @@ export interface RelacionEfecto {
     bucket?: "consolida" | "desarrolla" | "ajusta";
 }
 
+export interface RegimenSimulado {
+    id: string;
+    nombre: string;
+    estado: 'activo' | 'desplazado' | 'en_revision';
+    pjo_pregunta?: string;
+}
+
+export interface ProblemaJuridicoOperativo {
+    id: string;
+    regimen_id: string;
+    pregunta: string;
+    respuesta_sintetica: string;
+    categoria?: string;
+    estado: 'pendiente' | 'resuelto' | 'error';
+}
+
 export interface DictamenMeta {
     id: string;
     numero: string | null;
@@ -47,6 +63,7 @@ export interface DictamenMeta {
     relaciones_causa?: RelacionCausa[];
     relaciones_efecto?: RelacionEfecto[];
     fuentes_legales?: FuenteLegalDetail[];
+    regimen?: RegimenSimulado | null;
 }
 
 export interface FuenteLegalDetail {
@@ -234,6 +251,7 @@ export interface DoctrineStructureAdjustment {
 }
 
 export interface DoctrineLine {
+    entry_kind?: "matter_status" | "direct_hit" | "doctrinal_line";
     title: string;
     importance_level: 'low' | 'medium' | 'high';
     change_risk_level: 'low' | 'medium' | 'high';
@@ -268,10 +286,199 @@ export interface DoctrineInsightsOverview {
         intent_label: string;
         confidence: number;
     } | null;
+    query_subtopic?: {
+        intent_label: string;
+        subtopic_label: string;
+        confidence: number;
+        matched_terms: string[];
+        subtopic_terms: string[];
+    } | null;
+    query_mode?: {
+        mode: "estado_actual_materia" | "linea_historica" | "dictamen_puntual" | "exploratoria";
+        confidence: number;
+        matched_terms: string[];
+        rationale: string;
+    } | null;
     searchMode?: "semantic" | "lexical_fallback";
+}
+
+export interface DoctrineInsightsSection {
+    key: "estado_actual" | "dictamen_directo" | "doctrina_vigente" | "cambio_y_revision" | "contexto_historico";
+    title: string;
+    summary: string;
+    representative_ids: string[];
 }
 
 export interface DoctrineInsightsResponse {
     overview: DoctrineInsightsOverview;
     lines: DoctrineLine[];
+    sections?: DoctrineInsightsSection[];
+}
+
+export interface DoctrineGuidedFocus {
+    dictamen_id: string;
+    title: string;
+    date: string | null;
+    materia: string | null;
+    criterio: string | null;
+    numero: string | null;
+    summary: string;
+    why_this_focus: string;
+    doctrinal_state: string;
+    juridical_attributes: string[];
+    incoming_relations_count: number;
+    outgoing_relations_count: number;
+}
+
+export interface DoctrineGuidedMatterStatus {
+    dictamen_id: string;
+    title: string;
+    date: string | null;
+    numero: string | null;
+    materia: string | null;
+    criterio: string | null;
+    status_category: "materia_litigiosa" | "abstencion_competencial" | "cambio_de_regimen" | "criterio_operativo_actual";
+    status_label: string;
+    summary: string;
+    why_this_status: string;
+    confidence: number;
+    matched_terms: string[];
+}
+
+export interface DoctrineGuidedFamilyCandidate {
+    family_id: string;
+    label: string;
+    representative_dictamen_id: string;
+    representative_title: string;
+    representative_date: string | null;
+    doctrinal_status: DoctrineGraphDoctrinalStatus["status"];
+    doctrinal_status_summary: string;
+    relation_summary: string;
+    visible_time_span: DoctrineTimeSpan;
+    key_dictamenes_count: number;
+    why_this_family: string;
+    next_step: string;
+}
+
+export interface DoctrineGuidedTimelineEvent {
+    related_id: string;
+    related_title: string;
+    related_date: string | null;
+    relation_type: string;
+    relation_effect: "fortalece" | "desarrolla" | "ajusta" | "limita" | "desplaza";
+    relation_label: string;
+    direction: "antecedente" | "posterior";
+    chronology_hint: string;
+}
+
+export interface DoctrineGuidedTemporalRoute {
+    root_dictamen_id: string;
+    currentness_label: string;
+    relation_inventory: DoctrineGraphDoctrinalStatus["relation_inventory"];
+    events: DoctrineGuidedTimelineEvent[];
+}
+
+export interface DoctrineGuidedOverview {
+    query: string;
+    query_interpreted?: string | null;
+    query_intent?: DoctrineInsightsOverview["query_intent"];
+    query_subtopic?: DoctrineInsightsOverview["query_subtopic"];
+    searchMode?: "semantic" | "lexical_fallback";
+    navigation_mode: "guided" | "guided_family";
+    recommended_entry?: "focus_directo" | "estado_actual_materia";
+    ambiguity_visible?: boolean;
+    total_families?: number;
+    family_found?: boolean;
+}
+
+export interface DoctrineGuidedResponse {
+    overview: DoctrineGuidedOverview;
+    focus_directo: DoctrineGuidedFocus | null;
+    estado_actual_materia?: DoctrineGuidedMatterStatus | null;
+    familias_candidatas: DoctrineGuidedFamilyCandidate[];
+    ruta_temporal_inicial: DoctrineGuidedTemporalRoute | null;
+    suggested_steps: string[];
+}
+
+export interface DoctrineGuidedBreadcrumbStep {
+    step: "consulta" | "foco_directo" | "familia";
+    label: string;
+    dictamen_id?: string;
+    family_id?: string;
+}
+
+export interface DoctrineGuidedFamilySummary {
+    family_id: string;
+    label: string;
+    representative_dictamen_id: string;
+    representative_title: string;
+    doctrinal_status: DoctrineGraphDoctrinalStatus["status"];
+    doctrinal_status_summary: string;
+    visible_time_span: DoctrineTimeSpan;
+    why_this_family: string;
+    reading_priority_reason: string;
+    pivot_dictamen: DoctrinePivotDictamen | null;
+}
+
+export interface DoctrineGuidedFamilyTimelineNode {
+    dictamen_id: string;
+    title: string;
+    date: string | null;
+    rol_en_linea: DoctrineKeyDictamen["rol_en_linea"];
+    summary: string | null;
+    juridical_attributes: string[];
+    doctrinal_state: string;
+    incoming_relations_count: number;
+    outgoing_relations_count: number;
+}
+
+export interface DoctrineGuidedFamilyRelationEdge {
+    source_id: string;
+    source_title: string;
+    target_id: string;
+    target_title: string;
+    relation_type: string;
+    relation_effect: "fortalece" | "desarrolla" | "ajusta" | "limita" | "desplaza";
+    relation_label: string;
+    source_date: string | null;
+    inside_family: boolean;
+}
+
+export interface DoctrineGuidedFamilyResponse {
+    overview: DoctrineGuidedOverview;
+    breadcrumb: DoctrineGuidedBreadcrumbStep[];
+    family: DoctrineGuidedFamilySummary | null;
+    timeline: {
+        dictamenes: DoctrineGuidedFamilyTimelineNode[];
+        relation_edges: DoctrineGuidedFamilyRelationEdge[];
+    };
+    sibling_families: DoctrineGuidedFamilyCandidate[];
+}
+
+export interface Boletin {
+    id: string;
+    fecha_inicio: string;
+    fecha_fin: string;
+    filtro_boletin: number;
+    filtro_relevante: number;
+    filtro_recurso_prot: number;
+    status: 'PENDING' | 'MISTRAL_REDUCING' | 'MEDIA_GENERATING' | 'COMPLETED' | 'ERROR';
+    original_ids?: string | null;
+    synthesis?: string | null;
+    created_at: string;
+    updated_at: string;
+    entregables?: BoletinEntregable[];
+}
+
+export interface BoletinEntregable {
+    id: number;
+    boletin_id: string;
+    canal: string;
+    status: 'DRAFT' | 'GENERATING_MEDIA' | 'READY';
+    content_text: string | null;
+    media_urls: string | null;
+    prompts?: string | null;
+    metadata?: string | null;
+    created_at: string;
+    updated_at: string;
 }
