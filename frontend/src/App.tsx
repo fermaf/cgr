@@ -5,6 +5,7 @@ import { DictamenDetail } from "./pages/DictamenDetail";
 import { SearchResults } from "./pages/SearchResults";
 import { Stats } from "./pages/Stats";
 import { AdminDashboard } from "./pages/AdminDashboard";
+import { RegimenView } from "./pages/RegimenView";
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
         <Route path="buscar" element={<SearchResults />} />
         <Route path="stats" element={<Stats />} />
         <Route path="dictamen/:id" element={<DictamenDetail />} />
+        <Route path="regimen/:id" element={<RegimenView />} />
         <Route path="admin" element={<AdminDashboard />} />
         <Route path="*" element={<div className="p-8">Página no encontrada</div>} />
       </Route>
