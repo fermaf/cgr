@@ -89,6 +89,10 @@ Definidas en `wrangler.jsonc`:
 - `MISTRAL_MODEL`
 - `PINECONE_INDEX_HOST`
 - `PINECONE_NAMESPACE`
+- `NVIDIA_EMBEDDING_API_URL`
+- `NVIDIA_EMBEDDING_MODEL`
+- `NVIDIA_EMBEDDING_DIMENSIONS`
+- `NVIDIA_EMBEDDING_RPM_LIMIT`
 - `CRAWL_DAYS_LOOKBACK`
 - `BACKFILL_BATCH_SIZE`
 - `BACKFILL_DELAY_MS`
@@ -99,7 +103,10 @@ Secrets:
 
 - `MISTRAL_API_KEY`
 - `PINECONE_API_KEY`
+- `NVIDIA_API_KEY`
 - `CF_AIG_AUTHORIZATION` (si aplica por gateway)
+
+`NVIDIA_API_KEY` debe cargarse con `wrangler secret put NVIDIA_API_KEY` y no debe persistirse en archivos versionados.
 
 ## Observabilidad
 

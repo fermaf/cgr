@@ -18,6 +18,16 @@ interface VectorizationParams {
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const NVIDIA_MIN_DELAY_MS = 3500;
+
+function isNvidiaEmbeddingRateLimit(error: any): boolean {
+  const message = String(error?.message ?? '');
+  return message.includes('NVIDIA embedding rate limit exceeded') || message.includes('NVIDIA embedding error: 429');
+}
+
+function isNvidiaEmbeddingError(error: any): boolean {
+  return String(error?.message ?? '').includes('NVIDIA embedding');
+}
 
 export class VectorizationWorkflow extends WorkflowEntrypoint<Env, VectorizationParams> {
   async run(event: WorkflowEvent<VectorizationParams>, step: WorkflowStep) {
@@ -28,8 +38,8 @@ export class VectorizationWorkflow extends WorkflowEntrypoint<Env, Vectorization
       const sourceKv = env.DICTAMENES_SOURCE;
       setLogLevel(env.LOG_LEVEL);
 
-      const batchSize = params.batchSize ?? 50;
-      const delayMs = params.delayMs ?? 500;
+      const batchSize = Math.min(params.batchSize ?? 18, 18);
+      const delayMs = Math.max(params.delayMs ?? NVIDIA_MIN_DELAY_MS, NVIDIA_MIN_DELAY_MS);
       logInfo('VECTORIZATION_RUN_START', { instanceId: event.instanceId, batchSize, delayMs });
 
       const dictamenesParaVectorizar = await step.do('fetch-vectorization-ids', async () => {
@@ -106,6 +116,20 @@ export class VectorizationWorkflow extends WorkflowEntrypoint<Env, Vectorization
               return { ok: false, pineconeQuotaExceeded: true };
             }
 
+            if (isNvidiaEmbeddingRateLimit(error)) {
+              await updateDictamenStatus(db, id, 'enriched_pending_vectorization', 'NVIDIA_EMBEDDING_RATE_LIMITED', {
+                detail: error.message
+              });
+              return { ok: false, nvidiaRateLimited: true };
+            }
+
+            if (isNvidiaEmbeddingError(error)) {
+              await updateDictamenStatus(db, id, 'enriched_pending_vectorization', 'NVIDIA_EMBEDDING_ERROR', {
+                detail: error.message
+              });
+              return { ok: false, error: error.message };
+            }
+
             await updateDictamenStatus(db, id, 'error', 'SYSTEM_ERROR', {
               detail: error.message,
               stack: error.stack
@@ -122,6 +146,11 @@ export class VectorizationWorkflow extends WorkflowEntrypoint<Env, Vectorization
           const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0);
           const seconds = Math.max(1, Math.floor((nextMonth.getTime() - now.getTime()) / 1000));
           await step.sleep('wait-for-pinecone-reset', `${seconds} seconds`);
+          break;
+        }
+
+        if (result.nvidiaRateLimited) {
+          await step.sleep('wait-for-nvidia-embedding-rate-limit', '60 seconds');
           break;
         }
 

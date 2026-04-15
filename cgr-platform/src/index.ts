@@ -1563,10 +1563,10 @@ app.post('/api/v1/dictamenes/batch-vectorize', async (c) => {
     }
   }
   const body = await readJsonBody(c);
-  const defaultBatch = parsePositiveInt(c.env.BACKFILL_BATCH_SIZE, 100, 1, 500);
-  const defaultDelay = parsePositiveInt(c.env.BACKFILL_DELAY_MS, 500, 0, 60000);
-  const batchSize = parsePositiveInt(body.batchSize, defaultBatch, 1, 500);
-  const delayMs = parsePositiveInt(body.delayMs, defaultDelay, 0, 60000);
+  const defaultBatch = parsePositiveInt(c.env.BACKFILL_BATCH_SIZE, 18, 1, 18);
+  const defaultDelay = parsePositiveInt(c.env.BACKFILL_DELAY_MS, 3500, 3500, 60000);
+  const batchSize = parsePositiveInt(body.batchSize, defaultBatch, 1, 18);
+  const delayMs = parsePositiveInt(body.delayMs, defaultDelay, 3500, 60000);
   const recursive = body.recursive !== undefined ? isTruthy(body.recursive) : true;
 
   const instance = await c.env.VECTORIZATION_WORKFLOW.create({

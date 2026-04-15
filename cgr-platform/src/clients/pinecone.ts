@@ -1,4 +1,5 @@
 import type { Env } from '../types';
+import { embedPassage, embedQuery } from './nvidiaEmbeddings';
 
 type PineconeMetadata = {
   Resumen: string;
@@ -29,6 +30,10 @@ type PineconeRecord = {
   id: string;
   metadata: Partial<PineconeMetadata> & Record<string, unknown>
 };
+
+function getPineconeBaseUrl(env: Env): string {
+  return env.PINECONE_INDEX_HOST.endsWith('/') ? env.PINECONE_INDEX_HOST.slice(0, -1) : env.PINECONE_INDEX_HOST;
+}
 
 /**
  * Normaliza la metadata según el Estándar de la Arquitectura 14 (v8).
@@ -91,17 +96,21 @@ function normalizePineconeMetadata(env: Env, input: Partial<PineconeMetadata> & 
 }
 
 async function upsertRecord(env: Env, record: PineconeRecord) {
-  // Endpoint HTTP directo de Pinecone para Integrated Inference
-  const baseUrl = env.PINECONE_INDEX_HOST.endsWith('/') ? env.PINECONE_INDEX_HOST.slice(0, -1) : env.PINECONE_INDEX_HOST;
-  const url = new URL(`/records/namespaces/${env.PINECONE_NAMESPACE}/upsert`, baseUrl);
+  const baseUrl = getPineconeBaseUrl(env);
+  const url = new URL('/vectors/upsert', baseUrl);
 
-  // El cliente solo normaliza. El contrato (Analisis concatenado y descriptores) se resuelve en el Origen.
   const normalizedMetadata = normalizePineconeMetadata(env, record.metadata);
+  const values = await embedPassage(env, normalizedMetadata.analisis);
 
-  // Payload: un solo registro como objeto (no array) según API Pinecone Integrated Inference
   const payload = {
-    _id: record.id,
-    ...normalizedMetadata
+    namespace: env.PINECONE_NAMESPACE,
+    vectors: [
+      {
+        id: record.id,
+        values,
+        metadata: normalizedMetadata
+      }
+    ]
   };
 
   const response = await fetch(url.toString(), {
@@ -120,15 +129,17 @@ async function upsertRecord(env: Env, record: PineconeRecord) {
 }
 
 async function queryRecords(env: Env, query: string, limit: number = 10, filter?: Record<string, any>) {
-  const baseUrl = env.PINECONE_INDEX_HOST.endsWith('/') ? env.PINECONE_INDEX_HOST.slice(0, -1) : env.PINECONE_INDEX_HOST;
-  const url = new URL(`/records/namespaces/${env.PINECONE_NAMESPACE}/search`, baseUrl);
+  const baseUrl = getPineconeBaseUrl(env);
+  const url = new URL('/query', baseUrl);
+  const vector = await embedQuery(env, query);
 
   const payload = {
-    query: {
-      inputs: { text: query },
-      top_k: limit,
-      filter: filter
-    }
+    namespace: env.PINECONE_NAMESPACE,
+    vector,
+    topK: limit,
+    filter,
+    includeMetadata: true,
+    includeValues: false
   };
 
   const response = await fetch(url.toString(), {
@@ -148,7 +159,7 @@ async function queryRecords(env: Env, query: string, limit: number = 10, filter?
   const data = await response.json() as any;
 
   return {
-    matches: (data.result?.hits || []).map((hit: any) => ({
+    matches: (data.matches || data.result?.hits || []).map((hit: any) => ({
       id: hit._id || hit.id,
       score: hit._score || hit.score,
       metadata: hit.fields || hit.metadata || {}
@@ -159,7 +170,7 @@ async function queryRecords(env: Env, query: string, limit: number = 10, filter?
 async function fetchRecords(env: Env, ids: string[]) {
   if (!ids || ids.length === 0) return { vectors: {} };
 
-  const baseUrl = env.PINECONE_INDEX_HOST.endsWith('/') ? env.PINECONE_INDEX_HOST.slice(0, -1) : env.PINECONE_INDEX_HOST;
+  const baseUrl = getPineconeBaseUrl(env);
   const url = new URL('/vectors/fetch', baseUrl);
   for (const id of ids) {
     url.searchParams.append('ids', id);

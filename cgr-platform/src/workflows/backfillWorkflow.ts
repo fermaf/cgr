@@ -31,6 +31,16 @@ interface BackfillParams {
 
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const NVIDIA_MIN_DELAY_MS = 3500;
+
+function isNvidiaEmbeddingRateLimit(error: any): boolean {
+    const message = String(error?.message ?? '');
+    return message.includes('NVIDIA embedding rate limit exceeded') || message.includes('NVIDIA embedding error: 429');
+}
+
+function isNvidiaEmbeddingError(error: any): boolean {
+    return String(error?.message ?? '').includes('NVIDIA embedding');
+}
 
 function shouldForceReenrichment(statusFrom: string) {
     return statusFrom === 'ingested'
@@ -49,8 +59,8 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
             const pasoKv = env.DICTAMENES_PASO;
             const mistralModel = env.MISTRAL_MODEL;
             setLogLevel(env.LOG_LEVEL);
-            const batchSize = params.batchSize ?? 50;
-            const delayMs = params.delayMs ?? 500;
+            const batchSize = Math.min(params.batchSize ?? 18, 18);
+            const delayMs = Math.max(params.delayMs ?? NVIDIA_MIN_DELAY_MS, NVIDIA_MIN_DELAY_MS);
             logInfo('BACKFILL_RUN_START', { instanceId: event.instanceId, batchSize, delayMs });
 
             // 1. Obtener dictámenes pendientes Y marcarlos atómicamente como processing (Checkout)
@@ -296,6 +306,15 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
                                         detail: e.message
                                     });
                                     (chunkResults as any).pineconeQuotaExceeded = true;
+                                } else if (isNvidiaEmbeddingRateLimit(e)) {
+                                    await updateDictamenStatus(db, id, 'enriched_pending_vectorization', 'NVIDIA_EMBEDDING_RATE_LIMITED', {
+                                        detail: e.message
+                                    });
+                                    (chunkResults as any).nvidiaRateLimited = true;
+                                } else if (isNvidiaEmbeddingError(e)) {
+                                    await updateDictamenStatus(db, id, 'enriched_pending_vectorization', 'NVIDIA_EMBEDDING_ERROR', {
+                                        detail: e.message
+                                    });
                                 } else {
                                     await updateDictamenStatus(db, id, 'error', 'SYSTEM_ERROR', {
                                         detail: e.message,
@@ -320,6 +339,12 @@ export class BackfillWorkflow extends WorkflowEntrypoint<Env, BackfillParams> {
                     const seconds = Math.floor((nextMonth.getTime() - now.getTime()) / 1000);
                     console.log(`[Backfill] Cuota mensual de Pinecone agotada (Hoy: ${now.toISOString()}). Suspendiendo instancia por ${seconds} segundos hasta el ${nextMonth.toISOString()}...`);
                     await step.sleep('wait-for-pinecone-reset', `${seconds} seconds`);
+                    break;
+                }
+
+                if ((results as any).nvidiaRateLimited) {
+                    console.log(`[Backfill] Límite por minuto de NVIDIA embeddings alcanzado. Suspendiendo instancia por 60 segundos...`);
+                    await step.sleep('wait-for-nvidia-embedding-rate-limit', '60 seconds');
                     break;
                 }
 
