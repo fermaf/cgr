@@ -1,7 +1,6 @@
 import { WorkflowEntrypoint, WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
 import type { Env, DictamenRaw, DictamenStatus } from '../types';
 import { analyzeDictamen } from '../clients/mistral';
-import { analyzeDictamenGemini } from '../clients/gemini';
 import {
   checkoutDictamenesParaEnriquecer,
   listDictamenIdsParaEnriquecer,
@@ -152,28 +151,27 @@ export class EnrichmentWorkflow extends WorkflowEntrypoint<Env, EnrichmentParams
               }
             });
 
-            const geminiModel = 'gemini-3.1-flash-lite-preview';
-            const mistral2411 = 'mistral-large-2411';
+            const model2512 = 'mistral-large-2512';
+            const model2411 = 'mistral-large-2411';
             let enrichment: any | null = null;
             let llmError: string | undefined;
-            let currentModel = mistralModel;
+            let currentModel = model2411;
+            let apiKeyToUse: string | undefined;
 
-            if (profile.route === 'gemini') {
-              const response = await analyzeDictamenGemini(env, rawJson, geminiModel);
-              enrichment = response.result;
-              llmError = response.error;
-              currentModel = geminiModel;
-            } else if (profile.route === 'mistral_2411') {
-              const response = await analyzeDictamen(env, rawJson, mistral2411);
-              enrichment = response.result;
-              llmError = response.error;
-              currentModel = mistral2411;
+            if (profile.route === 'mistral_2512') {
+              currentModel = model2512;
+              apiKeyToUse = env.MISTRAL_API_KEY_CRAWLER_ALE;
+            } else if (profile.route === 'mistral_importantes_olga') {
+              currentModel = model2512;
+              apiKeyToUse = env.MISTRAL_API_KEY_IMPORTANTES_OLGA;
             } else {
-              const response = await analyzeDictamen(env, rawJson, mistralModel);
-              enrichment = response.result;
-              llmError = response.error;
-              currentModel = mistralModel;
+              currentModel = model2411;
+              apiKeyToUse = undefined;
             }
+
+            const response = await analyzeDictamen(env, rawJson, currentModel, apiKeyToUse);
+            enrichment = response.result;
+            llmError = response.error;
 
             if (!enrichment) {
               if (llmError === 'QUOTA_EXCEEDED') {

@@ -49,6 +49,11 @@ Son parámetros invisibles en el repositorio inyectados mediante:
 
 | Secreto de Infraestructura | Función y Consecuencia de Fuga |
 | :--- | :--- |
-| `MISTRAL_API_KEY` | Autenticación real frente al proveedor de Inferencia. Si es robada, agota el presupuesto corporativo. |
+| Secreto de Infraestructura | Función y Consecuencia de Fuga |
+| :--- | :--- |
+| `MISTRAL_API_KEY` | Autenticación real frente al proveedor de Inferencia (Pool global). Si es robada, agota el presupuesto corporativo. |
+| `MISTRAL_API_KEY_CRAWLER_ALE` | Clave exclusiva para el flujo de nuevos dictámenes recolectados por el Crawler (estado `ingested`). |
+| `MISTRAL_API_KEY_IMPORTANTES_OLGA` | Clave exclusiva para el flujo de dictámenes importantes/boletín (estado `ingested_importante`). |
+| `GEMINI_API_KEY` | Autenticación para Google AI Studio. **Deprecada para enriquecimiento doctrinal** (migrada a Mistral Olga), mantenida para tareas generativas auxiliares o boletines. |
 | `PINECONE_API_KEY` | Autenticación frente a la BBDD Vectorial. Evita inserción de tensores corrompidos. |
 | `INGEST_TRIGGER_TOKEN` | (Alias: `x-admin-token`). Llave de paso maestra del Sistema CGR. Controla los endpoints de re-escritura masiva de D1 y disparo de colas operativas (`POST /api/v1/dictamenes/batch-enrich`, `POST /api/v1/dictamenes/batch-vectorize`). Si alguien externa posee esta clave, puede detonar workflows recursivos y costo operativo. **Debe ser aleatorio, criptográficamente seguro y rotarse cada N meses**. |

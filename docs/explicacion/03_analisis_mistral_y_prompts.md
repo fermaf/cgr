@@ -67,3 +67,16 @@ Una vez que Mistral retorna el JSON estructurado, este es preparado para la Infe
 Al enviar el registro a la base vectorial, **CGR-Platform** anexa los `descriptores_originales` extraídos del payload primitivo de la Contraloría junto a las `etiquetas` de Mistral.
 
 **La Metadata V2** que consume Pinecone unifica la inteligencia del LLM con las etiquetas "Legacy" del gobierno, permitiendo búsquedas semánticas que son harto precisas tanto en lenguaje natural moderno como en notación archivera clásica.
+
+---
+
+## 🚦 5. Estrategia de Enrutamiento y Claves (Abril 2026)
+
+Para optimizar el uso de cuotas y asegurar la calidad del enriquecimiento en el backlog histórico, se implementó una estrategia de enrutamiento basada en el estado del dictamen:
+
+- **Migración Total a Mistral**: Se eliminó Gemini del flujo de enriquecimiento doctrinal. Todos los dictámenes ahora utilizan modelos de la familia Mistral Large.
+- **Distribución de Carga por Claves**:
+    - **ALE (`MISTRAL_API_KEY_CRAWLER_ALE`)**: Utilizada exclusivamente para dictámenes nuevos detectados por el crawler (`estado: 'ingested'`). Estos se procesan con `mistral-large-2512`.
+    - **OLGA (`MISTRAL_API_KEY_IMPORTANTES_OLGA`)**: Utilizada para dictámenes marcados como importantes o relevantes (`estado: 'ingested_importante'`). Procesados también con `mistral-large-2512`.
+    - **Pool Global/EVA**: Utilizada para el grueso del procesamiento histórico o dictámenes triviales (`estado: 'ingested_trivial'`) usando `mistral-large-2411`.
+- **Reprocesamiento 2020+**: Todos los dictámenes desde 2020 en adelante han sido forzados al uso del modelo `2512` para asegurar la máxima profundidad semántica en el corpus reciente.

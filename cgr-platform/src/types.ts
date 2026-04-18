@@ -269,6 +269,8 @@ export interface Env {
   PINECONE_API_KEY: string;
   NVIDIA_API_KEY: string;
   MISTRAL_API_KEY: string;
+  MISTRAL_API_KEY_CRAWLER_ALE: string;
+  MISTRAL_API_KEY_IMPORTANTES_OLGA: string;
   GEMINI_API_KEY: string;
   ELEVENLABS_API_KEY: string;
   ELEVENLABS_TOOL_SECRET: string;

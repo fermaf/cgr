@@ -238,7 +238,7 @@ function buildPromptDoctrinalMetadata(raw: DictamenRaw, context?: Record<string,
     'Debes devolver SOLO JSON válido, sin comentarios, sin markdown.',
     '',
     'Enums permitidos:',
-    '- rol_principal: nucleo_doctrinal, aplicacion, aclaracion, complemento, ajuste, limitacion, desplazamiento, reactivacion, cierre_competencial, materia_litigiosa, abstencion, criterio_operativo_actual, hito_historico, contexto_no_central',
+    '- rol_principal: nucleo_doctrinal, aplicacion, aclaracion, complemento, ajuste, desplazamiento, reactivacion, cierre_competencial, materia_litigiosa, abstencion, criterio_operativo_actual, hito_historico, contexto_no_central',
     '- estado_intervencion_cgr: intervencion_normal, intervencion_condicionada, intervencion_residual, abstencion_visible, materia_litigiosa, sin_senal_clara',
     '- estado_vigencia: vigente_visible, vigente_tensionado, vigente_en_revision, desplazado_parcialmente, desplazado, valor_historico, indeterminado',
     '- reading_role: entrada_semantica, entrada_doctrinal, estado_actual, ancla_historica, pivote_de_cambio, soporte_contextual',
@@ -256,6 +256,7 @@ function buildPromptDoctrinalMetadata(raw: DictamenRaw, context?: Record<string,
     '- Usa complemento cuando el dictamen agrega una precisión relevante a doctrina previa, pero sin desplazarla ni convertirla en un simple caso concreto.',
     '- Usa criterio_operativo_actual cuando el dictamen formula o reafirma la regla vigente que debería leerse hoy como estado actual de la materia.',
     '- Usa nucleo_doctrinal cuando el dictamen tiene vocación general, estructura una materia o funciona como punto de entrada doctrinal principal, no solo como caso aplicado.',
+    '- No uses limitacion como rol_principal: si el dictamen solo limita o acota el alcance de una regla, clasificalo normalmente como aclaracion o ajuste, y si hace falta expresa el matiz en roles_secundarios o evidencia_resumen.',
     '- Si el dictamen rechaza una reconsideración pero complementa o aclara doctrina, NO lo clasifiques automáticamente como aplicacion.',
     '- Si el dictamen contiene instrucciones generales, lineamientos, criterios de alcance amplio o precisión normativa reusable, prefiere aclaracion, complemento, nucleo_doctrinal o criterio_operativo_actual antes que aplicacion.',
     '- Si solo hay caso concreto, ausencia de estructura general y señal doctrinal moderada, ahí sí usa aplicacion.',
@@ -389,15 +390,18 @@ async function analyzeDoctrinalMetadata(
   return { result: null, error: 'Max retry attempts reached', model };
 }
 
-async function analyzeDictamen(env: Env, raw: DictamenRaw, modelOverride?: string): Promise<{ result: any | null; error?: string }> {
+async function analyzeDictamen(env: Env, raw: DictamenRaw, modelOverride?: string, apiKeyOverride?: string | string[]): Promise<{ result: any | null; error?: string }> {
   const model = typeof modelOverride === 'string' && modelOverride.trim().length > 0 ? modelOverride.trim() : env.MISTRAL_MODEL;
   let attempts = 0;
   const maxAttempts = 5;
   let delay = 10000;
   let lastKeyId: string | null = null;
+  const forceKeys = Array.isArray(apiKeyOverride)
+    ? apiKeyOverride
+    : (typeof apiKeyOverride === 'string' && apiKeyOverride.trim().length > 0 ? [apiKeyOverride] : undefined);
 
   while (attempts < maxAttempts) {
-    const selection = await selectProviderApiKey(env.DB, env, 'mistral', model);
+    const selection = await selectProviderApiKey(env.DB, env, 'mistral', model, forceKeys);
     if (!selection.ok) {
       return { result: null, error: 'QUOTA_EXCEEDED' };
     }

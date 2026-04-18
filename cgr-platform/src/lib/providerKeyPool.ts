@@ -166,11 +166,14 @@ export async function selectProviderApiKey(
   db: D1Database,
   env: Env,
   provider: ProviderName,
-  model: string
+  model: string,
+  forceKeys?: string[]
 ): Promise<ProviderKeySelection> {
-  const keys = provider === 'gemini'
-    ? parseKeyList(env.GEMINI_API_KEYS, env.GEMINI_API_KEY)
-    : parseKeyList(env.MISTRAL_API_KEYS, env.MISTRAL_API_KEY);
+  const keys = forceKeys && forceKeys.length > 0
+    ? forceKeys
+    : (provider === 'gemini'
+      ? parseKeyList(env.GEMINI_API_KEYS, env.GEMINI_API_KEY)
+      : parseKeyList(env.MISTRAL_API_KEYS, env.MISTRAL_API_KEY));
   if (keys.length === 0) {
     return { ok: false, provider, model, reason: 'NO_KEYS' };
   }

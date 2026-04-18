@@ -244,7 +244,7 @@ type DictamenProcessingProfile = {
   id: string;
   current_status: string | null;
   target_status: DictamenStatus;
-  route: 'mistral_2512' | 'gemini' | 'mistral_2411' | 'vectorize_only';
+  route: 'mistral_2512' | 'mistral_importantes_olga' | 'mistral_2411' | 'vectorize_only';
   anio: number | null;
   es_relevante: number;
   en_boletin: number;
@@ -299,7 +299,7 @@ async function getDictamenProcessingProfile(db: D1Database, id: string): Promise
     };
   }
 
-  if (row.anio === 2026) {
+  if ((row.anio ?? 0) >= 2020) {
     return {
       ...row,
       target_status: 'ingested',
@@ -311,7 +311,7 @@ async function getDictamenProcessingProfile(db: D1Database, id: string): Promise
     return {
       ...row,
       target_status: 'ingested_importante',
-      route: 'gemini'
+      route: 'mistral_importantes_olga'
     };
   }
 
