@@ -1124,11 +1124,19 @@ app.get('/api/v1/dictamenes', async (c) => {
         const mWords = trimmed.split(/\s+/).filter(w => w.length > 1);
 
         // Lógica: Match frase completa OR (Match palabra 1 AND palabra 2...)
-        let mCondition = `(LOWER(d.materia) LIKE LOWER(?) OR d.id IN (SELECT dictamen_id FROM enriquecimiento WHERE LOWER(etiquetas_json) LIKE LOWER(?)))`;
+        let mCondition = `(LOWER(d.materia) LIKE LOWER(?) OR d.id IN (
+          SELECT de.dictamen_id FROM dictamen_etiquetas de
+          JOIN etiquetas_catalogo ec ON ec.id = de.etiqueta_id
+          WHERE LOWER(ec.etiqueta_display) LIKE LOWER(?)
+        ))`;
         binds.push(fullPattern, fullPattern);
 
         if (mWords.length > 1) {
-          const wordMatches = mWords.map(() => "(LOWER(d.materia) LIKE LOWER(?) OR d.id IN (SELECT dictamen_id FROM enriquecimiento WHERE LOWER(etiquetas_json) LIKE LOWER(?)))");
+          const wordMatches = mWords.map(() => `(LOWER(d.materia) LIKE LOWER(?) OR d.id IN (
+            SELECT de.dictamen_id FROM dictamen_etiquetas de
+            JOIN etiquetas_catalogo ec ON ec.id = de.etiqueta_id
+            WHERE LOWER(ec.etiqueta_display) LIKE LOWER(?)
+          ))`);
           mCondition = `(${mCondition} OR (${wordMatches.join(" AND ")}))`;
           mWords.forEach(w => binds.push(`%${w}%`, `%${w}%`));
         }
@@ -1140,11 +1148,19 @@ app.get('/api/v1/dictamenes', async (c) => {
         const fullPattern = `%${trimmed}%`;
         const tWords = trimmed.split(/\s+/).filter(w => w.length > 1);
 
-        let tCondition = `d.id IN (SELECT dictamen_id FROM enriquecimiento WHERE LOWER(etiquetas_json) LIKE LOWER(?))`;
-        binds.push(fullPattern);
+        let tCondition = `d.id IN (
+          SELECT de.dictamen_id FROM dictamen_etiquetas de
+          JOIN etiquetas_catalogo ec ON ec.id = de.etiqueta_id
+          WHERE LOWER(ec.etiqueta_display) LIKE LOWER(?) OR ec.etiqueta_slug LIKE ?
+        )`;
+        binds.push(fullPattern, trimmed);
 
         if (tWords.length > 1) {
-          const wordMatches = tWords.map(() => "d.id IN (SELECT dictamen_id FROM enriquecimiento WHERE LOWER(etiquetas_json) LIKE LOWER(?))");
+          const wordMatches = tWords.map(() => `d.id IN (
+            SELECT de.dictamen_id FROM dictamen_etiquetas de
+            JOIN etiquetas_catalogo ec ON ec.id = de.etiqueta_id
+            WHERE LOWER(ec.etiqueta_display) LIKE LOWER(?)
+          )`);
           tCondition = `(${tCondition} OR (${wordMatches.join(" AND ")}))`;
           tWords.forEach(w => binds.push(`%${w}%`));
         }
@@ -1153,14 +1169,6 @@ app.get('/api/v1/dictamenes', async (c) => {
       if (division) {
         condition += " AND d.division_id IN (SELECT id FROM cat_divisiones WHERE codigo = ?)";
         binds.push(division);
-      }
-      if (tags) {
-        const tWords = tags.trim().split(/\s+/).filter(w => w.length > 1);
-        if (tWords.length > 0) {
-          const tConditions = tWords.map(() => "d.id IN (SELECT dictamen_id FROM enriquecimiento WHERE etiquetas_json LIKE ?)");
-          condition += " AND " + tConditions.join(" AND ");
-          tWords.forEach(w => binds.push(`%${w}%`));
-        }
       }
 
       if (juris) {
@@ -1335,8 +1343,7 @@ app.get('/api/v1/dictamenes/:id', async (c) => {
        ORDER BY COALESCE(d.fecha_documento, d.created_at) DESC, r.rowid DESC
        LIMIT 100`
     ).bind(id).all<DictamenRelationDetailRow>();
-    // --- CANONICAL SOURCES READ WITH LEGACY FALLBACK ---
-    let sourcesOrigin = 'canonical';
+    // --- CANONICAL SOURCES READ (Fase 2: Fallback Purgado) ---
     const canonicalSources = await db.prepare(
       `SELECT
          c.tipo_norma,
@@ -1353,35 +1360,9 @@ app.get('/api/v1/dictamenes/:id', async (c) => {
        ORDER BY mentions DESC, c.tipo_norma ASC, c.numero ASC`
     ).bind(id).all<DictamenFuenteLegalRow>();
 
-    let fuentesResult = canonicalSources.results || [];
+    const fuentesResult = canonicalSources.results || [];
 
-    if (fuentesResult.length === 0) {
-      sourcesOrigin = 'legacy_fallback';
-      const legacyFuentes = await db.prepare(
-        `SELECT
-           NULLIF(TRIM(tipo_norma), '') AS tipo_norma,
-           NULLIF(TRIM(numero), '') AS numero,
-           NULLIF(TRIM(articulo), '') AS articulo,
-           NULLIF(TRIM(extra), '') AS extra,
-           NULLIF(TRIM(year), '') AS year,
-           NULLIF(TRIM(sector), '') AS sector,
-           COUNT(*) AS mentions
-         FROM dictamen_fuentes_legales
-         WHERE dictamen_id = ?
-         GROUP BY
-           NULLIF(TRIM(tipo_norma), ''),
-           NULLIF(TRIM(numero), ''),
-           NULLIF(TRIM(articulo), ''),
-           NULLIF(TRIM(extra), ''),
-           NULLIF(TRIM(year), ''),
-           NULLIF(TRIM(sector), '')
-         ORDER BY mentions DESC, tipo_norma ASC, numero ASC, articulo ASC`
-      ).bind(id).all<DictamenFuenteLegalRow>();
-      fuentesResult = legacyFuentes.results || [];
-    }
-
-    // --- CANONICAL TAGS READ WITH LEGACY FALLBACK ---
-    let tagsOrigin = 'canonical';
+    // --- CANONICAL TAGS READ (Fase 2: Fallback Purgado) ---
     const canonicalTags = await db.prepare(
       `SELECT c.etiqueta_display
        FROM dictamen_etiquetas d
@@ -1390,20 +1371,7 @@ app.get('/api/v1/dictamenes/:id', async (c) => {
        ORDER BY c.etiqueta_display ASC`
     ).bind(id).all<{ etiqueta_display: string }>();
 
-    let tagsResult = (canonicalTags.results || []).map(r => r.etiqueta_display);
-
-    if (tagsResult.length === 0 && enrichment?.etiquetas_json) {
-      tagsOrigin = 'legacy_fallback';
-      try {
-        const legacyTags = JSON.parse(enrichment.etiquetas_json);
-        if (Array.isArray(legacyTags)) {
-          tagsResult = legacyTags;
-        }
-      } catch (e) {
-        // Fallback robusto en caso de JSON malformado
-        tagsResult = [];
-      }
-    }
+    const tagsResult = (canonicalTags.results || []).map(r => r.etiqueta_display);
 
     return c.json({
       meta: {
@@ -1430,8 +1398,8 @@ app.get('/api/v1/dictamenes/:id', async (c) => {
         })),
         fuentes_legales: fuentesResult.map((source) => normalizeLegalSourceForPresentation(source)),
         _audit: {
-          sources_source: sourcesOrigin,
-          tags_source: tagsOrigin
+          sources_source: 'canonical',
+          tags_source: 'canonical'
         }
       },
       raw: raw,
