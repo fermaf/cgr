@@ -166,7 +166,7 @@ async function queryHeatmapLive(
       COUNT(*) AS total_refs,
       COUNT(DISTINCT d.id) AS total_dictamenes,
       MAX(COALESCE(d.fecha_documento, d.created_at)) AS last_source_date
-    FROM dictamen_fuentes_legales f
+    FROM dictamen_fuentes f
     INNER JOIN dictamenes d ON d.id = f.dictamen_id
     WHERE (? IS NULL OR d.anio >= ?)
       AND (? IS NULL OR d.anio <= ?)
@@ -229,7 +229,7 @@ async function refreshAnalyticsSnapshots(
       COUNT(*) AS total_refs,
       COUNT(DISTINCT d.id) AS total_dictamenes,
       MAX(COALESCE(d.fecha_documento, d.created_at)) AS last_source_date
-    FROM dictamen_fuentes_legales f
+    FROM dictamen_fuentes f
     INNER JOIN dictamenes d ON d.id = f.dictamen_id
     WHERE (? IS NULL OR d.anio >= ?)
       AND (? IS NULL OR d.anio <= ?)
@@ -1708,7 +1708,15 @@ app.post('/api/v1/dictamenes/:id/sync-vector', async (c) => {
       id: id,
       metadata: {
         ...enrichment,
-        descriptores_AI: enrichment.etiquetas_json ? JSON.parse(enrichment.etiquetas_json) : [],
+        descriptores_AI: await (async () => {
+          const tagsRes = await db.prepare(
+            `SELECT ec.etiqueta_display
+             FROM dictamen_etiquetas de
+             JOIN etiquetas_catalogo ec ON ec.id = de.etiqueta_id
+             WHERE de.dictamen_id = ?`
+          ).bind(id).all<{ etiqueta_display: string }>();
+          return (tagsRes.results ?? []).map(t => t.etiqueta_display);
+        })(),
         materia: sourceContent?.materia || "",
         descriptores_originales: sourceContent?.descriptores ? String(sourceContent.descriptores).split(/[,;\n]/).map((s: string) => s.trim()).filter((s: string) => s.length > 2) : [],
         fecha: String(sourceContent?.fecha_documento || ''),
@@ -2003,10 +2011,23 @@ app.post('/api/v1/dictamenes/sync-vector-mass', async (c) => {
     const ids = (pending.results ?? []).map(r => r.id);
     if (ids.length === 0) return c.json({ success: true, message: 'Toda la metadata está en v2' });
 
+    // Pre-fetch de etiquetas canónicas para todo el lote
+    const placeholders = ids.map(() => '?').join(',');
+    const batchTags = await db.prepare(`
+      SELECT de.dictamen_id, ec.etiqueta_display
+      FROM dictamen_etiquetas de
+      JOIN etiquetas_catalogo ec ON ec.id = de.etiqueta_id
+      WHERE de.dictamen_id IN (${placeholders})
+    `).bind(...ids).all<{ dictamen_id: string; etiqueta_display: string }>();
+
+    const tagsByDictamen = new Map<string, string[]>();
+    for (const row of batchTags.results ?? []) {
+      const existing = tagsByDictamen.get(row.dictamen_id) || [];
+      tagsByDictamen.set(row.dictamen_id, [...existing, row.etiqueta_display]);
+    }
+
     let count = 0;
     for (const id of ids) {
-      // Ejecutar sync individual de cada uno (reutilizando lógica interna o similar)
-      // Por simplicidad en este endpoint, recuperamos la data y hacemos upsert
       const enrichment = await getLatestEnrichment(db, id);
       const rawRef = await getLatestRawRef(db, id);
       if (!enrichment || !rawRef) continue;
@@ -2015,17 +2036,13 @@ app.post('/api/v1/dictamenes/sync-vector-mass', async (c) => {
       if (!rawJson) continue;
 
       const sourceContent = rawJson?._source ?? rawJson?.source ?? rawJson?.raw_data ?? rawJson;
-      const textToEmbed = `
-            Título: ${enrichment.titulo}
-            Resumen: ${enrichment.resumen}
-            Análisis: ${enrichment.analisis}
-        `.trim();
+      const canonicalTags = tagsByDictamen.get(id) || [];
 
       await upsertRecord(c.env, {
         id: id,
         metadata: {
           ...enrichment,
-          descriptores_AI: enrichment.etiquetas_json ? JSON.parse(enrichment.etiquetas_json) : [],
+          descriptores_AI: canonicalTags,
           materia: sourceContent?.materia || "",
           descriptores_originales: sourceContent?.descriptores ? String(sourceContent.descriptores).split(/[,;\n]/).map((s: string) => s.trim()).filter((s: string) => s.length > 2) : [],
           fecha: String(sourceContent?.fecha_documento || ''),

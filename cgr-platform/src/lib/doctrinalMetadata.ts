@@ -719,7 +719,7 @@ async function fetchPrimaryLegalSource(env: Env, dictamenId: string) {
        tipo_norma,
        numero,
        COUNT(*) AS total
-     FROM dictamen_fuentes_legales
+     FROM dictamen_fuentes
      WHERE dictamen_id = ?
      GROUP BY tipo_norma, numero
      ORDER BY total DESC, tipo_norma ASC, numero ASC
@@ -991,7 +991,7 @@ function buildComputation(
       signal_value: formatNormaLabel(primaryLegalSource) ?? '',
       score: 0.58,
       confidence: 0.82,
-      source_table: 'dictamen_fuentes_legales',
+      source_table: 'dictamen_fuentes',
       source_locator: `dictamen_id=${base.dictamen_id}`,
       snippet: formatNormaLabel(primaryLegalSource),
       detected_by: DOCTRINAL_METADATA_PIPELINE_VERSION

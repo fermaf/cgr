@@ -378,7 +378,7 @@ export async function findSharedNorms(
       f.sector,
       COUNT(DISTINCT f.dictamen_id) as dictamenes_count,
       GROUP_CONCAT(DISTINCT f.dictamen_id) as dictamen_ids_csv
-    FROM dictamen_fuentes_legales f
+    FROM dictamen_fuentes f
     WHERE f.dictamen_id IN (${placeholders})
       AND f.numero IS NOT NULL
       AND LENGTH(TRIM(f.numero)) > 0

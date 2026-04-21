@@ -20,6 +20,22 @@ type CandidateMetadata = {
   booleans: string[];
 };
 
+type ClusterQueryContext = {
+  query: string;
+  intent?: {
+    intent_label: string;
+    confidence: number;
+    matched_terms: string[];
+  } | null;
+  subtopic?: {
+    subtopic_label: string;
+    confidence: number;
+    matched_terms: string[];
+    subtopic_terms: string[];
+  } | null;
+  candidateScores?: Record<string, number>;
+};
+
 type DoctrinalState = 'consolidado' | 'en_evolucion' | 'bajo_tension';
 
 type PivotDictamen = {
@@ -79,6 +95,7 @@ type DoctrineCluster = {
   doctrinal_importance_score: number;
   doctrinal_change_risk_score: number;
   temporal_spread_years: number;
+  active_doctrinal_signal_score: number;
   supporting_dictamen_ids: string[];
   top_descriptores_AI: string[];
   top_fuentes_legales: Array<{ tipo_norma: string; numero: string | null; count: number }>;
@@ -116,6 +133,16 @@ function normalizeDescriptorLabel(value: string): string {
   const compact = compactText(value).replace(/_/g, ' ');
   if (!compact) return '';
   return compact.charAt(0).toUpperCase() + compact.slice(1);
+}
+
+function normalizeSearchText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function looksNoisyMateria(value: string): boolean {
@@ -159,6 +186,16 @@ function countShared(left: string[], right: string[]): number {
   return left.filter((item) => rightSet.has(item)).length;
 }
 
+function countMatchedTokens(tokens: string[], semanticText: string): number {
+  if (tokens.length === 0 || !semanticText) return 0;
+  return tokens.reduce((acc, token) => acc + (semanticText.includes(token) ? 1 : 0), 0);
+}
+
+function countMatchedTerms(terms: string[], semanticText: string): number {
+  if (terms.length === 0 || !semanticText) return 0;
+  return terms.reduce((acc, term) => acc + (semanticText.includes(normalizeSearchText(term)) ? 1 : 0), 0);
+}
+
 function roundScore(value: number): number {
   return Math.round(value * 100) / 100;
 }
@@ -178,6 +215,15 @@ function parseDateToTs(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function buildRecentnessSignal(value: string | null | undefined, windowYears = 5): number {
+  const ts = value ? parseDateToTs(value) : null;
+  if (ts === null) return 0;
+  const now = Date.now();
+  const windowMs = windowYears * 365.25 * 24 * 60 * 60 * 1000;
+  const ageMs = Math.max(now - ts, 0);
+  return roundScore(Math.max(0, 1 - (ageMs / windowMs)));
+}
+
 function isPineconeQuotaError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return message.includes('Pinecone search error: 429') || message.includes('RESOURCE_EXHAUSTED');
@@ -190,6 +236,164 @@ function buildSeedQuery(candidate: CandidateMetadata): string {
     candidate.resumen,
     ...candidate.descriptoresAI.slice(0, 4)
   ].filter(Boolean).join('. ');
+}
+
+function buildCandidateSemanticText(candidate: CandidateMetadata): string {
+  return normalizeSearchText([
+    candidate.materia,
+    candidate.titulo,
+    candidate.resumen,
+    candidate.analisis,
+    ...candidate.descriptoresAI
+  ].join(' '));
+}
+
+function buildQueryAlignmentProfile(
+  candidate: CandidateMetadata,
+  queryContext: ClusterQueryContext | null | undefined
+) {
+  if (!queryContext) {
+    return {
+      score: 0,
+      matchedQueryTokens: 0,
+      matchedIntentTerms: 0,
+      matchedSubtopicTerms: 0,
+      retrievalScore: 0
+    };
+  }
+
+  const semanticText = buildCandidateSemanticText(candidate);
+  if (!semanticText) {
+    return {
+      score: 0,
+      matchedQueryTokens: 0,
+      matchedIntentTerms: 0,
+      matchedSubtopicTerms: 0,
+      retrievalScore: 0
+    };
+  }
+
+  const queryTokens = [...new Set(normalizeSearchText(queryContext.query).split(' ').filter((token) => token.length >= 3))];
+  const matchedQueryTokens = countMatchedTokens(queryTokens, semanticText);
+  const queryCoverage = queryTokens.length > 0 ? matchedQueryTokens / queryTokens.length : 0;
+  const intentLabelMatch = queryContext.intent?.intent_label
+    ? semanticText.includes(normalizeSearchText(queryContext.intent.intent_label))
+    : false;
+  const matchedIntentTerms = countMatchedTerms(queryContext.intent?.matched_terms ?? [], semanticText);
+  const subtopicLabelMatch = queryContext.subtopic?.subtopic_label
+    ? semanticText.includes(normalizeSearchText(queryContext.subtopic.subtopic_label))
+    : false;
+  const matchedSubtopicTerms = countMatchedTerms(queryContext.subtopic?.subtopic_terms ?? [], semanticText);
+  const retrievalScore = Math.max(0, Math.min(queryContext.candidateScores?.[candidate.id] ?? 0, 1));
+
+  const tokenScore = queryCoverage * 0.42;
+  const retrievalBoost = retrievalScore * 0.34;
+  const intentBoost = (
+    (intentLabelMatch ? 0.16 : 0)
+    + Math.min(0.18, matchedIntentTerms * 0.05)
+  ) * (queryContext.intent?.confidence ?? 0);
+  const subtopicBoost = (
+    (subtopicLabelMatch ? 0.28 : 0)
+    + Math.min(0.34, matchedSubtopicTerms * 0.08)
+  ) * (queryContext.subtopic?.confidence ?? 0);
+
+  let score = tokenScore + retrievalBoost + intentBoost + subtopicBoost;
+
+  if (queryTokens.length >= 3 && matchedQueryTokens <= 1 && matchedSubtopicTerms === 0 && !subtopicLabelMatch) {
+    score *= 0.58;
+  }
+  if ((queryContext.subtopic?.confidence ?? 0) >= 0.72 && matchedSubtopicTerms === 0 && !subtopicLabelMatch && retrievalScore < 0.8) {
+    score *= 0.72;
+  }
+
+  return {
+    score: roundScore(Math.max(0, Math.min(score, 1.2))),
+    matchedQueryTokens,
+    matchedIntentTerms,
+    matchedSubtopicTerms,
+    retrievalScore
+  };
+}
+
+function buildMemberUpdateSignalScore(member: CandidateMetadata): number {
+  const semanticText = normalizeSearchText([
+    member.materia,
+    member.titulo,
+    member.resumen,
+    member.analisis
+  ].join(' '));
+
+  if (!semanticText) return 0;
+
+  const indicators = [
+    'litigios',
+    'judicial',
+    'tribunales',
+    'corte suprema',
+    'abstencion',
+    'abstener',
+    'reconsider',
+    'revision',
+    'revisa',
+    'desplaza',
+    'modifica',
+    'modificacion',
+    'cambio de criterio',
+    'controvers',
+    'unificador',
+    'unifica'
+  ];
+
+  const matches = indicators.reduce((acc, indicator) => acc + (semanticText.includes(indicator) ? 1 : 0), 0);
+  return roundScore(Math.min(matches / 4, 1));
+}
+
+function selectClusterMembersForVisibleLine(members: CandidateMetadata[]): CandidateMetadata[] {
+  if (members.length < 4) return members;
+
+  const dated = members
+    .map((member) => ({
+      member,
+      ts: parseDateToTs(member.fecha),
+      recentness: buildRecentnessSignal(member.fecha, 4),
+      updateSignal: buildMemberUpdateSignalScore(member)
+    }))
+    .filter((entry): entry is { member: CandidateMetadata; ts: number; recentness: number; updateSignal: number } => entry.ts !== null)
+    .sort((left, right) => left.ts - right.ts);
+
+  if (dated.length < 4) return members;
+
+  const earliestTs = dated[0]?.ts ?? 0;
+  const latestTs = dated[dated.length - 1]?.ts ?? 0;
+  const spreadYears = (latestTs - earliestTs) / (1000 * 60 * 60 * 24 * 365.25);
+  if (spreadYears < 5) return members;
+
+  const cutoffTs = latestTs - (4 * 365.25 * 24 * 60 * 60 * 1000);
+  const activeSlice = dated.filter((entry) => (
+    entry.ts >= cutoffTs
+    && (entry.recentness >= 0.45 || entry.updateSignal >= 0.25)
+  ));
+
+  if (activeSlice.length < 2 || activeSlice.length >= members.length - 1) {
+    return members;
+  }
+
+  const activeDescriptorCounts = new Map<string, number>();
+  for (const entry of activeSlice) {
+    for (const descriptor of entry.member.descriptoresAI) {
+      const normalized = normalizeSearchText(descriptor);
+      activeDescriptorCounts.set(normalized, (activeDescriptorCounts.get(normalized) ?? 0) + 1);
+    }
+  }
+
+  const sharedActiveDescriptors = [...activeDescriptorCounts.values()].filter((count) => count >= 2).length;
+  const avgActiveUpdateSignal = activeSlice.reduce((acc, entry) => acc + entry.updateSignal, 0) / activeSlice.length;
+
+  if (sharedActiveDescriptors === 0 && avgActiveUpdateSignal < 0.28) {
+    return members;
+  }
+
+  return activeSlice.map((entry) => entry.member);
 }
 
 function parseCandidateMetadata(id: string, metadata: Record<string, unknown>): CandidateMetadata | null {
@@ -240,7 +444,7 @@ async function resolveTargetMateria(
   const row = await env.DB.prepare(
     `SELECT COALESCE(NULLIF(TRIM(materia), ''), 'Sin materia') AS materia
      FROM dictamenes
-     WHERE estado IN ('enriched', 'vectorized')
+     WHERE estado IN ('enriched_pending_vectorization', 'vectorized')
        AND (? IS NULL OR fecha_documento >= ?)
        AND (? IS NULL OR fecha_documento <= ?)
      GROUP BY COALESCE(NULLIF(TRIM(materia), ''), 'Sin materia')
@@ -300,7 +504,7 @@ async function aggregateClusterSignals(env: Env, ids: string[]) {
        dictamen_id,
        COALESCE(NULLIF(TRIM(tipo_norma), ''), 'Desconocido') AS tipo_norma,
        NULLIF(TRIM(numero), '') AS numero
-     FROM dictamen_fuentes_legales
+     FROM dictamen_fuentes
      WHERE dictamen_id IN (${placeholders})
     `
   ).bind(...ids).all<{ dictamen_id: string; tipo_norma: string; numero: string | null }>();
@@ -494,6 +698,151 @@ function buildGraphDoctrinalStatus(params: {
   } as GraphDoctrinalStatusSignal;
 }
 
+function pickRepresentativeForVisibleLine(params: {
+  entries: Array<{
+    id: string;
+    juridicalPriority: number;
+    relationScore: number;
+    recencyScore: number;
+    updateSignalScore: number;
+    laterStabilityBonus: number;
+    obsolescencePenalty: number;
+    member: CandidateMetadata;
+  }>;
+  canonicalRepresentative: {
+    id: string;
+    juridicalPriority: number;
+    relationScore: number;
+    recencyScore: number;
+    updateSignalScore: number;
+    laterStabilityBonus: number;
+    obsolescencePenalty: number;
+    member: CandidateMetadata;
+  } | undefined;
+  graphDoctrinalStatus: GraphDoctrinalStatusSignal;
+  temporalSpreadYears: number;
+}) {
+  const canonical = params.canonicalRepresentative;
+  if (!canonical) {
+    return {
+      representative: null,
+      reason: 'Se prioriza la lectura de los dictámenes que mejor concentran el criterio visible.'
+    };
+  }
+
+  const canonicalReason = canonical.obsolescencePenalty >= 0.5
+    ? 'Se prioriza la lectura de los dictámenes menos desplazados por decisiones posteriores visibles.'
+    : canonical.laterStabilityBonus >= 0.34
+      ? 'Se prioriza la lectura de los dictámenes que siguen siendo retomados por decisiones posteriores de la línea.'
+      : canonical.recencyScore >= 0.55
+        ? 'Se prioriza la lectura de los dictámenes más recientes que conservan peso dentro del criterio visible.'
+        : 'Se prioriza la lectura de los dictámenes que mejor concentran el criterio y su continuidad visible.';
+
+  if (
+    params.graphDoctrinalStatus.status !== 'criterio_en_revision'
+    && params.graphDoctrinalStatus.status !== 'criterio_tensionado'
+  ) {
+    return {
+      representative: canonical,
+      reason: canonicalReason
+    };
+  }
+
+  if (params.temporalSpreadYears < 3.5) {
+    return {
+      representative: canonical,
+      reason: canonicalReason
+    };
+  }
+
+  const canonicalComposite = (
+    canonical.juridicalPriority * 0.45
+    + canonical.recencyScore * 0.15
+    + canonical.updateSignalScore * 0.25
+    + canonical.relationScore * 0.1
+    + canonical.laterStabilityBonus * 0.05
+  );
+
+  const activeCandidates = params.entries
+    .filter((entry) => (
+      entry.id !== canonical.id
+      && entry.recencyScore >= 0.68
+      && entry.updateSignalScore >= 0.34
+      && entry.obsolescencePenalty < 0.9
+    ))
+    .map((entry) => ({
+      entry,
+      composite: (
+        entry.juridicalPriority * 0.35
+        + entry.recencyScore * 0.25
+        + entry.updateSignalScore * 0.28
+        + entry.relationScore * 0.07
+        + entry.laterStabilityBonus * 0.05
+      )
+    }))
+    .sort((left, right) => (
+      right.composite - left.composite
+      || right.entry.juridicalPriority - left.entry.juridicalPriority
+      || right.entry.recencyScore - left.entry.recencyScore
+      || left.entry.id.localeCompare(right.entry.id)
+    ));
+
+  const selectedActive = activeCandidates.find(({ entry, composite }) => (
+    composite >= (canonicalComposite - 0.06)
+    || (
+      entry.updateSignalScore >= 0.55
+      && entry.recencyScore >= 0.78
+      && entry.juridicalPriority >= (canonical.juridicalPriority - 0.32)
+    )
+  ));
+
+  if (!selectedActive) {
+    return {
+      representative: canonical,
+      reason: canonicalReason
+    };
+  }
+
+  return {
+    representative: selectedActive.entry,
+    reason: 'Se prioriza la lectura del hito reciente que mejor actualiza el criterio visible de la línea.'
+  };
+}
+
+function buildActiveDoctrinalSignalScore(params: {
+  graphDoctrinalStatus: GraphDoctrinalStatusSignal;
+  pivotDictamen: PivotDictamen | null;
+  latestVisibleDate: string | null;
+}) {
+  const recentDocumentScore = buildRecentnessSignal(params.latestVisibleDate, 4);
+  const recentPivotScore = buildRecentnessSignal(params.pivotDictamen?.fecha ?? null, 4);
+  const destabilizationDensity = Math.min(
+    (
+      params.graphDoctrinalStatus.relation_inventory.ajusta
+      + params.graphDoctrinalStatus.relation_inventory.limita
+      + (params.graphDoctrinalStatus.relation_inventory.desplaza * 1.4)
+      + (params.graphDoctrinalStatus.recent_destabilizing_count * 0.35)
+    ) / 4,
+    1
+  );
+
+  const statusScore: Record<GraphDoctrinalStatus, number> = {
+    criterio_estable: 0.08,
+    criterio_en_evolucion: 0.45,
+    criterio_fragmentado: 0.62,
+    criterio_tensionado: 0.78,
+    criterio_en_revision: 1
+  };
+
+  return roundScore(Math.min(
+    (recentDocumentScore * 0.4)
+    + (recentPivotScore * 0.15)
+    + (statusScore[params.graphDoctrinalStatus.status] * 0.3)
+    + (destabilizationDensity * 0.15),
+    1
+  ));
+}
+
 function safeRatio(numerator: number, denominator: number): number {
   if (denominator <= 0) return 0;
   return numerator / denominator;
@@ -653,6 +1002,7 @@ function buildDoctrinalChangeRiskScore(params: {
 function buildInfluenceScores(
   members: CandidateMetadata[],
   neighborIds: Set<string>,
+  queryAlignmentById: Record<string, number>,
   fuentesByDictamen: Record<string, string[]>,
   relationCountByDictamen: Record<string, number>,
   incomingCategoryCountByDictamen: Record<string, GraphRelationInventory>,
@@ -678,10 +1028,12 @@ function buildInfluenceScores(
     const booleanScore = Math.min(sharedBooleans / Math.max(others.length * 2, 1), 1);
     const fuenteScore = Math.min(sharedFuentes / Math.max(others.length, 1), 1);
     const neighborScore = neighborIds.has(member.id) ? 1 : 0;
+    const queryAlignmentScore = Math.max(0, Math.min(queryAlignmentById[member.id] ?? 0, 1));
     const relationScore = Math.min((relationCountByDictamen[member.id] ?? 0) / 3, 1);
     const incomingInventory = incomingCategoryCountByDictamen[member.id] ?? emptyGraphRelationInventory();
     const incomingAdjustments = incomingModifyingActionCountByDictamen[member.id] ?? 0;
     const incomingStabilizations = incomingStabilizingActionCountByDictamen[member.id] ?? 0;
+    const updateSignalScore = buildMemberUpdateSignalScore(member);
 
     let temporalScore = 0.5;
     let recencyScore = 0.5;
@@ -701,19 +1053,23 @@ function buildInfluenceScores(
     const latestMemberTs = parseDateToTs(member.fecha) ?? 0;
     const laterActivityScore = latestIncomingTs > latestMemberTs ? 1 : 0;
 
-    const score = (descriptorScore * 0.35)
+    const score = (descriptorScore * 0.3)
       + (fuenteScore * 0.2)
-      + (neighborScore * 0.2)
+      + (neighborScore * 0.16)
       + (booleanScore * 0.1)
       + (relationScore * 0.1)
-      + (temporalScore * 0.05);
+      + (temporalScore * 0.05)
+      + (updateSignalScore * 0.12)
+      + (queryAlignmentScore * 0.24);
 
     const juridicalPriority = Math.max(Math.min(
-      (score * 0.48)
-      + (recencyScore * 0.18)
+      (score * 0.44)
+      + (recencyScore * 0.2)
       + (laterStabilityBonus * 0.16)
       + (relationScore * 0.08)
       + (laterActivityScore * 0.06)
+      + (updateSignalScore * 0.14)
+      + (queryAlignmentScore * 0.18)
       - (obsolescencePenalty * 0.2),
       1
     ), 0);
@@ -729,6 +1085,8 @@ function buildInfluenceScores(
       relationScore,
       temporalScore,
       recencyScore,
+      queryAlignmentScore,
+      updateSignalScore,
       laterStabilityBonus,
       obsolescencePenalty,
       incomingInventory,
@@ -886,6 +1244,7 @@ type BuildDoctrineClustersOptions = {
   topK?: number;
   fromDate?: string | null;
   toDate?: string | null;
+  queryContext?: ClusterQueryContext | null;
 };
 
 async function listCandidateRowsByIds(
@@ -898,7 +1257,7 @@ async function listCandidateRowsByIds(
     `SELECT d.id, d.materia, COALESCE(d.fecha_documento, d.created_at) AS fecha_documento
      FROM dictamenes d
      WHERE d.id IN (${placeholders})
-       AND d.estado IN ('enriched', 'vectorized')`
+       AND d.estado IN ('enriched_pending_vectorization', 'vectorized')`
   ).bind(...ids).all<CandidateRow>();
   return result.results ?? [];
 }
@@ -942,14 +1301,40 @@ async function buildDoctrineClusters(env: Env, options: BuildDoctrineClustersOpt
   const candidates = candidateRows
     .map((row) => parseCandidateMetadata(row.id, pineconeRecords.vectors?.[row.id]?.metadata ?? {}))
     .filter((row): row is CandidateMetadata => row !== null);
+  const queryAlignmentProfiles = Object.fromEntries(
+    candidates.map((candidate) => [candidate.id, buildQueryAlignmentProfile(candidate, options.queryContext)])
+  );
+  const orderedCandidates = [...candidates].sort((left, right) => {
+    const leftRetrieval = queryAlignmentProfiles[left.id]?.retrievalScore ?? 0;
+    const rightRetrieval = queryAlignmentProfiles[right.id]?.retrievalScore ?? 0;
+    const leftAlignment = queryAlignmentProfiles[left.id]?.score ?? 0;
+    const rightAlignment = queryAlignmentProfiles[right.id]?.score ?? 0;
+    return (
+      rightRetrieval - leftRetrieval
+      || rightAlignment - leftAlignment
+      || right.fecha.localeCompare(left.fecha)
+      || left.id.localeCompare(right.id)
+    );
+  });
   const dominantCandidateMateria = countTopStrings(candidates.map((candidate) => candidate.materia).filter(Boolean), 1)[0] ?? null;
   const clusterMateria = targetMateria ?? dominantCandidateMateria ?? 'Materia relacionada';
 
   const remaining = new Set(candidates.map((candidate) => candidate.id));
   const clusters: DoctrineCluster[] = [];
 
-  for (const seed of candidates) {
+  for (const seed of orderedCandidates) {
     if (!remaining.has(seed.id) || clusters.length >= limit) continue;
+    const seedAlignment = queryAlignmentProfiles[seed.id];
+    const shouldSkipWeakSeed = Boolean(options.queryContext)
+      && requestedCandidateIds.length > 0
+      && (seedAlignment?.score ?? 0) < 0.22
+      && (seedAlignment?.retrievalScore ?? 0) < 0.58
+      && (seedAlignment?.matchedSubtopicTerms ?? 0) === 0
+      && (seedAlignment?.matchedQueryTokens ?? 0) <= 1;
+    if (shouldSkipWeakSeed) {
+      remaining.delete(seed.id);
+      continue;
+    }
 
     const seedQuery = buildSeedQuery(seed);
     const pineconeFilter: Record<string, unknown> = {};
@@ -972,7 +1357,7 @@ async function buildDoctrineClusters(env: Env, options: BuildDoctrineClustersOpt
         : { matches: [] as Array<{ id: string }> };
     const neighborIds = new Set<string>((neighbors.matches ?? []).map((match: { id: string }) => match.id));
 
-    const members = candidates.filter((candidate) => {
+    const candidateMembers = candidates.filter((candidate) => {
       if (!remaining.has(candidate.id)) return false;
       if (candidate.id === seed.id) return true;
 
@@ -986,9 +1371,21 @@ async function buildDoctrineClusters(env: Env, options: BuildDoctrineClustersOpt
       score += Math.min(sharedBooleans, 3);
 
       if (neighborIds.has(candidate.id)) score += 3;
+      const alignment = queryAlignmentProfiles[candidate.id];
+      score += Math.min((alignment?.score ?? 0) * 4, 4);
 
-      return score >= 5 && (sharedDescriptors > 0 || neighborIds.has(candidate.id));
+      const hasInternalSupport = sharedDescriptors > 0 || neighborIds.has(candidate.id);
+      const passesQueryGate = !options.queryContext || (
+        (alignment?.score ?? 0) >= 0.28
+        || (alignment?.retrievalScore ?? 0) >= 0.82
+        || (alignment?.matchedSubtopicTerms ?? 0) > 0
+        || (alignment?.matchedQueryTokens ?? 0) >= Math.min(2, Math.max(1, normalizeSearchText(options.queryContext.query).split(' ').filter(Boolean).length))
+      );
+
+      return score >= 5 && hasInternalSupport && passesQueryGate;
     }).slice(0, topK);
+
+    const members = selectClusterMembersForVisibleLine(candidateMembers);
 
     if (members.length < 2) {
       remaining.delete(seed.id);
@@ -1007,6 +1404,7 @@ async function buildDoctrineClusters(env: Env, options: BuildDoctrineClustersOpt
     const influence = buildInfluenceScores(
       members,
       neighborIds,
+      Object.fromEntries(members.map((member) => [member.id, queryAlignmentProfiles[member.id]?.score ?? 0])),
       aggregates.fuentesByDictamen,
       aggregates.relationCountByDictamen,
       aggregates.incomingCategoryCountByDictamen,
@@ -1072,23 +1470,37 @@ async function buildDoctrineClusters(env: Env, options: BuildDoctrineClustersOpt
       pivotDictamen,
       temporalSpreadYears: changeRisk.temporalSpreadYears
     });
+    const visibleRepresentativeSelection = pickRepresentativeForVisibleLine({
+      entries: influence.entries,
+      canonicalRepresentative: influence.representative,
+      graphDoctrinalStatus,
+      temporalSpreadYears: changeRisk.temporalSpreadYears
+    });
+    const activeDoctrinalSignalScore = buildActiveDoctrinalSignalScore({
+      graphDoctrinalStatus,
+      pivotDictamen,
+      latestVisibleDate: maxDate
+    });
 
     clusters.push({
       cluster_label: clusterLabel,
       representative_dictamen: {
-        id: influence.representative?.member.id ?? seed.id,
-        materia: influence.representative?.member.materia ?? seed.materia,
-        fecha: influence.representative?.member.fecha ?? seed.fecha,
-        titulo: influence.representative?.member.titulo ?? seed.titulo,
-        resumen: influence.representative?.member.resumen ?? seed.resumen
+        id: visibleRepresentativeSelection.representative?.member.id ?? seed.id,
+        materia: visibleRepresentativeSelection.representative?.member.materia ?? seed.materia,
+        fecha: visibleRepresentativeSelection.representative?.member.fecha ?? seed.fecha,
+        titulo: visibleRepresentativeSelection.representative?.member.titulo ?? seed.titulo,
+        resumen: visibleRepresentativeSelection.representative?.member.resumen ?? seed.resumen
       },
       influential_dictamen_ids: influence.influentialIds,
       core_doctrine_candidates: influence.coreCandidates,
-      representative_score: influence.representativeScore,
+      representative_score: visibleRepresentativeSelection.representative
+        ? roundScore(visibleRepresentativeSelection.representative.juridicalPriority)
+        : influence.representativeScore,
       cluster_density_score: influence.clusterDensityScore,
       doctrinal_importance_score: doctrinalImportanceScore,
       doctrinal_change_risk_score: changeRisk.doctrinalChangeRiskScore,
       temporal_spread_years: changeRisk.temporalSpreadYears,
+      active_doctrinal_signal_score: activeDoctrinalSignalScore,
       supporting_dictamen_ids: supportingIds,
       top_descriptores_AI: topDescriptors,
       top_fuentes_legales: aggregates.topFuentes,
@@ -1105,19 +1517,43 @@ async function buildDoctrineClusters(env: Env, options: BuildDoctrineClustersOpt
       relation_dynamics: relationDynamics,
       coherence_signals: coherenceSignals,
       juridical_priority_map: influence.juridicalPriorityById,
-      reading_priority_reason: influence.readingPriorityReason
+      reading_priority_reason: visibleRepresentativeSelection.reason
     });
   }
 
-  clusters.sort((a, b) => (
-    b.doctrinal_importance_score - a.doctrinal_importance_score
-    || b.cluster_density_score - a.cluster_density_score
-    || b.supporting_dictamen_ids.length - a.supporting_dictamen_ids.length
-    || a.cluster_label.localeCompare(b.cluster_label)
-  ));
+  clusters.sort((a, b) => {
+    const queryScore = (cluster: DoctrineCluster) => {
+      if (!options.queryContext) return 0;
+      const ids = [
+        cluster.representative_dictamen.id,
+        ...cluster.core_doctrine_candidates.map((candidate) => candidate.id),
+        ...cluster.supporting_dictamen_ids
+      ];
+      return ids
+        .filter((id, index, source) => source.indexOf(id) === index)
+        .map((id, index) => (queryAlignmentProfiles[id]?.score ?? 0) * (index === 0 ? 1.4 : 1))
+        .slice(0, 5)
+        .reduce((acc, value) => acc + value, 0);
+    };
+
+    return (
+      queryScore(b) - queryScore(a)
+      || b.doctrinal_importance_score - a.doctrinal_importance_score
+      || b.cluster_density_score - a.cluster_density_score
+      || b.supporting_dictamen_ids.length - a.supporting_dictamen_ids.length
+      || a.cluster_label.localeCompare(b.cluster_label)
+    );
+  });
+
+  const displayMateria = clusters[0]
+    ? normalizeDisplayMateria(
+        clusters[0].representative_dictamen.materia || clusterMateria,
+        clusters[0].top_descriptores_AI[0] ?? null
+      )
+    : normalizeDisplayMateria(clusterMateria, null);
 
   return {
-    materia: normalizeDisplayMateria(clusterMateria, clusters[0]?.top_descriptores_AI[0] ?? null),
+    materia: displayMateria,
     clusters,
     stats: {
       total_dictamenes_considerados: candidates.length,
