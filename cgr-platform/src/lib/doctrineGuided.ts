@@ -464,40 +464,38 @@ function buildCurrentnessLabel(params: {
   return 'criterio visible con información temporal parcial';
 }
 
-async function fetchDictamenFocusContext(env: Env, dictamenId: string) {
-  const meta = await env.DB.prepare(
+async function fetchDictamenContextsBatch(env: Env, dictamenIds: string[]) {
+  if (dictamenIds.length === 0) return {};
+
+  const placeholders = dictamenIds.map(() => '?').join(',');
+
+  // 1. Meta y Atributos (Tablas core)
+  const metasPromise = env.DB.prepare(
     `SELECT id, fecha_documento, materia, criterio, numero
      FROM dictamenes
-     WHERE id = ?`
-  ).bind(dictamenId).first<DictamenMetaRow>();
+     WHERE id IN (${placeholders})`
+  ).bind(...dictamenIds).all<DictamenMetaRow>();
 
-  const enrichment = await env.DB.prepare(
-    `SELECT titulo, resumen
-     FROM enriquecimiento
-     WHERE dictamen_id = ?`
-  ).bind(dictamenId).first<DictamenEnrichmentRow>();
-
-  const attrs = await env.DB.prepare(
+  const attrsPromise = env.DB.prepare(
     `SELECT
-       es_nuevo,
-       es_relevante,
-       en_boletin,
-       recurso_proteccion,
-       aclarado,
-       alterado,
-       aplicado,
-       complementado,
-       confirmado,
-       reactivado,
-       reconsiderado,
-       reconsiderado_parcialmente,
-       caracter
+       dictamen_id as id,
+       es_nuevo, es_relevante, en_boletin, recurso_proteccion, aclarado,
+       alterado, aplicado, complementado, confirmado, reactivado,
+       reconsiderado, reconsiderado_parcialmente, caracter
      FROM atributos_juridicos
-     WHERE dictamen_id = ?`
-  ).bind(dictamenId).first<DictamenAttrRow>();
+     WHERE dictamen_id IN (${placeholders})`
+  ).bind(...dictamenIds).all<DictamenAttrRow & { id: string }>();
 
-  const incoming = await env.DB.prepare(
+  const enrichmentPromise = env.DB.prepare(
+    `SELECT dictamen_id as id, titulo, resumen
+     FROM enriquecimiento
+     WHERE dictamen_id IN (${placeholders})`
+  ).bind(...dictamenIds).all<DictamenEnrichmentRow & { id: string }>();
+
+  // 2. Relaciones (con Lean Joins)
+  const incomingPromise = env.DB.prepare(
     `SELECT
+       r.dictamen_destino_id AS focus_id,
        r.dictamen_origen_id AS related_id,
        r.tipo_accion,
        COALESCE(d.fecha_documento, d.created_at) AS fecha_documento,
@@ -505,13 +503,13 @@ async function fetchDictamenFocusContext(env: Env, dictamenId: string) {
      FROM dictamen_relaciones_juridicas r
      LEFT JOIN dictamenes d ON d.id = r.dictamen_origen_id
      LEFT JOIN enriquecimiento e ON e.dictamen_id = r.dictamen_origen_id
-     WHERE r.dictamen_destino_id = ?
-     ORDER BY COALESCE(d.fecha_documento, d.created_at) DESC, r.rowid DESC
-     LIMIT 20`
-  ).bind(dictamenId).all<RelationRow>();
+     WHERE r.dictamen_destino_id IN (${placeholders})
+     ORDER BY COALESCE(d.fecha_documento, d.created_at) DESC`
+  ).bind(...dictamenIds).all<RelationRow & { focus_id: string }>();
 
-  const outgoing = await env.DB.prepare(
+  const outgoingPromise = env.DB.prepare(
     `SELECT
+       r.dictamen_origen_id AS focus_id,
        r.dictamen_destino_id AS related_id,
        r.tipo_accion,
        COALESCE(d.fecha_documento, d.created_at) AS fecha_documento,
@@ -519,22 +517,34 @@ async function fetchDictamenFocusContext(env: Env, dictamenId: string) {
      FROM dictamen_relaciones_juridicas r
      LEFT JOIN dictamenes d ON d.id = r.dictamen_destino_id
      LEFT JOIN enriquecimiento e ON e.dictamen_id = r.dictamen_destino_id
-     WHERE r.dictamen_origen_id = ?
-     ORDER BY COALESCE(d.fecha_documento, d.created_at) DESC, r.rowid DESC
-     LIMIT 20`
-  ).bind(dictamenId).all<RelationRow>();
+     WHERE r.dictamen_origen_id IN (${placeholders})
+     ORDER BY COALESCE(d.fecha_documento, d.created_at) DESC`
+  ).bind(...dictamenIds).all<RelationRow & { focus_id: string }>();
 
-  const doctrinalMetadataMap = await loadDoctrinalMetadataByIds(env, [dictamenId]);
-  const doctrinalMetadata = doctrinalMetadataMap[dictamenId] ?? null;
+  const doctrinalMetadataMapPromise = loadDoctrinalMetadataByIds(env, dictamenIds);
 
-  return {
-    meta: meta ?? null,
-    enrichment: enrichment ?? null,
-    attrs: attrs ?? null,
-    doctrinalMetadata,
-    incoming: incoming.results ?? [],
-    outgoing: outgoing.results ?? []
-  };
+  const [metas, attrs, enrichment, incoming, outgoing, doctrinalMetadataMap] = await Promise.all([
+    metasPromise,
+    attrsPromise,
+    enrichmentPromise,
+    incomingPromise,
+    outgoingPromise,
+    doctrinalMetadataMapPromise
+  ]);
+
+  const results: Record<string, any> = {};
+  for (const id of dictamenIds) {
+    results[id] = {
+      meta: metas.results.find(m => m.id === id) || null,
+      attrs: attrs.results.find(a => a.id === id) || null,
+      enrichment: enrichment.results.find(e => e.id === id) || null,
+      doctrinalMetadata: doctrinalMetadataMap[id] || null,
+      incoming: (incoming.results || []).filter(r => r.focus_id === id).slice(0, 20),
+      outgoing: (outgoing.results || []).filter(r => r.focus_id === id).slice(0, 20)
+    };
+  }
+
+  return results;
 }
 
 function buildTemporalRoute(params: {
@@ -895,7 +905,8 @@ async function buildGuidedDoctrineFlow(env: Env, options: GuidedFlowOptions) {
   }
 
   const focusId = focusLine.representative_dictamen_id;
-  const focusContext = await fetchDictamenFocusContext(env, focusId);
+  const contextById = await fetchDictamenContextsBatch(env, [focusId]);
+  const focusContext = contextById[focusId];
   const focusTitle = focusLine.key_dictamenes.find((item) => item.id === focusId)?.titulo
     ?? ('semantic_anchor_dictamen' in focusLine ? focusLine.semantic_anchor_dictamen?.titulo : null)
     ?? focusLine.title;
@@ -906,9 +917,9 @@ async function buildGuidedDoctrineFlow(env: Env, options: GuidedFlowOptions) {
   });
   const temporalRoute = buildTemporalRoute({
     focusId,
-    focusDate: focusContext.meta?.fecha_documento ?? null,
-    incoming: focusContext.incoming,
-    outgoing: focusContext.outgoing
+    focusDate: focusContext?.meta?.fecha_documento ?? null,
+    incoming: focusContext?.incoming ?? [],
+    outgoing: focusContext?.outgoing ?? []
   });
 
   return {
@@ -1008,8 +1019,7 @@ async function buildGuidedDoctrineFamily(env: Env, options: GuidedFamilyExploreO
   }
 
   const keyIds = [...new Set(selectedLine.key_dictamenes.map((item) => item.id))];
-  const contexts = await Promise.all(keyIds.map((id) => fetchDictamenFocusContext(env, id)));
-  const contextById = Object.fromEntries(keyIds.map((id, index) => [id, contexts[index]]));
+  const contextById = await fetchDictamenContextsBatch(env, keyIds);
   const timelineNodes = selectedLine.key_dictamenes.map((item) => {
     const context = contextById[item.id];
     const temporalRoute = buildTemporalRoute({
