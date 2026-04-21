@@ -503,28 +503,34 @@ async function aggregateClusterSignals(env: Env, ids: string[]) {
     `SELECT
        f.dictamen_id,
        COALESCE(NULLIF(TRIM(c.tipo_norma), ''), 'Desconocido') AS tipo_norma,
-       NULLIF(TRIM(c.numero), '') AS numero
+       NULLIF(TRIM(c.numero), '') AS numero,
+       COUNT(*) as count
      FROM dictamen_fuentes f
      INNER JOIN fuentes_legales_catalogo c ON c.id = f.fuente_id
-     WHERE dictamen_id IN (${placeholders})
+     WHERE f.dictamen_id IN (${placeholders})
+     GROUP BY f.dictamen_id, tipo_norma, numero
     `
-  ).bind(...ids).all<{ dictamen_id: string; tipo_norma: string; numero: string | null }>();
+  ).bind(...ids).all<{ dictamen_id: string; tipo_norma: string; numero: string | null; count: number }>();
 
   const accionesRows = await env.DB.prepare(
-    `SELECT dictamen_origen_id AS dictamen_id, tipo_accion
+    `SELECT dictamen_origen_id AS dictamen_id, tipo_accion, COUNT(*) as count
      FROM dictamen_relaciones_juridicas
      WHERE dictamen_origen_id IN (${placeholders})
+     GROUP BY dictamen_origen_id, tipo_accion
     `
-  ).bind(...ids).all<{ dictamen_id: string; tipo_accion: string }>();
+  ).bind(...ids).all<{ dictamen_id: string; tipo_accion: string; count: number }>();
+
   const incomingRows = await env.DB.prepare(
     `SELECT
        r.dictamen_destino_id AS dictamen_id,
        r.tipo_accion,
-       COALESCE(d.fecha_documento, d.created_at) AS fecha_documento
+       COUNT(*) as count,
+       MAX(COALESCE(d.fecha_documento, d.created_at)) AS latest_date
      FROM dictamen_relaciones_juridicas r
      LEFT JOIN dictamenes d ON d.id = r.dictamen_origen_id
-     WHERE r.dictamen_destino_id IN (${placeholders})`
-  ).bind(...ids).all<{ dictamen_id: string; tipo_accion: string; fecha_documento: string | null }>();
+     WHERE r.dictamen_destino_id IN (${placeholders})
+     GROUP BY r.dictamen_destino_id, r.tipo_accion`
+  ).bind(...ids).all<{ dictamen_id: string; tipo_accion: string; count: number; latest_date: string | null }>();
 
   const fuenteCounts = new Map<string, { tipo_norma: string; numero: string | null; count: number }>();
   const fuentesByDictamen: Record<string, string[]> = {};
@@ -538,7 +544,7 @@ async function aggregateClusterSignals(env: Env, ids: string[]) {
     fuenteCounts.set(key, {
       tipo_norma: normalizedFuente.tipo_norma ?? row.tipo_norma,
       numero: normalizedFuente.numero ?? row.numero,
-      count: (existing?.count ?? 0) + 1
+      count: (existing?.count ?? 0) + row.count
     });
     if (!fuentesByDictamen[row.dictamen_id]) fuentesByDictamen[row.dictamen_id] = [];
     fuentesByDictamen[row.dictamen_id].push(key);
@@ -560,34 +566,34 @@ async function aggregateClusterSignals(env: Env, ids: string[]) {
     ajusta: 0
   };
   for (const row of accionesRows.results ?? []) {
-    actionCounts.set(row.tipo_accion, (actionCounts.get(row.tipo_accion) ?? 0) + 1);
-    relationCountByDictamen[row.dictamen_id] = (relationCountByDictamen[row.dictamen_id] ?? 0) + 1;
+    actionCounts.set(row.tipo_accion, (actionCounts.get(row.tipo_accion) ?? 0) + row.count);
+    relationCountByDictamen[row.dictamen_id] = (relationCountByDictamen[row.dictamen_id] ?? 0) + row.count;
     const effect = classifyRelationEffect(row.tipo_accion);
-    relationCategoryCounts[effect] += 1;
+    relationCategoryCounts[effect] += row.count;
     if (effect === 'fortalece') {
-      stabilizingActionCountByDictamen[row.dictamen_id] = (stabilizingActionCountByDictamen[row.dictamen_id] ?? 0) + 1;
-      relationBucketCounts.consolida += 1;
+      stabilizingActionCountByDictamen[row.dictamen_id] = (stabilizingActionCountByDictamen[row.dictamen_id] ?? 0) + row.count;
+      relationBucketCounts.consolida += row.count;
     } else if (effect === 'desarrolla') {
-      relationBucketCounts.desarrolla += 1;
-      modifyingActionCountByDictamen[row.dictamen_id] = (modifyingActionCountByDictamen[row.dictamen_id] ?? 0) + 1;
+      relationBucketCounts.desarrolla += row.count;
+      modifyingActionCountByDictamen[row.dictamen_id] = (modifyingActionCountByDictamen[row.dictamen_id] ?? 0) + row.count;
     } else {
-      modifyingActionCountByDictamen[row.dictamen_id] = (modifyingActionCountByDictamen[row.dictamen_id] ?? 0) + 1;
-      relationBucketCounts.ajusta += 1;
+      modifyingActionCountByDictamen[row.dictamen_id] = (modifyingActionCountByDictamen[row.dictamen_id] ?? 0) + row.count;
+      relationBucketCounts.ajusta += row.count;
     }
   }
   for (const row of incomingRows.results ?? []) {
-    incomingRelationCountByDictamen[row.dictamen_id] = (incomingRelationCountByDictamen[row.dictamen_id] ?? 0) + 1;
-    relationCountByDictamen[row.dictamen_id] = (relationCountByDictamen[row.dictamen_id] ?? 0) + 1;
+    incomingRelationCountByDictamen[row.dictamen_id] = (incomingRelationCountByDictamen[row.dictamen_id] ?? 0) + row.count;
+    relationCountByDictamen[row.dictamen_id] = (relationCountByDictamen[row.dictamen_id] ?? 0) + row.count;
     const effect = classifyRelationEffect(row.tipo_accion);
     const incomingInventory = incomingCategoryCountByDictamen[row.dictamen_id] ?? emptyGraphRelationInventory();
-    incomingInventory[effect] += 1;
+    incomingInventory[effect] += row.count;
     incomingCategoryCountByDictamen[row.dictamen_id] = incomingInventory;
     if (effect === 'fortalece' || effect === 'desarrolla') {
-      incomingStabilizingActionCountByDictamen[row.dictamen_id] = (incomingStabilizingActionCountByDictamen[row.dictamen_id] ?? 0) + 1;
+      incomingStabilizingActionCountByDictamen[row.dictamen_id] = (incomingStabilizingActionCountByDictamen[row.dictamen_id] ?? 0) + row.count;
     } else {
-      incomingModifyingActionCountByDictamen[row.dictamen_id] = (incomingModifyingActionCountByDictamen[row.dictamen_id] ?? 0) + 1;
+      incomingModifyingActionCountByDictamen[row.dictamen_id] = (incomingModifyingActionCountByDictamen[row.dictamen_id] ?? 0) + row.count;
     }
-    const parsedTs = parseDateToTs(row.fecha_documento ?? '');
+    const parsedTs = parseDateToTs(row.latest_date ?? '');
     if (parsedTs !== null) {
       latestIncomingRelationTsByDictamen[row.dictamen_id] = Math.max(
         latestIncomingRelationTsByDictamen[row.dictamen_id] ?? 0,
