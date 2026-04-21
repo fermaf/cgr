@@ -1,11 +1,13 @@
 import { fetchRecords } from '../clients/pinecone';
 import { buildDoctrineClusters } from './doctrineClusters';
-import { loadDoctrinalMetadataByIds } from './doctrinalMetadata';
+import { loadDoctrinalMetadataByIds, type DictamenMetadataLean } from './doctrinalMetadata';
 import { applyDoctrineStructureRemediations } from './doctrineStructureRemediations';
 import { formatCanonicalLegalSourceLabel } from './legalSourcesCanonical';
 import { buildIntentBoost, buildSubtopicBoost, detectQueryIntent, detectQuerySubtopic } from './queryUnderstanding/queryIntent';
 import { retrieveDoctrineMatchesWithQueryUnderstanding } from './queryUnderstanding/queryRewrite';
 import type { DictamenMetadataDoctrinalRow, Env } from '../types';
+
+type DoctrinalMetadataMap = Record<string, DictamenMetadataDoctrinalRow | DictamenMetadataLean>;
 
 type InsightLevel = 'low' | 'medium' | 'high';
 type KeyDictamenRole = 'representativo' | 'núcleo doctrinal' | 'pivote de cambio' | 'apoyo relevante';
@@ -111,7 +113,7 @@ function buildQueryCoverageProfile(query: string, semanticText: string) {
 function buildKeyDictamenes(
   cluster: Awaited<ReturnType<typeof buildDoctrineClusters>>['clusters'][number],
   metadataById: Record<string, Record<string, unknown>>,
-  doctrinalMetadataById: Record<string, DictamenMetadataDoctrinalRow>
+  doctrinalMetadataById: DoctrinalMetadataMap
 ) {
   const keyed = new Map<string, KeyDictamenRole>();
   keyed.set(cluster.representative_dictamen.id, 'representativo');
@@ -427,7 +429,7 @@ async function buildMetadataById(
 function buildDoctrineLinesResponse(
   clusterResponse: Awaited<ReturnType<typeof buildDoctrineClusters>>,
   metadataById: Record<string, Record<string, unknown>>,
-  doctrinalMetadataById: Record<string, DictamenMetadataDoctrinalRow>
+  doctrinalMetadataById: DoctrinalMetadataMap
 ) {
   const dominantTheme = cleanOverviewLabel(
     clusterResponse.clusters[0]?.cluster_label ?? null,
@@ -591,7 +593,7 @@ function buildSearchSemanticAnchor(params: {
   line: ReturnType<typeof buildDoctrineLinesResponse>['lines'][number];
   cluster: Awaited<ReturnType<typeof buildDoctrineClusters>>['clusters'][number];
   metadataById: Record<string, Record<string, unknown>>;
-  doctrinalMetadataById: Record<string, DictamenMetadataDoctrinalRow>;
+  doctrinalMetadataById: DoctrinalMetadataMap;
   matchInfoById: Map<string, SearchMatchInfo>;
   querySubtopic: ReturnType<typeof detectQuerySubtopic>;
 }) {
@@ -657,7 +659,7 @@ function buildSearchSemanticAnchor(params: {
 
 function buildHybridSearchScore(params: {
   cluster: Awaited<ReturnType<typeof buildDoctrineClusters>>['clusters'][number];
-  doctrinalMetadataById: Record<string, DictamenMetadataDoctrinalRow>;
+  doctrinalMetadataById: DoctrinalMetadataMap;
   matchInfoById: Map<string, SearchMatchInfo>;
   topHitId: string | null;
   intentBoost: number;

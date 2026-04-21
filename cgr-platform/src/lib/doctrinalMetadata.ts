@@ -79,6 +79,44 @@ export interface DictamenMetadataDoctrinalRow {
   created_at: string;
   updated_at: string;
 }
+export interface DictamenMetadataLean {
+  dictamen_id: string;
+  rol_principal: DoctrinalRole;
+  estado_intervencion_cgr: CgrInterventionState;
+  estado_vigencia: DoctrinalValidityState;
+  reading_role: ReadingRole;
+  reading_weight: number;
+  currentness_score: number;
+  historical_significance_score: number;
+  doctrinal_centrality_score: number;
+  family_eligibility_score: number;
+  confidence_global: number;
+  supports_state_current: number;
+  signals_litigious_matter: number;
+  signals_abstention: number;
+  signals_competence_closure: number;
+  signals_operational_rule: number;
+}
+
+const DOCTRINAL_METADATA_LEAN_COLUMNS = [
+  'dictamen_id',
+  'rol_principal',
+  'estado_intervencion_cgr',
+  'estado_vigencia',
+  'reading_role',
+  'reading_weight',
+  'currentness_score',
+  'historical_significance_score',
+  'doctrinal_centrality_score',
+  'family_eligibility_score',
+  'confidence_global',
+  'supports_state_current',
+  'signals_litigious_matter',
+  'signals_abstention',
+  'signals_competence_closure',
+  'signals_operational_rule'
+];
+
 
 const VALID_DOCTRINAL_ROLES = new Set<DoctrinalRole>([
   'nucleo_doctrinal',
@@ -186,8 +224,9 @@ type ReprocessOptions = {
   sourceSnapshotVersion?: string;
 };
 
-type LoadDoctrinalMetadataOptions = {
+export type LoadDoctrinalMetadataOptions = {
   computeMissing?: boolean;
+  full?: boolean;
 };
 
 type ReprocessResult = {
@@ -1446,22 +1485,28 @@ async function computeAndPersistDictamenMetadata(env: Env, dictamenId: string, s
   } satisfies DictamenMetadataDoctrinalRow;
 }
 
+
 export async function loadDoctrinalMetadataByIds(
   env: Env,
   dictamenIds: string[],
   options: LoadDoctrinalMetadataOptions = {}
-) {
+): Promise<Record<string, DictamenMetadataDoctrinalRow | DictamenMetadataLean>> {
   await ensureDoctrinalMetadataSchema(env);
   const uniqueIds = [...new Set(dictamenIds.filter(Boolean))];
-  if (uniqueIds.length === 0) return {} as Record<string, DictamenMetadataDoctrinalRow>;
+  if (uniqueIds.length === 0) return {} as Record<string, DictamenMetadataLean>;
 
+  const columns = options.full ? '*' : DOCTRINAL_METADATA_LEAN_COLUMNS.join(', ');
   const placeholders = uniqueIds.map(() => '?').join(',');
-  const existing = await env.DB.prepare(
-    `SELECT *
-     FROM dictamen_metadata_doctrinal
-     WHERE pipeline_version = ?
-       AND dictamen_id IN (${placeholders})`
-  ).bind(DOCTRINAL_METADATA_PIPELINE_VERSION, ...uniqueIds).all<DictamenMetadataDoctrinalRow>();
+  const query = `
+    SELECT ${columns}
+    FROM dictamen_metadata_doctrinal
+    WHERE pipeline_version = ?
+      AND dictamen_id IN (${placeholders})
+  `;
+
+  const existing = await env.DB.prepare(query)
+    .bind(DOCTRINAL_METADATA_PIPELINE_VERSION, ...uniqueIds)
+    .all<DictamenMetadataDoctrinalRow>();
 
   const byId = Object.fromEntries((existing.results ?? []).map((row) => [row.dictamen_id, row]));
   if (options.computeMissing === false) {
