@@ -244,7 +244,7 @@ type DictamenProcessingProfile = {
   id: string;
   current_status: string | null;
   target_status: DictamenStatus;
-  route: 'mistral_2512' | 'mistral_importantes_olga' | 'mistral_2411' | 'vectorize_only';
+  route: 'mistral_2512' | 'mistral_importantes_olga' | 'mistral_2411' | 'vectorize_only' | 'gemini';
   anio: number | null;
   es_relevante: number;
   en_boletin: number;
@@ -584,34 +584,30 @@ async function insertEnrichment(
     titulo: string | null;
     resumen: string | null;
     analisis: string | null;
-    etiquetas_json: string | null;
     genera_jurisprudencia_llm: number | null;
     booleanos_json: string | null;
-    fuentes_legales_json: string | null;
     model: string | null;
   }
 ): Promise<string> {
   // enriquecimiento tiene PK = dictamen_id (relación 1:1).
-  // Usamos INSERT OR REPLACE para sobrescribir enrichments previos.
+  // Apagada escritura de etiquetas_json y fuentes_legales_json en esta tabla (migrado a tablas canónicas).
   await db.prepare(
     `INSERT OR REPLACE INTO enriquecimiento
-     (dictamen_id, titulo, resumen, analisis, etiquetas_json,
-      genera_jurisprudencia, booleanos_json, fuentes_legales_json,
+     (dictamen_id, titulo, resumen, analisis, 
+      genera_jurisprudencia, booleanos_json,
       modelo_llm, fecha_enriquecimiento)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(
     row.dictamen_id,
     row.titulo,
     row.resumen,
     row.analisis,
-    row.etiquetas_json,
     row.genera_jurisprudencia_llm ?? 0,
     row.booleanos_json,
-    row.fuentes_legales_json,
     row.model,
     nowIso()
   ).run();
-  return row.dictamen_id; // PK es dictamen_id, no UUID
+  return row.dictamen_id;
 }
 
 async function getLatestEnrichment(db: D1Database, dictamenId: string): Promise<EnrichmentRow | null> {
@@ -667,7 +663,7 @@ import {
 } from '../lib/derivedCatalogs';
 import { normalizeLegalSourceForStorage, type LegalSourceLike } from '../lib/legalSourcesCanonical';
 
-async function insertDictamenEtiquetaLLM(
+async function insertDictamenEtiqueta(
   db: D1Database,
   dictamenId: string,
   etiqueta: string,
@@ -679,19 +675,14 @@ async function insertDictamenEtiquetaLLM(
   const etiquetaDisplay = normalizeEtiquetaDisplay(etiqueta);
   const etiquetaSlug = etiquetaSlugFromNorm(etiquetaNorm);
 
-  // 1. Insercion Legacy
-  await db.prepare(
-    `INSERT INTO dictamen_etiquetas_llm (dictamen_id, etiqueta) VALUES (?, ?)`
-  ).bind(dictamenId, etiquetaDisplay).run();
-
-  // 2. Insercion en Catalogo Canonico
+  // 1. Inserción en Catálogo Canónico
   await db.prepare(
     `INSERT OR IGNORE INTO etiquetas_catalogo
      (etiqueta_display, etiqueta_norm, etiqueta_slug, origen)
      VALUES (?, ?, ?, 'llm')`
   ).bind(etiquetaDisplay, etiquetaNorm, etiquetaSlug).run();
 
-  // 3. Insercion de Relacion
+  // 2. Inserción de Relación
   await db.prepare(
     `INSERT OR IGNORE INTO dictamen_etiquetas
      (dictamen_id, etiqueta_id, raw_etiqueta, modelo_llm)
@@ -701,7 +692,7 @@ async function insertDictamenEtiquetaLLM(
   ).bind(dictamenId, etiqueta, model ?? null, etiquetaNorm).run();
 }
 
-async function insertDictamenFuenteLegal(
+async function insertDictamenFuente(
   db: D1Database,
   dictamenId: string,
   fuente: any,
@@ -716,21 +707,7 @@ async function insertDictamenFuenteLegal(
     sector: fuente.sector || null
   });
 
-  // 1. Insercion Legacy
-  await db.prepare(
-    `INSERT INTO dictamen_fuentes_legales (dictamen_id, tipo_norma, numero, articulo, extra, year, sector)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).bind(
-    dictamenId,
-    normalized.tipo_norma || 'Desconocido',
-    normalized.numero || null,
-    normalized.articulo || null,
-    normalized.extra || null,
-    normalized.year || null,
-    normalized.sector || null
-  ).run();
-
-  // 2. Insercion Canonica
+  // 1. Inserción Canónica
   const normaKey = buildFuenteNormaKey(normalized);
   if (!normaKey) return;
 
@@ -1135,17 +1112,12 @@ export {
   insertDictamenBooleanosLLM,
   clearEnrichmentDerivedData,
   insertDictamenReferencia,
-  insertDictamenEtiquetaLLM,
-  insertDictamenFuenteLegal,
+  insertDictamenEtiqueta,
+  insertDictamenFuente,
   getOrInsertDivisionId,
   findDictamenIdByNumeroAnio,
   insertDictamenRelacionJuridica,
   insertDictamenRelacionHuerfana,
   updateEnrichmentBooleanos,
-  getDictamenRelacionesJuridicas,
-  // Boletines
-  createBoletin,
-  getBoletin,
-  listBoletines,
-  getBoletinEntregables
+  getDictamenRelacionesJuridicas
 };

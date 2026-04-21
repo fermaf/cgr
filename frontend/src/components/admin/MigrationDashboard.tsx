@@ -44,6 +44,10 @@ export function MigrationDashboard() {
     if (!data) return null;
 
     const { stats, evolution, events, modelTarget } = data;
+    const models = data.models ?? [];
+    const normalizedTarget = modelTarget === 'mistralLarge2411' ? 'mistral-large-2411' : modelTarget;
+    const targetCount = models.find(item => item.modelo === normalizedTarget)?.count ?? stats.migrated;
+    const legacyCount = models.find(item => item.modelo === 'mistral-large-2411')?.count ?? stats.legacy;
 
     // Calcular porcentaje de progreso
     const progressPercent = Math.round((stats.migrated / (stats.total || 1)) * 100);
@@ -61,17 +65,17 @@ export function MigrationDashboard() {
                     bg="bg-blue-50"
                 />
                 <StatCard
-                    title="Objetivo: 2512"
-                    value={stats.migrated.toLocaleString()}
+                    title="Modelo objetivo"
+                    value={targetCount.toLocaleString()}
                     subtitle={`Modelo: ${modelTarget}`}
                     icon={CheckCircle2}
                     color="text-emerald-600"
                     bg="bg-emerald-50"
                 />
                 <StatCard
-                    title="Legacy (2411)"
-                    value={stats.legacy.toLocaleString()}
-                    subtitle="Pendientes de actualización"
+                    title="Mistral 2411"
+                    value={legacyCount.toLocaleString()}
+                    subtitle="Enrichment histórico"
                     icon={Clock}
                     color="text-amber-600"
                     bg="bg-amber-50"
@@ -139,15 +143,23 @@ export function MigrationDashboard() {
                         Distribución de Modelos
                     </h3>
                     <div className="space-y-6">
-                        <ProgressBar label="Mistral 2512 (Nuevo)" current={stats.migrated} total={stats.total} color="bg-emerald-500" />
-                        <ProgressBar label="Mistral 2411 (Legacy)" current={stats.legacy} total={stats.total} color="bg-amber-400" />
-                        <ProgressBar label="Pendiente de Ingesta" current={stats.pending} total={stats.total} color="bg-slate-300" />
-                        <ProgressBar label="Errores de Proceso" current={stats.errors} total={stats.total} color="bg-rose-500" />
+                        {models.map((item, idx) => (
+                            <ProgressBar
+                                key={item.modelo}
+                                label={labelForModel(item.modelo)}
+                                current={item.count}
+                                total={stats.total}
+                                color={colorForModel(item.modelo, idx)}
+                            />
+                        ))}
+                        {models.length === 0 && (
+                            <p className="text-sm text-slate-500">No hay distribución de modelos disponible.</p>
+                        )}
                     </div>
 
                     <div className="mt-8 p-4 rounded-xl bg-slate-50 border border-slate-100 italic text-sm text-slate-600">
                         <Zap className="w-4 h-4 inline mr-2 text-cgr-gold" />
-                        El proceso de migración se ejecuta automáticamente mediante batches controlados para asegurar la integridad de los descriptores.
+                        La distribución usa `enriquecimiento.modelo_llm`; los dictámenes sin enrichment quedan separados como sin modelo.
                     </div>
                 </div>
             </div>
@@ -211,6 +223,20 @@ function ProgressBar({ label, current, total, color }: any) {
             </div>
         </div>
     );
+}
+
+function labelForModel(model: string) {
+    if (model === 'sin_modelo') return 'Sin modelo LLM';
+    if (model === 'mistral-large-2411') return 'Mistral Large 2411';
+    if (model === 'mistral-large-2512') return 'Mistral Large 2512';
+    return model;
+}
+
+function colorForModel(model: string, index: number) {
+    if (model === 'mistral-large-2512') return 'bg-emerald-500';
+    if (model === 'mistral-large-2411') return 'bg-amber-400';
+    if (model === 'sin_modelo') return 'bg-slate-300';
+    return ['bg-blue-500', 'bg-cyan-500', 'bg-indigo-500', 'bg-rose-500'][index % 4];
 }
 
 function EventRow({ event }: { event: any }) {

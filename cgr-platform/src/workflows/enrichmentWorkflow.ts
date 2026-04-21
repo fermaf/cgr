@@ -11,8 +11,8 @@ import {
   logDictamenEvent,
   updateDictamenStatus,
   insertDictamenBooleanosLLM,
-  insertDictamenEtiquetaLLM,
-  insertDictamenFuenteLegal
+  insertDictamenEtiqueta,
+  insertDictamenFuente
 } from '../storage/d1';
 import { logError, logInfo, logWarn, setLogLevel } from '../lib/log';
 import { applyRetroUpdates } from '../lib/relations';
@@ -217,19 +217,17 @@ export class EnrichmentWorkflow extends WorkflowEntrypoint<Env, EnrichmentParams
               titulo: enrichment.extrae_jurisprudencia.titulo,
               resumen: enrichment.extrae_jurisprudencia.resumen,
               analisis: enrichment.extrae_jurisprudencia.analisis,
-              etiquetas_json: JSON.stringify(enrichment.extrae_jurisprudencia.etiquetas),
               genera_jurisprudencia_llm: enrichment.genera_jurisprudencia ? 1 : 0,
               booleanos_json: JSON.stringify(enrichment.booleanos),
-              fuentes_legales_json: JSON.stringify(enrichment.fuentes_legales),
               model: currentModel
             });
 
             await insertDictamenBooleanosLLM(db, id, enrichment.booleanos);
             for (const tag of enrichment.extrae_jurisprudencia.etiquetas) {
-              await insertDictamenEtiquetaLLM(db, id, tag);
+              await insertDictamenEtiqueta(db, id, tag);
             }
             for (const source of enrichment.fuentes_legales) {
-              await insertDictamenFuenteLegal(db, id, source);
+              await insertDictamenFuente(db, id, source);
             }
 
             await applyRetroUpdates(env, id, enrichment.acciones_juridicas_emitidas);

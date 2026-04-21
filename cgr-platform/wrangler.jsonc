@@ -36,11 +36,7 @@
       "binding": "CANONICAL_RELATIONS_WORKFLOW",
       "class_name": "CanonicalRelationsWorkflow"
     },
-    {
-      "name": "boletin-workflow",
-      "binding": "BOLETIN_WORKFLOW",
-      "class_name": "BoletinMultimediaWorkflow"
-    },
+
     {
       "name": "doctrinal-metadata-workflow",
       "binding": "DOCTRINAL_METADATA_WORKFLOW",
@@ -173,11 +169,7 @@
           "binding": "CANONICAL_RELATIONS_WORKFLOW",
           "class_name": "CanonicalRelationsWorkflow"
         },
-        {
-          "name": "boletin-workflow",
-          "binding": "BOLETIN_WORKFLOW",
-          "class_name": "BoletinMultimediaWorkflow"
-        },
+
         {
           "name": "doctrinal-metadata-workflow",
           "binding": "DOCTRINAL_METADATA_WORKFLOW",
@@ -272,11 +264,7 @@
           "binding": "CANONICAL_RELATIONS_WORKFLOW",
           "class_name": "CanonicalRelationsWorkflow"
         },
-        {
-          "name": "boletin-workflow",
-          "binding": "BOLETIN_WORKFLOW",
-          "class_name": "BoletinMultimediaWorkflow"
-        },
+
         {
           "name": "doctrinal-metadata-workflow",
           "binding": "DOCTRINAL_METADATA_WORKFLOW",

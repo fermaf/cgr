@@ -1,25 +1,5 @@
-import type { DoctrineInsightsResponse } from "../types";
-
-const KNOWN_QUERY_CORRECTIONS: Record<string, string> = {
-    cofirnza: "confianza",
-    confirnza: "confianza",
-    confanza: "confianza",
-    legitma: "legitima",
-    legitmia: "legitima",
-    adminsitrativa: "administrativa",
-    invalidacon: "invalidacion",
-    invaldiacion: "invalidacion",
-    subrogasion: "subrogacion",
-    renobacion: "renovacion",
-};
-
-function normalizeQueryForRequest(query: string) {
-    return query
-        .trim()
-        .split(/\s+/)
-        .map((token) => KNOWN_QUERY_CORRECTIONS[token.toLowerCase()] ?? token)
-        .join(" ");
-}
+import type { DoctrineGuidedFamilyResponse, DoctrineGuidedResponse, DoctrineInsightsResponse } from "../types";
+import { normalizeQueryForRequest } from "./queryNormalization";
 
 export const DOCTRINE_SEARCH_EXAMPLES = [
     "contrata confianza legítima",
@@ -43,14 +23,35 @@ const DEMO_RESPONSE: DoctrineInsightsResponse = {
             intent_label: "confianza legítima",
             confidence: 0.82
         },
+        query_subtopic: {
+            intent_label: "confianza legítima",
+            subtopic_label: "no renovación de contrata",
+            confidence: 0.74,
+            matched_terms: ["no renovación", "contrata"],
+            subtopic_terms: ["no renovación", "término contrata"]
+        },
+        query_mode: {
+            mode: "exploratoria",
+            confidence: 0.62,
+            matched_terms: [],
+            rationale: "La consulta combina un problema jurisprudencial amplio con una necesidad de navegación profesional."
+        },
         searchMode: "semantic"
     },
+    sections: [
+        {
+            key: "doctrina_vigente",
+            title: "Jurisprudencia vigente o dominante",
+            summary: "Líneas que todavía organizan la lectura principal de la materia.",
+            representative_ids: ["012345N21", "034567N20"]
+        }
+    ],
     lines: [
         {
             title: "Confianza legítima",
             importance_level: "high",
             change_risk_level: "medium",
-            summary: "Línea doctrinal sobre confianza legítima en empleo a contrata, con referencias reiteradas a Ley 18.834 y continuidad jurídica en el período consultado.",
+            summary: "Línea jurisprudencial sobre confianza legítima en empleo a contrata, con referencias reiteradas a Ley 18.834 y continuidad jurídica en el período consultado.",
             query_match_reason: "Esta línea aparece porque concentra dictámenes sobre contrata y confianza legítima dentro del empleo público.",
             doctrinal_state: "en_evolucion",
             doctrinal_state_reason: "La línea evoluciona en el tiempo y su hito más visible es 045612N22.",
@@ -125,7 +126,7 @@ const DEMO_RESPONSE: DoctrineInsightsResponse = {
             title: "Término de contrata y motivación del acto",
             importance_level: "medium",
             change_risk_level: "low",
-            summary: "Línea doctrinal sobre término de contrata con foco en motivación suficiente del acto administrativo y revisión de legalidad en empleo público.",
+            summary: "Línea jurisprudencial sobre término de contrata con foco en motivación suficiente del acto administrativo y revisión de legalidad en empleo público.",
             query_match_reason: "Se prioriza por coincidencia alta con descriptores AI y por la reiteración de la normativa estatutaria aplicable.",
             doctrinal_state: "consolidado",
             doctrinal_state_reason: "La línea muestra un núcleo estable y señales de reiteración consistentes.",
@@ -151,7 +152,7 @@ const DEMO_RESPONSE: DoctrineInsightsResponse = {
                 descriptor_noise_score: 0.33,
                 fragmentation_risk: 0.34,
                 coherence_status: "mixta",
-                summary: "La línea mantiene un eje doctrinal visible, pero algunos dictámenes tratan temas relacionados y no exactamente idénticos."
+                summary: "La línea mantiene un eje jurisprudencial visible, pero algunos dictámenes tratan temas relacionados y no exactamente idénticos."
             },
             representative_dictamen_id: "034567N20",
             core_dictamen_ids: ["034567N20"],
@@ -187,6 +188,47 @@ const DEMO_RESPONSE: DoctrineInsightsResponse = {
     ]
 };
 
+const DOCTRINE_CACHE_PREFIX = "indubia:doctrine-insights:v2";
+
+function buildDoctrineCacheKey(query: string, limit: number) {
+    return `${DOCTRINE_CACHE_PREFIX}:q:${normalizeQueryForRequest(query) || "__home__"}:l:${limit}`;
+}
+
+export function readCachedDoctrineInsights(query: string, limit = 4): { mode: "live" | "demo"; data: DoctrineInsightsResponse } | null {
+    if (typeof window === "undefined") return null;
+    try {
+        const raw = window.sessionStorage.getItem(buildDoctrineCacheKey(query, limit));
+        if (!raw) return null;
+        return JSON.parse(raw) as { mode: "live" | "demo"; data: DoctrineInsightsResponse };
+    } catch {
+        return null;
+    }
+}
+
+function writeCachedDoctrineInsights(query: string, limit: number, payload: { mode: "live" | "demo"; data: DoctrineInsightsResponse }) {
+    if (typeof window === "undefined") return;
+    try {
+        window.sessionStorage.setItem(buildDoctrineCacheKey(query, limit), JSON.stringify(payload));
+    } catch {
+        // noop
+    }
+}
+
+export function buildDoctrineFallback(query = "") {
+    return {
+        mode: "demo" as const,
+        data: {
+            ...DEMO_RESPONSE,
+            overview: {
+                ...DEMO_RESPONSE.overview,
+                dominantTheme: "Confianza legítima",
+                materiaEvaluated: "Jurisprudencia sobre Confianza legítima",
+                query: query.trim() || undefined
+            }
+        }
+    };
+}
+
 export async function fetchDoctrineInsights(query: string, limit = 4) {
     const trimmed = query.trim();
     const normalized = normalizeQueryForRequest(trimmed);
@@ -202,6 +244,10 @@ export async function fetchDoctrineInsights(query: string, limit = 4) {
         }
 
         const data = await response.json() as DoctrineInsightsResponse;
+        writeCachedDoctrineInsights(trimmed, limit, {
+            mode: "live",
+            data
+        });
         return {
             mode: "live" as const,
             data
@@ -212,16 +258,29 @@ export async function fetchDoctrineInsights(query: string, limit = 4) {
         }
 
         return {
-            mode: "demo" as const,
-            data: {
-                ...DEMO_RESPONSE,
-                overview: {
-                    ...DEMO_RESPONSE.overview,
-                    dominantTheme: "Confianza legítima",
-                    materiaEvaluated: "Doctrina sobre Confianza legítima",
-                    query: trimmed || undefined
-                }
-            }
+            ...buildDoctrineFallback(trimmed)
         };
     }
+}
+
+export async function fetchDoctrineGuided(query: string, limit = 4) {
+    const trimmed = query.trim();
+    const normalized = normalizeQueryForRequest(trimmed);
+    const response = await fetch(`/api/v1/insights/doctrine-guided?q=${encodeURIComponent(normalized)}&limit=${limit}`);
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+    return await response.json() as DoctrineGuidedResponse;
+}
+
+export async function fetchDoctrineGuidedFamily(query: string, familyId: string, limit = 4) {
+    const trimmed = query.trim();
+    const normalized = normalizeQueryForRequest(trimmed);
+    const response = await fetch(
+        `/api/v1/insights/doctrine-guided/family?q=${encodeURIComponent(normalized)}&family_id=${encodeURIComponent(familyId)}&limit=${limit}`
+    );
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+    return await response.json() as DoctrineGuidedFamilyResponse;
 }

@@ -1,5 +1,5 @@
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
-import { DatabaseZap, ShieldAlert, CheckCircle2, Activity, Wifi, Server, Database } from 'lucide-react';
+import { DatabaseZap, ShieldAlert, CheckCircle2, Activity, AlertTriangle } from 'lucide-react';
 
 type OperacionalData = {
     en_paso: number;
@@ -7,7 +7,11 @@ type OperacionalData = {
     count: number;
 };
 type TransaccionalData = {
-    estado: string;
+    estado: string | null;
+    nombre: string;
+    descripcion: string;
+    etapa: string;
+    catalogado: 0 | 1;
     count: number;
 };
 
@@ -22,32 +26,18 @@ export function OperacionalStats({ opData, transData }: { opData: OperacionalDat
         { name: 'Pendientes', value: unsyncedPaso },
     ];
     const COLORS = ['#10b981', '#ef4444'];
+    const stageTotals = transData.reduce<Record<string, number>>((acc, item) => {
+        acc[item.etapa] = (acc[item.etapa] ?? 0) + item.count;
+        return acc;
+    }, {});
+    const uncatalogued = transData.filter(item => item.catalogado === 0);
 
     return (
         <div className="space-y-8">
-            {/* Heartbeats de Periféricos */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <HeartbeatCard
-                    name="Mistral AI Platform"
-                    icon={Server}
-                    latency="42ms"
-                    status="healthy"
-                    glowColor="rgba(59, 130, 246, 0.5)"
-                />
-                <HeartbeatCard
-                    name="Pinecone Vector DB"
-                    icon={Database}
-                    latency="18ms"
-                    status="healthy"
-                    glowColor="rgba(234, 179, 8, 0.5)"
-                />
-                <HeartbeatCard
-                    name="CGR Core Origin"
-                    icon={Wifi}
-                    latency="115ms"
-                    status="warning"
-                    glowColor="rgba(249, 115, 22, 0.5)"
-                />
+                <PipelineCard label="Pendiente de enrichment" value={stageTotals.pendiente_enrichment ?? 0} />
+                <PipelineCard label="Pendiente de vectorización" value={stageTotals.pendiente_vectorizacion ?? 0} tone="green" />
+                <PipelineCard label="Vectorizado" value={stageTotals.publicable ?? 0} tone="gold" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -62,19 +52,26 @@ export function OperacionalStats({ opData, transData }: { opData: OperacionalDat
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={transData} layout="vertical" margin={{ top: 0, right: 30, left: 20, bottom: 0 }}>
                                 <XAxis type="number" stroke="#e2e8f0" tick={{ fill: '#64748b' }} />
-                                <YAxis dataKey="estado" type="category" width={100} stroke="#e2e8f0" tick={{ fill: '#64748b', fontWeight: 500 }} />
+                                <YAxis dataKey="nombre" type="category" width={165} stroke="#e2e8f0" tick={{ fill: '#64748b', fontWeight: 500, fontSize: 11 }} />
                                 <RechartsTooltip
                                     cursor={{ fill: 'rgba(0,0,0,0.05)' }}
                                     contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', borderColor: '#e2e8f0', borderRadius: '0.75rem', color: '#1e293b' }}
+                                    formatter={(value, _name, props) => [`${Number(value).toLocaleString()} dictámenes`, props.payload.estado ?? 'sin_estado']}
                                 />
                                 <Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]}>
                                     {transData.map((e, index) => (
-                                        <Cell key={`cell-${index}`} fill={e.estado === 'vectorized' ? '#eab308' : e.estado === 'error' ? '#ef4444' : '#3b82f6'} />
+                                        <Cell key={`cell-${index}`} fill={colorForStage(e.etapa)} />
                                     ))}
                                 </Bar>
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
+                    {uncatalogued.length > 0 && (
+                        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                            <AlertTriangle className="mr-2 inline h-4 w-4" />
+                            Hay {uncatalogued.length} estado(s) sin catálogo visible: {uncatalogued.map(item => item.estado ?? "sin_estado").join(", ")}.
+                        </div>
+                    )}
                 </div>
 
                 {/* KV Sync Status */}
@@ -131,35 +128,24 @@ export function OperacionalStats({ opData, transData }: { opData: OperacionalDat
     );
 }
 
-function HeartbeatCard({ name, icon: Icon, latency, status, glowColor }: { name: string, icon: any, latency: string, status: 'healthy' | 'warning' | 'error', glowColor: string }) {
-    const isHealthy = status === 'healthy';
-
+function PipelineCard({ label, value, tone = "blue" }: { label: string; value: number; tone?: "blue" | "green" | "gold" }) {
+    const toneClass = {
+        blue: "border-sky-200 bg-sky-50 text-sky-800",
+        green: "border-emerald-200 bg-emerald-50 text-emerald-800",
+        gold: "border-yellow-200 bg-yellow-50 text-yellow-800",
+    }[tone];
     return (
-        <div className="bg-white border border-slate-200 shadow-sm p-4 rounded-xl flex items-center justify-between relative overflow-hidden group">
-            <div className="flex items-center gap-3">
-                <div className="relative">
-                    <Icon className={`w-5 h-5 ${isHealthy ? 'text-green-500' : 'text-orange-500'}`} />
-                    <div className={`absolute inset-0 blur-md ${isHealthy ? 'bg-green-400' : 'bg-orange-400'} opacity-20`} />
-                </div>
-                <div>
-                    <p className="text-slate-800 font-bold text-sm">{name}</p>
-                    <p className="text-slate-500 text-xs flex items-center gap-1">
-                        Latencia: <span className="text-slate-700 font-mono font-medium">{latency}</span>
-                    </p>
-                </div>
-            </div>
-            <div className="flex items-center gap-2">
-                <span className="text-xs uppercase tracking-wider font-bold text-slate-500">{isHealthy ? 'Online' : 'Degraded'}</span>
-                <div className="relative flex h-3 w-3">
-                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isHealthy ? 'bg-green-400' : 'bg-orange-400'}`}></span>
-                    <span className={`relative inline-flex rounded-full h-3 w-3 ${isHealthy ? 'bg-green-500' : 'bg-orange-500'}`}></span>
-                </div>
-            </div>
-            {/* Ambient glow on hover */}
-            <div
-                className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500 pointer-events-none"
-                style={{ background: `radial-gradient(circle at right, ${glowColor} 0%, transparent 70%)` }}
-            />
+        <div className={`rounded-xl border p-5 shadow-sm ${toneClass}`}>
+            <p className="text-xs font-bold uppercase tracking-wider opacity-70">{label}</p>
+            <p className="mt-2 text-3xl font-black">{value.toLocaleString()}</p>
         </div>
     );
+}
+
+function colorForStage(stage: string) {
+    if (stage === 'publicable') return '#eab308';
+    if (stage === 'pendiente_vectorizacion' || stage === 'vectorizacion') return '#22c55e';
+    if (stage === 'enrichment' || stage === 'pendiente_enrichment') return '#0ea5e9';
+    if (stage === 'incidente' || stage === 'sin_catalogo') return '#ef4444';
+    return '#64748b';
 }

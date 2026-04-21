@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Search, Filter, ChevronLeft, ChevronRight, SlidersHorizontal, Loader2 } from "lucide-react";
 import { DictamenCard } from "../components/dictamen/DictamenCard";
+import { PjoFeaturedSolution } from "../components/doctrine/PjoFeaturedSolution";
 import type { DictamenMeta, SearchResponse } from "../types";
 import { cn } from "../lib/utils";
+import { normalizeQueryForRequest } from "../lib/queryNormalization";
 
 export function SearchResults() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -42,7 +44,7 @@ export function SearchResults() {
             setLoading(true);
             try {
                 const params = new URLSearchParams();
-                if (query) params.set("q", query);
+                if (query) params.set("q", normalizeQueryForRequest(query));
                 params.set("page", page.toString());
                 if (year) params.set("year", year);
                 if (materia) params.set("materia", materia);
@@ -309,6 +311,10 @@ export function SearchResults() {
                         )}
 
                         <div className={cn("space-y-6 transition-all duration-300", loading && "opacity-40 grayscale-[0.5] blur-[1px]")}>
+                            {results.length > 0 && results[0].regimen && results[0].regimen.pjo_respuesta && (
+                                <PjoFeaturedSolution regimen={results[0].regimen} />
+                            )}
+
                             {results.length > 0 ? (
                                 results.map((dictamen) => (
                                     <DictamenCard key={dictamen.id} dictamen={dictamen} />

@@ -1,0 +1,158 @@
+[
+  {
+    "id": "pjo_ley_karin",
+    "query": "ley karin",
+    "grupo": "pjo_esperado",
+    "expected_top_id": "E516610N24",
+    "expected_regimen_id": "regimen-e516610n24",
+    "expected_behavior": "Debe mostrar PJO/regimen de Ley Karin como respuesta jurisprudencial principal o foco directo asociado.",
+    "risk": "Si aparecen lineas no relacionadas, deben quedar subordinadas al mismo regimen o no mostrarse."
+  },
+  {
+    "id": "pjo_acoso_laboral",
+    "query": "acoso laboral",
+    "grupo": "pjo_esperado",
+    "expected_regimen_id": "regimen-e516610n24",
+    "expected_behavior": "Debe mostrar estado actual o PJO Ley Karin, pero marcando tension si el dictamen mas reciente cambia alcance.",
+    "risk": "Promover como verdad vigente una respuesta que en realidad esta tensionada por OF29349N26 o D107N26."
+  },
+  {
+    "id": "pjo_confianza_legitima",
+    "query": "confianza legitima contrata",
+    "grupo": "pjo_esperado_tensionado",
+    "expected_regimen_id": "regimen-e156769n21",
+    "expected_behavior": "Debe asociar el regimen de confianza legitima, mostrando que esta en transicion si corresponde.",
+    "risk": "Presentar como criterio plano un regimen con reconsideraciones internas."
+  },
+  {
+    "id": "pjo_contrata_termino",
+    "query": "termino contrata confianza legitima",
+    "grupo": "pjo_esperado_tensionado",
+    "expected_regimen_id": "regimen-e156769n21",
+    "expected_behavior": "Debe priorizar el regimen de contratas/confianza legitima y evitar familias laborales genericas.",
+    "risk": "Derivar a empleo publico generico sin explicar criterio rector."
+  },
+  {
+    "id": "pjo_honorarios",
+    "query": "contratacion a honorarios funciones permanentes",
+    "grupo": "pjo_esperado",
+    "expected_regimen_id": "regimen-e173171n22",
+    "expected_behavior": "Debe recuperar el regimen de contratacion a honorarios y su criterio de excepcionalidad.",
+    "risk": "Confundir honorarios con contrata o empleo publico generico."
+  },
+  {
+    "id": "pjo_plantas_municipales",
+    "query": "planta municipal encasillamiento ley 20922",
+    "grupo": "pjo_esperado",
+    "expected_regimen_id": "regimen-006554n19",
+    "expected_behavior": "Debe asociar el regimen de fijacion de plantas municipales.",
+    "risk": "Usar solo coincidencia normativa sin responder el problema de encasillamiento."
+  },
+  {
+    "id": "pjo_prescindencia_politica",
+    "query": "prescindencia politica funcionario periodo electoral",
+    "grupo": "pjo_esperado",
+    "expected_regimen_id": "regimen-028330n17",
+    "expected_behavior": "Debe asociar el regimen de prescindencia politica en periodo electoral.",
+    "risk": "Confundir con probidad generica."
+  },
+  {
+    "id": "pjo_humedales_seia",
+    "query": "humedales area proteccion oficial seia",
+    "grupo": "pjo_esperado",
+    "expected_regimen_id": "regimen-048164n16",
+    "expected_behavior": "Debe recuperar el regimen de humedales y SEIA.",
+    "risk": "Confundir con permisos de edificacion o consulta indigena si el rector no representa bien la pregunta."
+  },
+  {
+    "id": "direct_incendio_subsidio",
+    "query": "incendio caso fortuito recepcion municipal",
+    "grupo": "direct_hit_sin_pjo",
+    "expected_top_id": "E563419N24",
+    "expected_behavior": "Debe mostrar el dictamen directo E563419N24 y no forzar una familia amplia.",
+    "risk": "Volver a contaminar con caso fortuito, responsabilidad civil o municipalidades genericas."
+  },
+  {
+    "id": "direct_reconvencion",
+    "query": "reconvencion",
+    "grupo": "direct_hit_sin_pjo",
+    "expected_top_id": "021173N18",
+    "expected_behavior": "Debe mostrar 021173N18 primero y suprimir o degradar auxiliares ruidosos.",
+    "risk": "Mantener lineas auxiliares sobre aerodromo, contratos de obras publicas o Carabineros."
+  },
+  {
+    "id": "direct_subrogacion_corfo",
+    "query": "subrogacion corfo prenda acciones",
+    "grupo": "direct_hit_sin_pjo",
+    "expected_behavior": "Debe privilegiar dictamen directo si existe coincidencia fuerte; no inventar PJO.",
+    "risk": "Forzar una linea societaria o financiera no modelada."
+  },
+  {
+    "id": "direct_invalidacion_plazo",
+    "query": "invalidacion administrativa plazo razonable",
+    "grupo": "direct_hit_o_regimen",
+    "expected_behavior": "Debe encontrar dictamenes de invalidacion/plazo y no abrir familias de procedimiento administrativo demasiado amplias.",
+    "risk": "Sobregeneralizar a LBPA sin resolver el plazo aplicable."
+  },
+  {
+    "id": "trap_caso_fortuito_generico",
+    "query": "caso fortuito pago subsidio incendio forestal",
+    "grupo": "trampa_deriva",
+    "expected_top_id": "E563419N24",
+    "expected_behavior": "Debe mantener foco en subsidio/incendio y no derivar a responsabilidad civil general.",
+    "risk": "Cluster semantico amplio por 'caso fortuito'."
+  },
+  {
+    "id": "trap_responsabilidad_incendio",
+    "query": "responsabilidad servicio falta servicio incendio",
+    "grupo": "trampa_deriva",
+    "expected_behavior": "Debe evitar mezclar el caso de subsidio habitacional con responsabilidad por falta de servicio si no corresponde.",
+    "risk": "Unificar por la palabra incendio materias juridicamente distintas."
+  },
+  {
+    "id": "trap_aerodromo",
+    "query": "reconvencion llamado de atencion sumario administrativo",
+    "grupo": "trampa_deriva",
+    "expected_top_id": "021173N18",
+    "expected_behavior": "Debe reforzar el direct hit de reconvencion y bloquear la familia aerodromo.",
+    "risk": "Arrastrar el cluster historicamente ruidoso de aerodromo."
+  },
+  {
+    "id": "trap_competencia_generica",
+    "query": "competencia administrativa organo incompetente",
+    "grupo": "trampa_deriva",
+    "expected_behavior": "Debe mostrar alternativas o lectura documental; no debe inventar un regimen unico.",
+    "risk": "Presentar una familia demasiado transversal como criterio operativo."
+  },
+  {
+    "id": "ambigua_probidad",
+    "query": "probidad municipal fundacion",
+    "grupo": "ambigua",
+    "expected_regimen_id": "regimen-012605n16",
+    "expected_behavior": "Puede asociar regimen de fundaciones creadas por entes publicos, pero debe conservar prudencia si la consulta es corta.",
+    "risk": "Confundir probidad general con el problema especifico de fundaciones."
+  },
+  {
+    "id": "ambigua_sumario",
+    "query": "responsabilidad administrativa sumario",
+    "grupo": "ambigua",
+    "expected_behavior": "Debe mostrar rutas o direct hits, no forzar una unica linea si no hay PJO claro.",
+    "risk": "Sobregeneralizar procedimiento disciplinario."
+  },
+  {
+    "id": "ambigua_licitacion",
+    "query": "criterios evaluacion licitacion publica",
+    "grupo": "ambigua_tensionada",
+    "expected_regimen_id": "regimen-024531n17",
+    "expected_behavior": "Si asocia el regimen de adjudicacion, debe mostrarlo como desplazado/superado.",
+    "risk": "Presentar como vigente un criterio desplazado."
+  },
+  {
+    "id": "ambigua_plan_regulador",
+    "query": "plan regulador normas urbanisticas vias",
+    "grupo": "ambigua",
+    "expected_regimen_id": "regimen-012084n17",
+    "expected_behavior": "Puede asociar regimen PRC, pero debe marcar riesgo si no hay normas nucleares suficientes.",
+    "risk": "Confundir PRC con permisos de edificacion de Las Condes."
+  }
+]

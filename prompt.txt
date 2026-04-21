@@ -1,0 +1,12 @@
+
+Read the articles bellow on prompting best practices , and then create a command "prompt" that I can use saying "/prompt this is the prompt to optimize". Remeber that this is opencode, so it should be done with the opencode pattern  
+There the URLs:
+https://help.openai.com/en/articles/6654000-best-practices-for-prompt-engineering-with-the-openai-api
+
+https://docs.cloud.google.com/vertex-ai/generative-ai/docs/learn/prompts/prompt-design-strategies?hl=en
+
+https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices
+
+https://docs.mistral.ai/capabilities/completion/prompting_capabilities
+
+And this is opencode command standard: https://opencode.ai/docs/commands/

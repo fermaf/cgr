@@ -1,0 +1,2061 @@
+{
+  "summary": {
+    "generated_at": "2026-04-11T20:43:11.578Z",
+    "database": "cgr-dictamenes",
+    "counts": [
+      {
+        "tabla": "regimenes_jurisprudenciales",
+        "total": 20
+      },
+      {
+        "tabla": "problemas_juridicos_operativos",
+        "total": 20
+      },
+      {
+        "tabla": "regimen_dictamenes",
+        "total": 396
+      },
+      {
+        "tabla": "pjo_dictamenes",
+        "total": 0
+      },
+      {
+        "tabla": "norma_regimen",
+        "total": 60
+      },
+      {
+        "tabla": "regimen_timeline",
+        "total": 83
+      }
+    ],
+    "audit_status_counts": {
+      "util_incompleto": 15,
+      "sospechoso": 5
+    },
+    "totals": {
+      "regimenes": 20,
+      "pjos": 20,
+      "pjo_dictamenes": 0
+    }
+  },
+  "regimenes": [
+    {
+      "regimen_id": "regimen-006554n19",
+      "regimen_nombre": "Fijación de Plantas de Personal Municipal: Normativa y Procedimientos",
+      "regimen_estado": "activo",
+      "estado_razon": "Semilla de valor histórico: criterio evolucionado",
+      "confianza": 1,
+      "estabilidad": 1,
+      "regimen_dictamen_rector_id": "E512533N24",
+      "fecha_ultimo_pronunciamiento": "2024-07-11",
+      "regimen_rector_fecha": "2024-07-11",
+      "regimen_rector_titulo": "Límite gasto personal municipal excluye ingresos por percibir",
+      "pjo_id": "pjo-006554n19",
+      "pjo_estado": "resuelto",
+      "pregunta": "¿Puede una municipalidad modificar su planta de personal y encasillar a sus funcionarios sin cumplir estrictamente con los límites presupuestarios, los requisitos de idoneidad técnica y el procedimiento de consulta con las asociaciones de funcionarios establecido en la Ley N° 20.922 y la Ley N° 18.695?",
+      "respuesta_sintetica": "La CGR ha establecido que la fijación o modificación de plantas municipales es una potestad reglamentaria sujeta a un procedimiento reglado, que exige el cumplimiento estricto de los límites de gasto en personal, la disponibilidad presupuestaria certificada y la participación previa de las asociaciones de funcionarios, bajo sanción de nulidad de los actos administrativos que contravengan estas normas imperativas.",
+      "pjo_dictamen_rector_id": "E512533N24",
+      "pjo_rector_fecha": "2024-07-11",
+      "pjo_rector_titulo": "Límite gasto personal municipal excluye ingresos por percibir",
+      "member_count": 28,
+      "pjo_member_count": 0,
+      "norma_count": 7,
+      "timeline_count": 4,
+      "regimen_rector_in_members": 1,
+      "pjo_rector_in_members": 1,
+      "latest_member_id": "E512533N24",
+      "latest_member_fecha": "2024-07-11",
+      "latest_member_titulo": "Límite gasto personal municipal excluye ingresos por percibir",
+      "temporal_lag_days": 0,
+      "relation_stats": {
+        "regimen_id": "regimen-006554n19",
+        "relation_count": 49,
+        "destabilizing_count": 0,
+        "reconsiderado": 0,
+        "reconsiderado_parcialmente": 0,
+        "alterado": 0
+      },
+      "normas_top": [
+        {
+          "regimen_id": "regimen-006554n19",
+          "norma_key": "Ley|20922|4",
+          "tipo_norma": "Ley",
+          "numero": "20922",
+          "articulo": "4",
+          "centralidad": 0.25,
+          "dictamenes_count": 7
+        },
+        {
+          "regimen_id": "regimen-006554n19",
+          "norma_key": "Ley|18883|2",
+          "tipo_norma": "Ley",
+          "numero": "18883",
+          "articulo": "2",
+          "centralidad": 0.18,
+          "dictamenes_count": 5
+        },
+        {
+          "regimen_id": "regimen-006554n19",
+          "norma_key": "Ley|18695|49",
+          "tipo_norma": "Ley",
+          "numero": "18695",
+          "articulo": "49",
+          "centralidad": 0.14,
+          "dictamenes_count": 4
+        },
+        {
+          "regimen_id": "regimen-006554n19",
+          "norma_key": "Ley|18695|49 ter",
+          "tipo_norma": "Ley",
+          "numero": "18695",
+          "articulo": "49 ter",
+          "centralidad": 0.11,
+          "dictamenes_count": 3
+        },
+        {
+          "regimen_id": "regimen-006554n19",
+          "norma_key": "Ley|18883|52",
+          "tipo_norma": "Ley",
+          "numero": "18883",
+          "articulo": "52",
+          "centralidad": 0.11,
+          "dictamenes_count": 3
+        }
+      ],
+      "timeline_eventos": [
+        {
+          "regimen_id": "regimen-006554n19",
+          "dictamen_id": "030352N92",
+          "fecha": "1992-12-09",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-006554n19",
+          "dictamen_id": "030352N92",
+          "fecha": "1992-12-09",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-006554n19",
+          "dictamen_id": "E512533N24",
+          "fecha": "2024-07-11",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        },
+        {
+          "regimen_id": "regimen-006554n19",
+          "dictamen_id": "E512533N24",
+          "fecha": "2024-07-11",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        }
+      ],
+      "audit": {
+        "status": "util_incompleto",
+        "issues": [],
+        "warnings": [
+          "pjo_sin_membresia_pjo_dictamenes"
+        ]
+      }
+    },
+    {
+      "regimen_id": "regimen-e156769n21",
+      "regimen_nombre": "Confianza legítima en contratas: renovación y término anticipado",
+      "regimen_estado": "en_transicion",
+      "estado_razon": "Existen reconsideraciones sobre el criterio base",
+      "confianza": 1,
+      "estabilidad": 0.91,
+      "regimen_dictamen_rector_id": "E540893N24",
+      "fecha_ultimo_pronunciamiento": "2024-09-13",
+      "regimen_rector_fecha": "2024-09-13",
+      "regimen_rector_titulo": "Confianza legítima en renovación de contratas municipales",
+      "pjo_id": "pjo-e156769n21",
+      "pjo_estado": "resuelto",
+      "pregunta": "¿Puede la Administración del Estado poner término a la relación laboral de un funcionario contratado bajo la modalidad de contrata sin una fundamentación específica, cuando este ha acumulado años de servicios continuos, invocando la sola expiración del plazo del decreto de nombramiento?",
+      "respuesta_sintetica": "La Administración no puede prescindir de un funcionario a contrata sin expresar fundamentos plausibles cuando este ha generado una confianza legítima por la renovación sucesiva de su vínculo, debiendo el acto de no renovación ser motivado y ajustado a los principios de juridicidad y transparencia.",
+      "pjo_dictamen_rector_id": "E540893N24",
+      "pjo_rector_fecha": "2024-09-13",
+      "pjo_rector_titulo": "Confianza legítima en renovación de contratas municipales",
+      "member_count": 45,
+      "pjo_member_count": 0,
+      "norma_count": 7,
+      "timeline_count": 6,
+      "regimen_rector_in_members": 1,
+      "pjo_rector_in_members": 1,
+      "latest_member_id": "E540893N24",
+      "latest_member_fecha": "2024-09-13",
+      "latest_member_titulo": "Confianza legítima en renovación de contratas municipales",
+      "temporal_lag_days": 0,
+      "relation_stats": {
+        "regimen_id": "regimen-e156769n21",
+        "relation_count": 173,
+        "destabilizing_count": 2,
+        "reconsiderado": 2,
+        "reconsiderado_parcialmente": 0,
+        "alterado": 0
+      },
+      "normas_top": [
+        {
+          "regimen_id": "regimen-e156769n21",
+          "norma_key": "Ley|18834|10",
+          "tipo_norma": "Ley",
+          "numero": "18834",
+          "articulo": "10",
+          "centralidad": 0.16,
+          "dictamenes_count": 7
+        },
+        {
+          "regimen_id": "regimen-e156769n21",
+          "norma_key": "Ley|18834|153",
+          "tipo_norma": "Ley",
+          "numero": "18834",
+          "articulo": "153",
+          "centralidad": 0.11,
+          "dictamenes_count": 5
+        },
+        {
+          "regimen_id": "regimen-e156769n21",
+          "norma_key": "Ley|18883|2",
+          "tipo_norma": "Ley",
+          "numero": "18883",
+          "articulo": "2",
+          "centralidad": 0.11,
+          "dictamenes_count": 5
+        },
+        {
+          "regimen_id": "regimen-e156769n21",
+          "norma_key": "Ley|18883|5",
+          "tipo_norma": "Ley",
+          "numero": "18883",
+          "articulo": "5",
+          "centralidad": 0.09,
+          "dictamenes_count": 4
+        },
+        {
+          "regimen_id": "regimen-e156769n21",
+          "norma_key": "Ley|19880|11",
+          "tipo_norma": "Ley",
+          "numero": "19880",
+          "articulo": "11",
+          "centralidad": 0.09,
+          "dictamenes_count": 4
+        }
+      ],
+      "timeline_eventos": [
+        {
+          "regimen_id": "regimen-e156769n21",
+          "dictamen_id": "048251N10",
+          "fecha": "2010-08-20",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-e156769n21",
+          "dictamen_id": "048251N10",
+          "fecha": "2010-08-20",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-e156769n21",
+          "dictamen_id": "E156769N21",
+          "fecha": "2021-11-18",
+          "tipo_evento": "tension",
+          "impacto": "medio",
+          "descripcion": "El criterio base fue objeto de reconsideración"
+        },
+        {
+          "regimen_id": "regimen-e156769n21",
+          "dictamen_id": "E156769N21",
+          "fecha": "2021-11-18",
+          "tipo_evento": "tension",
+          "impacto": "medio",
+          "descripcion": "El criterio base fue objeto de reconsideración"
+        },
+        {
+          "regimen_id": "regimen-e156769n21",
+          "dictamen_id": "E540893N24",
+          "fecha": "2024-09-13",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        },
+        {
+          "regimen_id": "regimen-e156769n21",
+          "dictamen_id": "E540893N24",
+          "fecha": "2024-09-13",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        }
+      ],
+      "audit": {
+        "status": "sospechoso",
+        "issues": [],
+        "warnings": [
+          "pjo_sin_membresia_pjo_dictamenes",
+          "relaciones_desestabilizantes_2",
+          "estado_tensionado_con_pjo_resuelto"
+        ]
+      }
+    },
+    {
+      "regimen_id": "regimen-e173171n22",
+      "regimen_nombre": "Reinterpretación de contratación a honorarios en Administración Pública",
+      "regimen_estado": "activo",
+      "estado_razon": "Semilla de valor histórico: criterio evolucionado",
+      "confianza": 1,
+      "estabilidad": 1,
+      "regimen_dictamen_rector_id": "E531257N24",
+      "fecha_ultimo_pronunciamiento": "2024-08-23",
+      "regimen_rector_fecha": "2024-08-23",
+      "regimen_rector_titulo": "Tiempo a honorarios no válido para liberación de guardia nocturna",
+      "pjo_id": "pjo-e173171n22",
+      "pjo_estado": "resuelto",
+      "pregunta": "¿Puede la Administración del Estado contratar personas bajo la modalidad de honorarios para desempeñar funciones habituales, permanentes y sujetas a subordinación y dependencia, o constituye esto una vulneración de la naturaleza jurídica excepcional de dicho vínculo contractual?",
+      "respuesta_sintetica": "La CGR ha establecido que la contratación a honorarios es de carácter excepcional y solo procede para cometidos específicos y temporales, por lo que su uso para labores permanentes y bajo subordinación es improcedente, debiendo el personal ser incorporado a la dotación de planta o contrata según corresponda.",
+      "pjo_dictamen_rector_id": "E531257N24",
+      "pjo_rector_fecha": "2024-08-23",
+      "pjo_rector_titulo": "Tiempo a honorarios no válido para liberación de guardia nocturna",
+      "member_count": 46,
+      "pjo_member_count": 0,
+      "norma_count": 15,
+      "timeline_count": 4,
+      "regimen_rector_in_members": 1,
+      "pjo_rector_in_members": 1,
+      "latest_member_id": "E531257N24",
+      "latest_member_fecha": "2024-08-23",
+      "latest_member_titulo": "Tiempo a honorarios no válido para liberación de guardia nocturna",
+      "temporal_lag_days": 0,
+      "relation_stats": {
+        "regimen_id": "regimen-e173171n22",
+        "relation_count": 78,
+        "destabilizing_count": 0,
+        "reconsiderado": 0,
+        "reconsiderado_parcialmente": 0,
+        "alterado": 0
+      },
+      "normas_top": [
+        {
+          "regimen_id": "regimen-e173171n22",
+          "norma_key": "Ley|18834|11",
+          "tipo_norma": "Ley",
+          "numero": "18834",
+          "articulo": "11",
+          "centralidad": 0.54,
+          "dictamenes_count": 25
+        },
+        {
+          "regimen_id": "regimen-e173171n22",
+          "norma_key": "Ley|18883|4",
+          "tipo_norma": "Ley",
+          "numero": "18883",
+          "articulo": "4",
+          "centralidad": 0.39,
+          "dictamenes_count": 18
+        },
+        {
+          "regimen_id": "regimen-e173171n22",
+          "norma_key": "Ley|18834|2",
+          "tipo_norma": "Ley",
+          "numero": "18834",
+          "articulo": "2",
+          "centralidad": 0.13,
+          "dictamenes_count": 6
+        },
+        {
+          "regimen_id": "regimen-e173171n22",
+          "norma_key": "Decreto|854|2004|hacie|",
+          "tipo_norma": "Decreto",
+          "numero": "854",
+          "articulo": null,
+          "centralidad": 0.11,
+          "dictamenes_count": 5
+        },
+        {
+          "regimen_id": "regimen-e173171n22",
+          "norma_key": "Ley|18883|2",
+          "tipo_norma": "Ley",
+          "numero": "18883",
+          "articulo": "2",
+          "centralidad": 0.11,
+          "dictamenes_count": 5
+        }
+      ],
+      "timeline_eventos": [
+        {
+          "regimen_id": "regimen-e173171n22",
+          "dictamen_id": "028161N87",
+          "fecha": "1987-10-26",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-e173171n22",
+          "dictamen_id": "028161N87",
+          "fecha": "1987-10-26",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-e173171n22",
+          "dictamen_id": "E531257N24",
+          "fecha": "2024-08-23",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        },
+        {
+          "regimen_id": "regimen-e173171n22",
+          "dictamen_id": "E531257N24",
+          "fecha": "2024-08-23",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        }
+      ],
+      "audit": {
+        "status": "util_incompleto",
+        "issues": [],
+        "warnings": [
+          "pjo_sin_membresia_pjo_dictamenes"
+        ]
+      }
+    },
+    {
+      "regimen_id": "regimen-e58945n20",
+      "regimen_nombre": "Vulneración normativa en permiso de edificación y PRC Las Condes",
+      "regimen_estado": "activo",
+      "estado_razon": "Semilla de valor histórico: criterio evolucionado",
+      "confianza": 1,
+      "estabilidad": 1,
+      "regimen_dictamen_rector_id": "E338592N23",
+      "fecha_ultimo_pronunciamiento": "2023-04-27",
+      "regimen_rector_fecha": "2023-04-27",
+      "regimen_rector_titulo": "Carácter rural de unidad territorial en PRIVP y requisitos LGUC",
+      "pjo_id": "pjo-e58945n20",
+      "pjo_estado": "resuelto",
+      "pregunta": "¿Puede la Dirección de Obras Municipales de Las Condes otorgar permisos de edificación que contravengan las disposiciones del Plan Regulador Comunal vigente, invocando normas transitorias o interpretaciones que flexibilicen las exigencias de constructibilidad, densidad o altura establecidas en el instrumento de planificación territorial?",
+      "respuesta_sintetica": "La CGR ha establecido que los permisos de edificación deben ajustarse estrictamente a las normas del Plan Regulador Comunal y la Ley General de Urbanismo y Construcciones, siendo improcedente otorgar autorizaciones que vulneren las disposiciones vigentes sobre constructibilidad y uso de suelo, independientemente de interpretaciones administrativas que pretendan eludir tales limitaciones.",
+      "pjo_dictamen_rector_id": "E338592N23",
+      "pjo_rector_fecha": "2023-04-27",
+      "pjo_rector_titulo": "Carácter rural de unidad territorial en PRIVP y requisitos LGUC",
+      "member_count": 30,
+      "pjo_member_count": 0,
+      "norma_count": 8,
+      "timeline_count": 4,
+      "regimen_rector_in_members": 1,
+      "pjo_rector_in_members": 1,
+      "latest_member_id": "E338592N23",
+      "latest_member_fecha": "2023-04-27",
+      "latest_member_titulo": "Carácter rural de unidad territorial en PRIVP y requisitos LGUC",
+      "temporal_lag_days": 0,
+      "relation_stats": {
+        "regimen_id": "regimen-e58945n20",
+        "relation_count": 46,
+        "destabilizing_count": 0,
+        "reconsiderado": 0,
+        "reconsiderado_parcialmente": 0,
+        "alterado": 0
+      },
+      "normas_top": [
+        {
+          "regimen_id": "regimen-e58945n20",
+          "norma_key": "DFL|458|1975|vivie|28",
+          "tipo_norma": "DFL",
+          "numero": "458",
+          "articulo": "28",
+          "centralidad": 0.13,
+          "dictamenes_count": 4
+        },
+        {
+          "regimen_id": "regimen-e58945n20",
+          "norma_key": "DFL|458|1975|vivie|4",
+          "tipo_norma": "DFL",
+          "numero": "458",
+          "articulo": "4",
+          "centralidad": 0.13,
+          "dictamenes_count": 4
+        },
+        {
+          "regimen_id": "regimen-e58945n20",
+          "norma_key": "Decreto|47|1992|vivie|2.1.17",
+          "tipo_norma": "Decreto",
+          "numero": "47",
+          "articulo": "2.1.17",
+          "centralidad": 0.13,
+          "dictamenes_count": 4
+        },
+        {
+          "regimen_id": "regimen-e58945n20",
+          "norma_key": "Ley|20791|tran",
+          "tipo_norma": "Ley",
+          "numero": "20791",
+          "articulo": "tran",
+          "centralidad": 0.13,
+          "dictamenes_count": 4
+        },
+        {
+          "regimen_id": "regimen-e58945n20",
+          "norma_key": "Ley|20791|transitorio",
+          "tipo_norma": "Ley",
+          "numero": "20791",
+          "articulo": "transitorio",
+          "centralidad": 0.13,
+          "dictamenes_count": 4
+        }
+      ],
+      "timeline_eventos": [
+        {
+          "regimen_id": "regimen-e58945n20",
+          "dictamen_id": "059456N08",
+          "fecha": "2008-12-16",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-e58945n20",
+          "dictamen_id": "059456N08",
+          "fecha": "2008-12-16",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-e58945n20",
+          "dictamen_id": "E338592N23",
+          "fecha": "2023-04-27",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        },
+        {
+          "regimen_id": "regimen-e58945n20",
+          "dictamen_id": "E338592N23",
+          "fecha": "2023-04-27",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        }
+      ],
+      "audit": {
+        "status": "util_incompleto",
+        "issues": [],
+        "warnings": [
+          "pjo_sin_membresia_pjo_dictamenes"
+        ]
+      }
+    },
+    {
+      "regimen_id": "regimen-028330n17",
+      "regimen_nombre": "Instrucciones sobre prescindencia política en período electoral",
+      "regimen_estado": "activo",
+      "estado_razon": "Semilla de valor histórico: criterio evolucionado",
+      "confianza": 0.99,
+      "estabilidad": 1,
+      "regimen_dictamen_rector_id": "E376048N23",
+      "fecha_ultimo_pronunciamiento": "2023-08-02",
+      "regimen_rector_fecha": "2023-08-02",
+      "regimen_rector_titulo": "Competencia SERVEL en fiscalización de probidad electoral",
+      "pjo_id": "pjo-028330n17",
+      "pjo_estado": "resuelto",
+      "pregunta": "¿Puede un funcionario público, en el ejercicio de sus funciones o utilizando recursos estatales, realizar actividades de propaganda, proselitismo o manifestar preferencias políticas durante el período electoral, o bien, intervenir de cualquier forma en el proceso eleccionario para favorecer o perjudicar a una candidatura?",
+      "respuesta_sintetica": "La CGR ha establecido que los funcionarios públicos deben mantener una estricta prescindencia política, absteniéndose de utilizar su cargo, recursos públicos o el horario de trabajo para realizar actividades de proselitismo, garantizando así el principio de probidad administrativa y la igualdad en la contienda electoral.",
+      "pjo_dictamen_rector_id": "E376048N23",
+      "pjo_rector_fecha": "2023-08-02",
+      "pjo_rector_titulo": "Competencia SERVEL en fiscalización de probidad electoral",
+      "member_count": 40,
+      "pjo_member_count": 0,
+      "norma_count": 5,
+      "timeline_count": 4,
+      "regimen_rector_in_members": 1,
+      "pjo_rector_in_members": 1,
+      "latest_member_id": "E376048N23",
+      "latest_member_fecha": "2023-08-02",
+      "latest_member_titulo": "Competencia SERVEL en fiscalización de probidad electoral",
+      "temporal_lag_days": 0,
+      "relation_stats": {
+        "regimen_id": "regimen-028330n17",
+        "relation_count": 55,
+        "destabilizing_count": 0,
+        "reconsiderado": 0,
+        "reconsiderado_parcialmente": 0,
+        "alterado": 0
+      },
+      "normas_top": [
+        {
+          "regimen_id": "regimen-028330n17",
+          "norma_key": "Ley|18575|52",
+          "tipo_norma": "Ley",
+          "numero": "18575",
+          "articulo": "52",
+          "centralidad": 0.13,
+          "dictamenes_count": 5
+        },
+        {
+          "regimen_id": "regimen-028330n17",
+          "norma_key": "Ley|18575|19",
+          "tipo_norma": "Ley",
+          "numero": "18575",
+          "articulo": "19",
+          "centralidad": 0.1,
+          "dictamenes_count": 4
+        },
+        {
+          "regimen_id": "regimen-028330n17",
+          "norma_key": "Ley|18700|157",
+          "tipo_norma": "Ley",
+          "numero": "18700",
+          "articulo": "157",
+          "centralidad": 0.08,
+          "dictamenes_count": 3
+        },
+        {
+          "regimen_id": "regimen-028330n17",
+          "norma_key": "Ley|18700|31",
+          "tipo_norma": "Ley",
+          "numero": "18700",
+          "articulo": "31",
+          "centralidad": 0.08,
+          "dictamenes_count": 3
+        },
+        {
+          "regimen_id": "regimen-028330n17",
+          "norma_key": "Ley|19884|28",
+          "tipo_norma": "Ley",
+          "numero": "19884",
+          "articulo": "28",
+          "centralidad": 0.08,
+          "dictamenes_count": 3
+        }
+      ],
+      "timeline_eventos": [
+        {
+          "regimen_id": "regimen-028330n17",
+          "dictamen_id": "030039N93",
+          "fecha": "1993-11-05",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-028330n17",
+          "dictamen_id": "030039N93",
+          "fecha": "1993-11-05",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-028330n17",
+          "dictamen_id": "E376048N23",
+          "fecha": "2023-08-02",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        },
+        {
+          "regimen_id": "regimen-028330n17",
+          "dictamen_id": "E376048N23",
+          "fecha": "2023-08-02",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        }
+      ],
+      "audit": {
+        "status": "util_incompleto",
+        "issues": [],
+        "warnings": [
+          "pjo_sin_membresia_pjo_dictamenes"
+        ]
+      }
+    },
+    {
+      "regimen_id": "regimen-006785n20",
+      "regimen_nombre": "Límites competenciales de alcaldes en emergencia sanitaria COVID-19",
+      "regimen_estado": "activo",
+      "estado_razon": null,
+      "confianza": 0.97,
+      "estabilidad": 1,
+      "regimen_dictamen_rector_id": "E113751N21",
+      "fecha_ultimo_pronunciamiento": "2021-06-11",
+      "regimen_rector_fecha": "2021-06-11",
+      "regimen_rector_titulo": "Instrucciones CGR para traspaso y probidad en gestión municipal 2021",
+      "pjo_id": "pjo-006785n20",
+      "pjo_estado": "resuelto",
+      "pregunta": "¿Pueden los alcaldes dictar medidas sanitarias restrictivas o de control de movilidad que excedan las facultades otorgadas por la normativa nacional durante una emergencia sanitaria, o bien, deben limitarse estrictamente a las competencias establecidas en la Ley Orgánica Constitucional de Municipalidades y las directrices de la autoridad sanitaria central?",
+      "respuesta_sintetica": "La CGR ha establecido que los alcaldes carecen de facultades para dictar medidas sanitarias que restrinjan derechos fundamentales o invadan competencias exclusivas de la autoridad sanitaria central, debiendo ceñirse estrictamente a las atribuciones de colaboración y gestión local previstas en la ley.",
+      "pjo_dictamen_rector_id": "E113751N21",
+      "pjo_rector_fecha": "2021-06-11",
+      "pjo_rector_titulo": "Instrucciones CGR para traspaso y probidad en gestión municipal 2021",
+      "member_count": 10,
+      "pjo_member_count": 0,
+      "norma_count": 4,
+      "timeline_count": 4,
+      "regimen_rector_in_members": 1,
+      "pjo_rector_in_members": 1,
+      "latest_member_id": "E113751N21",
+      "latest_member_fecha": "2021-06-11",
+      "latest_member_titulo": "Instrucciones CGR para traspaso y probidad en gestión municipal 2021",
+      "temporal_lag_days": 0,
+      "relation_stats": {
+        "regimen_id": "regimen-006785n20",
+        "relation_count": 15,
+        "destabilizing_count": 0,
+        "reconsiderado": 0,
+        "reconsiderado_parcialmente": 0,
+        "alterado": 0
+      },
+      "normas_top": [
+        {
+          "regimen_id": "regimen-006785n20",
+          "norma_key": "Ley|18415|6",
+          "tipo_norma": "Ley",
+          "numero": "18415",
+          "articulo": "6",
+          "centralidad": 0.4,
+          "dictamenes_count": 4
+        },
+        {
+          "regimen_id": "regimen-006785n20",
+          "norma_key": "Ley|18575|2",
+          "tipo_norma": "Ley",
+          "numero": "18575",
+          "articulo": "2",
+          "centralidad": 0.4,
+          "dictamenes_count": 4
+        },
+        {
+          "regimen_id": "regimen-006785n20",
+          "norma_key": "Ley|18695|4",
+          "tipo_norma": "Ley",
+          "numero": "18695",
+          "articulo": "4",
+          "centralidad": 0.4,
+          "dictamenes_count": 4
+        },
+        {
+          "regimen_id": "regimen-006785n20",
+          "norma_key": "Decreto|4|2020|salud|",
+          "tipo_norma": "Decreto",
+          "numero": "4",
+          "articulo": null,
+          "centralidad": 0.3,
+          "dictamenes_count": 3
+        }
+      ],
+      "timeline_eventos": [
+        {
+          "regimen_id": "regimen-006785n20",
+          "dictamen_id": "035220N99",
+          "fecha": "1999-09-24",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-006785n20",
+          "dictamen_id": "035220N99",
+          "fecha": "1999-09-24",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-006785n20",
+          "dictamen_id": "E113751N21",
+          "fecha": "2021-06-11",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        },
+        {
+          "regimen_id": "regimen-006785n20",
+          "dictamen_id": "E113751N21",
+          "fecha": "2021-06-11",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        }
+      ],
+      "audit": {
+        "status": "util_incompleto",
+        "issues": [],
+        "warnings": [
+          "pjo_sin_membresia_pjo_dictamenes"
+        ]
+      }
+    },
+    {
+      "regimen_id": "regimen-e516610n24",
+      "regimen_nombre": "Instructivo sobre Ley Karin en prevención de acoso y violencia laboral",
+      "regimen_estado": "activo",
+      "estado_razon": null,
+      "confianza": 0.93,
+      "estabilidad": 1,
+      "regimen_dictamen_rector_id": "D107N26",
+      "fecha_ultimo_pronunciamiento": "2026-03-11T00:00:00+00:00",
+      "regimen_rector_fecha": "2026-03-11T00:00:00+00:00",
+      "regimen_rector_titulo": "Alcalde no puede suspender preventivamente a director de control por acoso",
+      "pjo_id": "pjo-e516610n24",
+      "pjo_estado": "resuelto",
+      "pregunta": "¿Cómo deben los órganos de la Administración del Estado implementar los procedimientos de prevención, investigación y sanción del acoso sexual, laboral y la violencia en el trabajo conforme a la Ley 21643, y qué obligaciones específicas recaen sobre las jefaturas para garantizar un entorno laboral seguro durante el periodo de transición normativa?",
+      "respuesta_sintetica": "La Administración debe adecuar obligatoriamente sus reglamentos internos y protocolos de prevención a los estándares de la Ley 21643, garantizando procedimientos de investigación imparciales, con perspectiva de género y resguardo de la confidencialidad, bajo el deber de protección que recae sobre el empleador público.",
+      "pjo_dictamen_rector_id": "D107N26",
+      "pjo_rector_fecha": "2026-03-11T00:00:00+00:00",
+      "pjo_rector_titulo": "Alcalde no puede suspender preventivamente a director de control por acoso",
+      "member_count": 11,
+      "pjo_member_count": 0,
+      "norma_count": 4,
+      "timeline_count": 4,
+      "regimen_rector_in_members": 1,
+      "pjo_rector_in_members": 1,
+      "latest_member_id": "D107N26",
+      "latest_member_fecha": "2026-03-11T00:00:00+00:00",
+      "latest_member_titulo": "Alcalde no puede suspender preventivamente a director de control por acoso",
+      "temporal_lag_days": 0,
+      "relation_stats": {
+        "regimen_id": "regimen-e516610n24",
+        "relation_count": 13,
+        "destabilizing_count": 0,
+        "reconsiderado": 0,
+        "reconsiderado_parcialmente": 0,
+        "alterado": 0
+      },
+      "normas_top": [
+        {
+          "regimen_id": "regimen-e516610n24",
+          "norma_key": "Ley|18883|126",
+          "tipo_norma": "Ley",
+          "numero": "18883",
+          "articulo": "126",
+          "centralidad": 0.27,
+          "dictamenes_count": 3
+        },
+        {
+          "regimen_id": "regimen-e516610n24",
+          "norma_key": "Ley|21643|",
+          "tipo_norma": "Ley",
+          "numero": "21643",
+          "articulo": null,
+          "centralidad": 0.27,
+          "dictamenes_count": 3
+        },
+        {
+          "regimen_id": "regimen-e516610n24",
+          "norma_key": "Ley|21643|primero transitorio",
+          "tipo_norma": "Ley",
+          "numero": "21643",
+          "articulo": "primero transitorio",
+          "centralidad": 0.27,
+          "dictamenes_count": 3
+        },
+        {
+          "regimen_id": "regimen-e516610n24",
+          "norma_key": "Ley|21643|segundo transitorio",
+          "tipo_norma": "Ley",
+          "numero": "21643",
+          "articulo": "segundo transitorio",
+          "centralidad": 0.27,
+          "dictamenes_count": 3
+        }
+      ],
+      "timeline_eventos": [
+        {
+          "regimen_id": "regimen-e516610n24",
+          "dictamen_id": "025961N00",
+          "fecha": "2000-07-17",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-e516610n24",
+          "dictamen_id": "025961N00",
+          "fecha": "2000-07-17",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-e516610n24",
+          "dictamen_id": "D107N26",
+          "fecha": "2026-03-11T00:00:00+00:00",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        },
+        {
+          "regimen_id": "regimen-e516610n24",
+          "dictamen_id": "D107N26",
+          "fecha": "2026-03-11T00:00:00+00:00",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        }
+      ],
+      "audit": {
+        "status": "util_incompleto",
+        "issues": [],
+        "warnings": [
+          "pjo_sin_membresia_pjo_dictamenes"
+        ]
+      }
+    },
+    {
+      "regimen_id": "regimen-024531n17",
+      "regimen_nombre": "Adjudicación de licitación pública y criterios de evaluación",
+      "regimen_estado": "desplazado",
+      "estado_razon": "Semilla 024531N17 tiene estado_vigencia=desplazado",
+      "confianza": 0.84,
+      "estabilidad": 0.64,
+      "regimen_dictamen_rector_id": "E343820N23",
+      "fecha_ultimo_pronunciamiento": "2023-05-11",
+      "regimen_rector_fecha": "2023-05-11",
+      "regimen_rector_titulo": "Revocación de licitación por seguridad informática sin fundamento preciso",
+      "pjo_id": "pjo-024531n17",
+      "pjo_estado": "superado",
+      "pregunta": "¿Puede una entidad pública modificar los criterios de evaluación establecidos en las bases de una licitación pública una vez que el proceso ha sido convocado, o debe ceñirse estrictamente a los factores de ponderación y exigencias técnicas originalmente publicados para garantizar la igualdad de los oferentes?",
+      "respuesta_sintetica": "El criterio anterior ha sido superado; actualmente, la Administración tiene prohibido alterar los criterios de evaluación durante el proceso, debiendo aplicar estrictamente las bases originales para asegurar la igualdad de los oferentes y la transparencia, salvo en casos de aclaraciones que no modifiquen sustancialmente las condiciones de participación.",
+      "pjo_dictamen_rector_id": "E343820N23",
+      "pjo_rector_fecha": "2023-05-11",
+      "pjo_rector_titulo": "Revocación de licitación por seguridad informática sin fundamento preciso",
+      "member_count": 11,
+      "pjo_member_count": 0,
+      "norma_count": 2,
+      "timeline_count": 3,
+      "regimen_rector_in_members": 1,
+      "pjo_rector_in_members": 1,
+      "latest_member_id": "E343820N23",
+      "latest_member_fecha": "2023-05-11",
+      "latest_member_titulo": "Revocación de licitación por seguridad informática sin fundamento preciso",
+      "temporal_lag_days": 0,
+      "relation_stats": {
+        "regimen_id": "regimen-024531n17",
+        "relation_count": 18,
+        "destabilizing_count": 2,
+        "reconsiderado": 2,
+        "reconsiderado_parcialmente": 0,
+        "alterado": 0
+      },
+      "normas_top": [
+        {
+          "regimen_id": "regimen-024531n17",
+          "norma_key": "Decreto|250|2004|hacie|22",
+          "tipo_norma": "Decreto",
+          "numero": "250",
+          "articulo": "22",
+          "centralidad": 0.36,
+          "dictamenes_count": 4
+        },
+        {
+          "regimen_id": "regimen-024531n17",
+          "norma_key": "Ley|19886|10",
+          "tipo_norma": "Ley",
+          "numero": "19886",
+          "articulo": "10",
+          "centralidad": 0.36,
+          "dictamenes_count": 4
+        }
+      ],
+      "timeline_eventos": [
+        {
+          "regimen_id": "regimen-024531n17",
+          "dictamen_id": "016142N10",
+          "fecha": "2010-03-29",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-024531n17",
+          "dictamen_id": "024531N17",
+          "fecha": "2017-07-06",
+          "tipo_evento": "tension",
+          "impacto": "medio",
+          "descripcion": "El criterio base fue objeto de reconsideración"
+        },
+        {
+          "regimen_id": "regimen-024531n17",
+          "dictamen_id": "E343820N23",
+          "fecha": "2023-05-11",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        }
+      ],
+      "audit": {
+        "status": "sospechoso",
+        "issues": [],
+        "warnings": [
+          "pjo_sin_membresia_pjo_dictamenes",
+          "relaciones_desestabilizantes_2"
+        ]
+      }
+    },
+    {
+      "regimen_id": "regimen-048164n16",
+      "regimen_nombre": "Humedales como áreas bajo protección oficial para el SEIA",
+      "regimen_estado": "activo",
+      "estado_razon": "Semilla de valor histórico: criterio evolucionado",
+      "confianza": 0.84,
+      "estabilidad": 1,
+      "regimen_dictamen_rector_id": "E318970N23",
+      "fecha_ultimo_pronunciamiento": "2023-03-07",
+      "regimen_rector_fecha": "2023-03-07",
+      "regimen_rector_titulo": "Consulta indígena en permisos de edificación en ADI Atacama La Grande",
+      "pjo_id": "pjo-048164n16",
+      "pjo_estado": "resuelto",
+      "pregunta": "¿Corresponde someter obligatoriamente al Sistema de Evaluación de Impacto Ambiental (SEIA) a los proyectos o actividades que se pretendan ejecutar en humedales, aun cuando estos no hayan sido declarados formalmente como áreas bajo protección oficial por un acto administrativo específico?",
+      "respuesta_sintetica": "La CGR ha establecido que los humedales, por su valor ecosistémico y protección legal, deben ser considerados áreas bajo protección oficial para efectos del SEIA, obligando a ingresar al sistema a todo proyecto que se pretenda ejecutar en ellos, independientemente de una declaratoria formal previa.",
+      "pjo_dictamen_rector_id": "E318970N23",
+      "pjo_rector_fecha": "2023-03-07",
+      "pjo_rector_titulo": "Consulta indígena en permisos de edificación en ADI Atacama La Grande",
+      "member_count": 15,
+      "pjo_member_count": 0,
+      "norma_count": 2,
+      "timeline_count": 4,
+      "regimen_rector_in_members": 1,
+      "pjo_rector_in_members": 1,
+      "latest_member_id": "E318970N23",
+      "latest_member_fecha": "2023-03-07",
+      "latest_member_titulo": "Consulta indígena en permisos de edificación en ADI Atacama La Grande",
+      "temporal_lag_days": 0,
+      "relation_stats": {
+        "regimen_id": "regimen-048164n16",
+        "relation_count": 34,
+        "destabilizing_count": 0,
+        "reconsiderado": 0,
+        "reconsiderado_parcialmente": 0,
+        "alterado": 0
+      },
+      "normas_top": [
+        {
+          "regimen_id": "regimen-048164n16",
+          "norma_key": "Ley|19300|10",
+          "tipo_norma": "Ley",
+          "numero": "19300",
+          "articulo": "10",
+          "centralidad": 0.4,
+          "dictamenes_count": 6
+        },
+        {
+          "regimen_id": "regimen-048164n16",
+          "norma_key": "Ley|19300|8",
+          "tipo_norma": "Ley",
+          "numero": "19300",
+          "articulo": "8",
+          "centralidad": 0.27,
+          "dictamenes_count": 4
+        }
+      ],
+      "timeline_eventos": [
+        {
+          "regimen_id": "regimen-048164n16",
+          "dictamen_id": "026138N12",
+          "fecha": "2012-05-07",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-048164n16",
+          "dictamen_id": "026138N12",
+          "fecha": "2012-05-07",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-048164n16",
+          "dictamen_id": "E318970N23",
+          "fecha": "2023-03-07",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        },
+        {
+          "regimen_id": "regimen-048164n16",
+          "dictamen_id": "E318970N23",
+          "fecha": "2023-03-07",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        }
+      ],
+      "audit": {
+        "status": "util_incompleto",
+        "issues": [],
+        "warnings": [
+          "pjo_sin_membresia_pjo_dictamenes"
+        ]
+      }
+    },
+    {
+      "regimen_id": "regimen-086450n16",
+      "regimen_nombre": "Instrucciones sobre reajuste de remuneraciones y beneficios 2016",
+      "regimen_estado": "activo",
+      "estado_razon": "Semilla de valor histórico: criterio evolucionado",
+      "confianza": 0.84,
+      "estabilidad": 1,
+      "regimen_dictamen_rector_id": "001389N18",
+      "fecha_ultimo_pronunciamiento": "2018-01-17",
+      "regimen_rector_fecha": "2018-01-17",
+      "regimen_rector_titulo": "Reajuste remuneracional ley 20.975 y exclusión por tope",
+      "pjo_id": "pjo-086450n16",
+      "pjo_estado": "resuelto",
+      "pregunta": "¿Corresponde aplicar los reajustes de remuneraciones y los beneficios económicos establecidos en las leyes 20.975 y 20.971 a los funcionarios públicos, incluyendo aquellos sujetos a regímenes especiales, y cómo debe efectuarse el cálculo de dichos incrementos sobre las remuneraciones imponibles y no imponibles según la normativa vigente?",
+      "respuesta_sintetica": "La CGR ha determinado que los reajustes y beneficios deben aplicarse conforme a las tablas y porcentajes fijados por las leyes respectivas, respetando la naturaleza imponible o no imponible de cada estipendio y asegurando que el incremento se calcule sobre la base de las remuneraciones que la ley expresamente señala, sin que proceda su extensión a conceptos no contemplados en el texto legal.",
+      "pjo_dictamen_rector_id": "001389N18",
+      "pjo_rector_fecha": "2018-01-17",
+      "pjo_rector_titulo": "Reajuste remuneracional ley 20.975 y exclusión por tope",
+      "member_count": 31,
+      "pjo_member_count": 0,
+      "norma_count": 2,
+      "timeline_count": 4,
+      "regimen_rector_in_members": 1,
+      "pjo_rector_in_members": 1,
+      "latest_member_id": "001389N18",
+      "latest_member_fecha": "2018-01-17",
+      "latest_member_titulo": "Reajuste remuneracional ley 20.975 y exclusión por tope",
+      "temporal_lag_days": 0,
+      "relation_stats": {
+        "regimen_id": "regimen-086450n16",
+        "relation_count": 40,
+        "destabilizing_count": 0,
+        "reconsiderado": 0,
+        "reconsiderado_parcialmente": 0,
+        "alterado": 0
+      },
+      "normas_top": [
+        {
+          "regimen_id": "regimen-086450n16",
+          "norma_key": "Ley|20975|1",
+          "tipo_norma": "Ley",
+          "numero": "20975",
+          "articulo": "1",
+          "centralidad": 0.13,
+          "dictamenes_count": 4
+        },
+        {
+          "regimen_id": "regimen-086450n16",
+          "norma_key": "Ley|20971|25",
+          "tipo_norma": "Ley",
+          "numero": "20971",
+          "articulo": "25",
+          "centralidad": 0.1,
+          "dictamenes_count": 3
+        }
+      ],
+      "timeline_eventos": [
+        {
+          "regimen_id": "regimen-086450n16",
+          "dictamen_id": "016756N07",
+          "fecha": "2007-04-16",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-086450n16",
+          "dictamen_id": "016756N07",
+          "fecha": "2007-04-16",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-086450n16",
+          "dictamen_id": "001389N18",
+          "fecha": "2018-01-17",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        },
+        {
+          "regimen_id": "regimen-086450n16",
+          "dictamen_id": "001389N18",
+          "fecha": "2018-01-17",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        }
+      ],
+      "audit": {
+        "status": "util_incompleto",
+        "issues": [],
+        "warnings": [
+          "pjo_sin_membresia_pjo_dictamenes"
+        ]
+      }
+    },
+    {
+      "regimen_id": "regimen-012605n16",
+      "regimen_nombre": "Probidad administrativa en fundaciones creadas por entes públicos",
+      "regimen_estado": "activo",
+      "estado_razon": "Semilla de valor histórico: criterio evolucionado",
+      "confianza": 0.79,
+      "estabilidad": 1,
+      "regimen_dictamen_rector_id": "D60N26",
+      "fecha_ultimo_pronunciamiento": "2026-02-17T00:00:00+00:00",
+      "regimen_rector_fecha": "2026-02-17T00:00:00+00:00",
+      "regimen_rector_titulo": "Incompatibilidad retiro voluntario en sociedades vinculadas a universidades estatales",
+      "pjo_id": "pjo-012605n16",
+      "pjo_estado": "resuelto",
+      "pregunta": "¿Puede una municipalidad u otro ente público crear o participar en fundaciones privadas para eludir las normas de control administrativo, presupuestario y de probidad que rigen a la Administración del Estado, o bien, deben dichas entidades sujetarse estrictamente a los principios de transparencia y rendición de cuentas aplicables a los recursos públicos?",
+      "respuesta_sintetica": "La CGR ha establecido que la creación o participación en fundaciones no exime a los entes públicos de observar los principios de probidad, transparencia y control de los recursos públicos, debiendo garantizarse que tales entidades no sean utilizadas para eludir las normas de derecho público ni los mecanismos de fiscalización propios de la Administración del Estado.",
+      "pjo_dictamen_rector_id": "D60N26",
+      "pjo_rector_fecha": "2026-02-17T00:00:00+00:00",
+      "pjo_rector_titulo": "Incompatibilidad retiro voluntario en sociedades vinculadas a universidades estatales",
+      "member_count": 12,
+      "pjo_member_count": 0,
+      "norma_count": 1,
+      "timeline_count": 4,
+      "regimen_rector_in_members": 1,
+      "pjo_rector_in_members": 1,
+      "latest_member_id": "D60N26",
+      "latest_member_fecha": "2026-02-17T00:00:00+00:00",
+      "latest_member_titulo": "Incompatibilidad retiro voluntario en sociedades vinculadas a universidades estatales",
+      "temporal_lag_days": 0,
+      "relation_stats": {
+        "regimen_id": "regimen-012605n16",
+        "relation_count": 24,
+        "destabilizing_count": 0,
+        "reconsiderado": 0,
+        "reconsiderado_parcialmente": 0,
+        "alterado": 0
+      },
+      "normas_top": [
+        {
+          "regimen_id": "regimen-012605n16",
+          "norma_key": "Ley|18695|129",
+          "tipo_norma": "Ley",
+          "numero": "18695",
+          "articulo": "129",
+          "centralidad": 0.25,
+          "dictamenes_count": 3
+        }
+      ],
+      "timeline_eventos": [
+        {
+          "regimen_id": "regimen-012605n16",
+          "dictamen_id": "034889N96",
+          "fecha": "1996-11-04",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-012605n16",
+          "dictamen_id": "034889N96",
+          "fecha": "1996-11-04",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-012605n16",
+          "dictamen_id": "D60N26",
+          "fecha": "2026-02-17T00:00:00+00:00",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        },
+        {
+          "regimen_id": "regimen-012605n16",
+          "dictamen_id": "D60N26",
+          "fecha": "2026-02-17T00:00:00+00:00",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        }
+      ],
+      "audit": {
+        "status": "util_incompleto",
+        "issues": [],
+        "warnings": [
+          "pjo_sin_membresia_pjo_dictamenes"
+        ]
+      }
+    },
+    {
+      "regimen_id": "regimen-015919n17",
+      "regimen_nombre": "Improcedencia de creación de cuerpos policiales por Municipalidades",
+      "regimen_estado": "activo",
+      "estado_razon": "Semilla de valor histórico: criterio evolucionado",
+      "confianza": 0.79,
+      "estabilidad": 1,
+      "regimen_dictamen_rector_id": "E30601N25",
+      "fecha_ultimo_pronunciamiento": "2025-02-24",
+      "regimen_rector_fecha": "2025-02-24",
+      "regimen_rector_titulo": "Legalidad uso elementos seguridad inspectores municipales",
+      "pjo_id": "pjo-015919n17",
+      "pjo_estado": "resuelto",
+      "pregunta": "¿Tienen las Municipalidades la facultad legal para crear, organizar o financiar cuerpos policiales, guardias armadas o unidades de seguridad con atribuciones de orden público y seguridad ciudadana, o bien, dicha competencia es privativa de las fuerzas de orden y seguridad pública dependientes del Ministerio del Interior y Seguridad Pública?",
+      "respuesta_sintetica": "Las Municipalidades carecen de competencia para crear cuerpos policiales, ya que la seguridad pública y el mantenimiento del orden son funciones privativas de las fuerzas de orden y seguridad pública, limitándose las atribuciones municipales exclusivamente a la colaboración y apoyo en la prevención y vigilancia comunal.",
+      "pjo_dictamen_rector_id": "E30601N25",
+      "pjo_rector_fecha": "2025-02-24",
+      "pjo_rector_titulo": "Legalidad uso elementos seguridad inspectores municipales",
+      "member_count": 10,
+      "pjo_member_count": 0,
+      "norma_count": 1,
+      "timeline_count": 4,
+      "regimen_rector_in_members": 1,
+      "pjo_rector_in_members": 1,
+      "latest_member_id": "E30601N25",
+      "latest_member_fecha": "2025-02-24",
+      "latest_member_titulo": "Legalidad uso elementos seguridad inspectores municipales",
+      "temporal_lag_days": 0,
+      "relation_stats": {
+        "regimen_id": "regimen-015919n17",
+        "relation_count": 21,
+        "destabilizing_count": 0,
+        "reconsiderado": 0,
+        "reconsiderado_parcialmente": 0,
+        "alterado": 0
+      },
+      "normas_top": [
+        {
+          "regimen_id": "regimen-015919n17",
+          "norma_key": "Ley|18695|4",
+          "tipo_norma": "Ley",
+          "numero": "18695",
+          "articulo": "4",
+          "centralidad": 0.4,
+          "dictamenes_count": 4
+        }
+      ],
+      "timeline_eventos": [
+        {
+          "regimen_id": "regimen-015919n17",
+          "dictamen_id": "012287N02",
+          "fecha": "2002-04-03",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-015919n17",
+          "dictamen_id": "012287N02",
+          "fecha": "2002-04-03",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-015919n17",
+          "dictamen_id": "E30601N25",
+          "fecha": "2025-02-24",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        },
+        {
+          "regimen_id": "regimen-015919n17",
+          "dictamen_id": "E30601N25",
+          "fecha": "2025-02-24",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        }
+      ],
+      "audit": {
+        "status": "util_incompleto",
+        "issues": [],
+        "warnings": [
+          "pjo_sin_membresia_pjo_dictamenes"
+        ]
+      }
+    },
+    {
+      "regimen_id": "regimen-018671n19",
+      "regimen_nombre": "Bloqueo en redes sociales por PDI sin normativa vulnera derechos",
+      "regimen_estado": "activo",
+      "estado_razon": "Semilla de valor histórico: criterio evolucionado",
+      "confianza": 0.79,
+      "estabilidad": 1,
+      "regimen_dictamen_rector_id": "E23732N25",
+      "fecha_ultimo_pronunciamiento": "2025-02-12",
+      "regimen_rector_fecha": "2025-02-12",
+      "regimen_rector_titulo": "Uso de redes sociales institucionales y vínculos con cuentas personales",
+      "pjo_id": "pjo-018671n19",
+      "pjo_estado": "resuelto",
+      "pregunta": "¿Puede la Policía de Investigaciones de Chile bloquear a ciudadanos en sus cuentas oficiales de redes sociales, impidiendo el acceso a la información pública o la interacción con la institución, en ausencia de una normativa legal expresa que faculte dicha restricción?",
+      "respuesta_sintetica": "La CGR ha determinado que el bloqueo de usuarios en redes sociales institucionales por parte de la PDI es improcedente, ya que vulnera el principio de publicidad y el derecho de acceso a la información, al no existir una habilitación legal que permita restringir el ejercicio de estos derechos en plataformas digitales de comunicación pública.",
+      "pjo_dictamen_rector_id": "E23732N25",
+      "pjo_rector_fecha": "2025-02-12",
+      "pjo_rector_titulo": "Uso de redes sociales institucionales y vínculos con cuentas personales",
+      "member_count": 13,
+      "pjo_member_count": 0,
+      "norma_count": 1,
+      "timeline_count": 4,
+      "regimen_rector_in_members": 1,
+      "pjo_rector_in_members": 1,
+      "latest_member_id": "E23732N25",
+      "latest_member_fecha": "2025-02-12",
+      "latest_member_titulo": "Uso de redes sociales institucionales y vínculos con cuentas personales",
+      "temporal_lag_days": 0,
+      "relation_stats": {
+        "regimen_id": "regimen-018671n19",
+        "relation_count": 32,
+        "destabilizing_count": 0,
+        "reconsiderado": 0,
+        "reconsiderado_parcialmente": 0,
+        "alterado": 0
+      },
+      "normas_top": [
+        {
+          "regimen_id": "regimen-018671n19",
+          "norma_key": "Ley|18575|3",
+          "tipo_norma": "Ley",
+          "numero": "18575",
+          "articulo": "3",
+          "centralidad": 0.23,
+          "dictamenes_count": 3
+        }
+      ],
+      "timeline_eventos": [
+        {
+          "regimen_id": "regimen-018671n19",
+          "dictamen_id": "071422N13",
+          "fecha": "2013-11-05",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-018671n19",
+          "dictamen_id": "071422N13",
+          "fecha": "2013-11-05",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-018671n19",
+          "dictamen_id": "E23732N25",
+          "fecha": "2025-02-12",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        },
+        {
+          "regimen_id": "regimen-018671n19",
+          "dictamen_id": "E23732N25",
+          "fecha": "2025-02-12",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        }
+      ],
+      "audit": {
+        "status": "util_incompleto",
+        "issues": [],
+        "warnings": [
+          "pjo_sin_membresia_pjo_dictamenes"
+        ]
+      }
+    },
+    {
+      "regimen_id": "regimen-062697n15",
+      "regimen_nombre": "Titularidad docente y servicios a honorarios bajo Ley 20.248",
+      "regimen_estado": "activo",
+      "estado_razon": "Semilla de valor histórico: criterio evolucionado",
+      "confianza": 0.79,
+      "estabilidad": 1,
+      "regimen_dictamen_rector_id": "030619N16",
+      "fecha_ultimo_pronunciamiento": "2016-04-22",
+      "regimen_rector_fecha": "2016-04-22",
+      "regimen_rector_titulo": "Desestimación de solicitud de titularidad docente por incumplimiento de requisitos",
+      "pjo_id": "pjo-062697n15",
+      "pjo_estado": "resuelto",
+      "pregunta": "¿Es posible que un docente que ostenta la titularidad en una dotación municipal, en virtud de la Ley N° 20.248, desempeñe simultáneamente funciones bajo la modalidad de contrato a honorarios en el mismo sostenedor para realizar labores propias de la función docente?",
+      "respuesta_sintetica": "La Contraloría ha determinado que resulta improcedente que un docente titular desempeñe funciones docentes bajo la modalidad de honorarios para el mismo sostenedor, toda vez que dichas labores deben ser integradas a su jornada ordinaria de trabajo y remuneradas conforme a la escala docente, prohibiéndose la duplicidad de vínculos contractuales para una misma naturaleza de funciones.",
+      "pjo_dictamen_rector_id": "030619N16",
+      "pjo_rector_fecha": "2016-04-22",
+      "pjo_rector_titulo": "Desestimación de solicitud de titularidad docente por incumplimiento de requisitos",
+      "member_count": 9,
+      "pjo_member_count": 0,
+      "norma_count": 1,
+      "timeline_count": 4,
+      "regimen_rector_in_members": 1,
+      "pjo_rector_in_members": 1,
+      "latest_member_id": "030619N16",
+      "latest_member_fecha": "2016-04-22",
+      "latest_member_titulo": "Desestimación de solicitud de titularidad docente por incumplimiento de requisitos",
+      "temporal_lag_days": 0,
+      "relation_stats": {
+        "regimen_id": "regimen-062697n15",
+        "relation_count": 15,
+        "destabilizing_count": 1,
+        "reconsiderado": 0,
+        "reconsiderado_parcialmente": 1,
+        "alterado": 0
+      },
+      "normas_top": [
+        {
+          "regimen_id": "regimen-062697n15",
+          "norma_key": "Ley|20804|",
+          "tipo_norma": "Ley",
+          "numero": "20804",
+          "articulo": null,
+          "centralidad": 0.56,
+          "dictamenes_count": 5
+        }
+      ],
+      "timeline_eventos": [
+        {
+          "regimen_id": "regimen-062697n15",
+          "dictamen_id": "057520N09",
+          "fecha": "2009-10-19",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-062697n15",
+          "dictamen_id": "057520N09",
+          "fecha": "2009-10-19",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-062697n15",
+          "dictamen_id": "030619N16",
+          "fecha": "2016-04-22",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        },
+        {
+          "regimen_id": "regimen-062697n15",
+          "dictamen_id": "030619N16",
+          "fecha": "2016-04-22",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        }
+      ],
+      "audit": {
+        "status": "sospechoso",
+        "issues": [],
+        "warnings": [
+          "pjo_sin_membresia_pjo_dictamenes",
+          "relaciones_desestabilizantes_1"
+        ]
+      }
+    },
+    {
+      "regimen_id": "regimen-012084n17",
+      "regimen_nombre": "Ilegalidad de normas urbanísticas basadas en vías en el PRC",
+      "regimen_estado": "activo",
+      "estado_razon": "Semilla de valor histórico: criterio evolucionado",
+      "confianza": 0.74,
+      "estabilidad": 1,
+      "regimen_dictamen_rector_id": "004373N19",
+      "fecha_ultimo_pronunciamiento": "2019-02-12",
+      "regimen_rector_fecha": "2019-02-12",
+      "regimen_rector_titulo": "Incompatibilidad de normas locales con beneficios de fusión predial",
+      "pjo_id": "pjo-012084n17",
+      "pjo_estado": "resuelto",
+      "pregunta": "¿Puede una Municipalidad condicionar la aplicación de normas urbanísticas de un Plan Regulador Comunal a la ejecución de vías o aperturas de calles que no han sido efectivamente materializadas o expropiadas, afectando así el derecho de edificación de los propietarios de los terrenos involucrados?",
+      "respuesta_sintetica": "La CGR ha determinado que es ilegal condicionar el ejercicio de derechos urbanísticos a la ejecución de vías proyectadas que no han sido concretadas, pues las normas del Plan Regulador Comunal deben ser aplicables de forma inmediata y no pueden supeditarse a obras futuras inciertas.",
+      "pjo_dictamen_rector_id": "004373N19",
+      "pjo_rector_fecha": "2019-02-12",
+      "pjo_rector_titulo": "Incompatibilidad de normas locales con beneficios de fusión predial",
+      "member_count": 16,
+      "pjo_member_count": 0,
+      "norma_count": 0,
+      "timeline_count": 4,
+      "regimen_rector_in_members": 1,
+      "pjo_rector_in_members": 1,
+      "latest_member_id": "004373N19",
+      "latest_member_fecha": "2019-02-12",
+      "latest_member_titulo": "Incompatibilidad de normas locales con beneficios de fusión predial",
+      "temporal_lag_days": 0,
+      "relation_stats": {
+        "regimen_id": "regimen-012084n17",
+        "relation_count": 24,
+        "destabilizing_count": 1,
+        "reconsiderado": 1,
+        "reconsiderado_parcialmente": 0,
+        "alterado": 0
+      },
+      "normas_top": [],
+      "timeline_eventos": [
+        {
+          "regimen_id": "regimen-012084n17",
+          "dictamen_id": "034617N13",
+          "fecha": "2013-06-04",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-012084n17",
+          "dictamen_id": "034617N13",
+          "fecha": "2013-06-04",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-012084n17",
+          "dictamen_id": "004373N19",
+          "fecha": "2019-02-12",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        },
+        {
+          "regimen_id": "regimen-012084n17",
+          "dictamen_id": "004373N19",
+          "fecha": "2019-02-12",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        }
+      ],
+      "audit": {
+        "status": "sospechoso",
+        "issues": [],
+        "warnings": [
+          "pjo_sin_membresia_pjo_dictamenes",
+          "sin_normas_nucleares",
+          "relaciones_desestabilizantes_1"
+        ]
+      }
+    },
+    {
+      "regimen_id": "regimen-015806n16",
+      "regimen_nombre": "Revisión de legalidad en otorgamiento de pensiones de gracia a ex trabajadores",
+      "regimen_estado": "activo",
+      "estado_razon": "Semilla de valor histórico: criterio evolucionado",
+      "confianza": 0.74,
+      "estabilidad": 1,
+      "regimen_dictamen_rector_id": "E372372N23",
+      "fecha_ultimo_pronunciamiento": "2023-07-25",
+      "regimen_rector_fecha": "2023-07-25",
+      "regimen_rector_titulo": "Ratificación de cumplimiento en pensiones de gracia a extrabajadores ENACAR",
+      "pjo_id": "pjo-015806n16",
+      "pjo_estado": "resuelto",
+      "pregunta": "¿Puede la Administración del Estado otorgar pensiones de gracia a ex trabajadores de empresas del sector público o privado basándose exclusivamente en la condición de ex empleado, o debe acreditarse el cumplimiento de los requisitos legales específicos de carencia y mérito establecidos en la normativa vigente para este beneficio?",
+      "respuesta_sintetica": "La CGR ha establecido que el otorgamiento de pensiones de gracia es una facultad discrecional del Presidente de la República que requiere obligatoriamente la acreditación de una situación de precariedad económica o méritos relevantes, no bastando la sola condición de ex trabajador para su procedencia.",
+      "pjo_dictamen_rector_id": "E372372N23",
+      "pjo_rector_fecha": "2023-07-25",
+      "pjo_rector_titulo": "Ratificación de cumplimiento en pensiones de gracia a extrabajadores ENACAR",
+      "member_count": 9,
+      "pjo_member_count": 0,
+      "norma_count": 0,
+      "timeline_count": 4,
+      "regimen_rector_in_members": 1,
+      "pjo_rector_in_members": 1,
+      "latest_member_id": "E372372N23",
+      "latest_member_fecha": "2023-07-25",
+      "latest_member_titulo": "Ratificación de cumplimiento en pensiones de gracia a extrabajadores ENACAR",
+      "temporal_lag_days": 0,
+      "relation_stats": {
+        "regimen_id": "regimen-015806n16",
+        "relation_count": 17,
+        "destabilizing_count": 0,
+        "reconsiderado": 0,
+        "reconsiderado_parcialmente": 0,
+        "alterado": 0
+      },
+      "normas_top": [],
+      "timeline_eventos": [
+        {
+          "regimen_id": "regimen-015806n16",
+          "dictamen_id": "003440N03",
+          "fecha": "2003-01-28",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-015806n16",
+          "dictamen_id": "003440N03",
+          "fecha": "2003-01-28",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-015806n16",
+          "dictamen_id": "E372372N23",
+          "fecha": "2023-07-25",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        },
+        {
+          "regimen_id": "regimen-015806n16",
+          "dictamen_id": "E372372N23",
+          "fecha": "2023-07-25",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        }
+      ],
+      "audit": {
+        "status": "util_incompleto",
+        "issues": [],
+        "warnings": [
+          "pjo_sin_membresia_pjo_dictamenes",
+          "sin_normas_nucleares"
+        ]
+      }
+    },
+    {
+      "regimen_id": "regimen-017500n16",
+      "regimen_nombre": "Reapertura de sumario y pago de remuneraciones en sector municipal",
+      "regimen_estado": "zona_litigiosa",
+      "estado_razon": "50% de las acciones son reconsideraciones",
+      "confianza": 0.74,
+      "estabilidad": 0,
+      "regimen_dictamen_rector_id": "024731N19",
+      "fecha_ultimo_pronunciamiento": "2019-09-12",
+      "regimen_rector_fecha": "2019-09-12",
+      "regimen_rector_titulo": "Prescripción infracciones ley 19.913: plazo de 5 años por analogía civil",
+      "pjo_id": "pjo-017500n16",
+      "pjo_estado": "resuelto",
+      "pregunta": "¿Corresponde que un municipio ordene la reapertura de un sumario administrativo para el pago de remuneraciones devengadas durante el periodo de separación del servicio, cuando el acto administrativo que dispuso la destitución fue invalidado o dejado sin efecto por la propia autoridad edilicia o por una resolución judicial?",
+      "respuesta_sintetica": "La CGR ha determinado que, al invalidarse o dejarse sin efecto la destitución, el funcionario tiene derecho a la restitución de sus remuneraciones, siendo procedente la reapertura del sumario solo si existen vicios de procedimiento que subsanar, pero no como condición previa para el pago de los estipendios adeudados.",
+      "pjo_dictamen_rector_id": "024731N19",
+      "pjo_rector_fecha": "2019-09-12",
+      "pjo_rector_titulo": "Prescripción infracciones ley 19.913: plazo de 5 años por analogía civil",
+      "member_count": 41,
+      "pjo_member_count": 0,
+      "norma_count": 0,
+      "timeline_count": 6,
+      "regimen_rector_in_members": 1,
+      "pjo_rector_in_members": 1,
+      "latest_member_id": "024731N19",
+      "latest_member_fecha": "2019-09-12",
+      "latest_member_titulo": "Prescripción infracciones ley 19.913: plazo de 5 años por analogía civil",
+      "temporal_lag_days": 0,
+      "relation_stats": {
+        "regimen_id": "regimen-017500n16",
+        "relation_count": 71,
+        "destabilizing_count": 20,
+        "reconsiderado": 20,
+        "reconsiderado_parcialmente": 0,
+        "alterado": 0
+      },
+      "normas_top": [],
+      "timeline_eventos": [
+        {
+          "regimen_id": "regimen-017500n16",
+          "dictamen_id": "051817N04",
+          "fecha": "2004-10-15",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-017500n16",
+          "dictamen_id": "051817N04",
+          "fecha": "2004-10-15",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-017500n16",
+          "dictamen_id": "017500N16",
+          "fecha": "2016-03-04",
+          "tipo_evento": "tension",
+          "impacto": "medio",
+          "descripcion": "El criterio base fue objeto de reconsideración"
+        },
+        {
+          "regimen_id": "regimen-017500n16",
+          "dictamen_id": "017500N16",
+          "fecha": "2016-03-04",
+          "tipo_evento": "tension",
+          "impacto": "medio",
+          "descripcion": "El criterio base fue objeto de reconsideración"
+        },
+        {
+          "regimen_id": "regimen-017500n16",
+          "dictamen_id": "024731N19",
+          "fecha": "2019-09-12",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        },
+        {
+          "regimen_id": "regimen-017500n16",
+          "dictamen_id": "024731N19",
+          "fecha": "2019-09-12",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        }
+      ],
+      "audit": {
+        "status": "sospechoso",
+        "issues": [],
+        "warnings": [
+          "pjo_sin_membresia_pjo_dictamenes",
+          "sin_normas_nucleares",
+          "relaciones_desestabilizantes_20",
+          "estado_tensionado_con_pjo_resuelto"
+        ]
+      }
+    },
+    {
+      "regimen_id": "regimen-011000n17",
+      "regimen_nombre": "Instrucciones sobre Participación Ciudadana en Planes Reguladores",
+      "regimen_estado": "activo",
+      "estado_razon": null,
+      "confianza": 0.73,
+      "estabilidad": 1,
+      "regimen_dictamen_rector_id": "010084N20",
+      "fecha_ultimo_pronunciamiento": "2020-06-17",
+      "regimen_rector_fecha": "2020-06-17",
+      "regimen_rector_titulo": "Participación digital en IPT durante emergencia sanitaria",
+      "pjo_id": "pjo-011000n17",
+      "pjo_estado": "resuelto",
+      "pregunta": "¿Es obligatorio para las municipalidades garantizar instancias de participación ciudadana adicionales a las audiencias públicas formales durante el proceso de elaboración o modificación de los Planes Reguladores Comunales, y cómo debe la Administración asegurar la transparencia y publicidad de las observaciones recibidas por parte de la comunidad?",
+      "respuesta_sintetica": "La CGR ha establecido que, además de las audiencias públicas obligatorias, la Administración debe asegurar mecanismos efectivos de participación que garanticen la transparencia, el acceso a la información y la debida respuesta a las observaciones ciudadanas, integrando estos aportes en el expediente administrativo del instrumento de planificación territorial.",
+      "pjo_dictamen_rector_id": "010084N20",
+      "pjo_rector_fecha": "2020-06-17",
+      "pjo_rector_titulo": "Participación digital en IPT durante emergencia sanitaria",
+      "member_count": 3,
+      "pjo_member_count": 0,
+      "norma_count": 0,
+      "timeline_count": 4,
+      "regimen_rector_in_members": 1,
+      "pjo_rector_in_members": 1,
+      "latest_member_id": "010084N20",
+      "latest_member_fecha": "2020-06-17",
+      "latest_member_titulo": "Participación digital en IPT durante emergencia sanitaria",
+      "temporal_lag_days": 0,
+      "relation_stats": {
+        "regimen_id": "regimen-011000n17",
+        "relation_count": 2,
+        "destabilizing_count": 0,
+        "reconsiderado": 0,
+        "reconsiderado_parcialmente": 0,
+        "alterado": 0
+      },
+      "normas_top": [],
+      "timeline_eventos": [
+        {
+          "regimen_id": "regimen-011000n17",
+          "dictamen_id": "011000N17",
+          "fecha": "2017-03-31",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-011000n17",
+          "dictamen_id": "011000N17",
+          "fecha": "2017-03-31",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-011000n17",
+          "dictamen_id": "010084N20",
+          "fecha": "2020-06-17",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        },
+        {
+          "regimen_id": "regimen-011000n17",
+          "dictamen_id": "010084N20",
+          "fecha": "2020-06-17",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        }
+      ],
+      "audit": {
+        "status": "util_incompleto",
+        "issues": [],
+        "warnings": [
+          "pjo_sin_membresia_pjo_dictamenes",
+          "sin_normas_nucleares"
+        ]
+      }
+    },
+    {
+      "regimen_id": "regimen-014923n17",
+      "regimen_nombre": "Fiscalización de fondos públicos en instituciones de educación superior",
+      "regimen_estado": "activo",
+      "estado_razon": null,
+      "confianza": 0.73,
+      "estabilidad": 1,
+      "regimen_dictamen_rector_id": "005452N20",
+      "fecha_ultimo_pronunciamiento": "2020-03-03",
+      "regimen_rector_fecha": "2020-03-03",
+      "regimen_rector_titulo": "Reconsideración parcial gratuidad y aranceles excedidos en educación superior",
+      "pjo_id": "pjo-014923n17",
+      "pjo_estado": "resuelto",
+      "pregunta": "¿Están las instituciones de educación superior que reciben aportes estatales obligadas a rendir cuenta ante la Contraloría General de la República por el uso de dichos fondos, y posee el ente contralor facultades fiscalizadoras sobre el destino y administración de tales recursos públicos?",
+      "respuesta_sintetica": "La Contraloría General de la República posee facultades plenas para fiscalizar el uso de los fondos públicos transferidos a instituciones de educación superior, las cuales tienen la obligación legal de rendir cuenta detallada sobre la inversión y destino de dichos recursos ante el organismo contralor.",
+      "pjo_dictamen_rector_id": "005452N20",
+      "pjo_rector_fecha": "2020-03-03",
+      "pjo_rector_titulo": "Reconsideración parcial gratuidad y aranceles excedidos en educación superior",
+      "member_count": 8,
+      "pjo_member_count": 0,
+      "norma_count": 0,
+      "timeline_count": 4,
+      "regimen_rector_in_members": 1,
+      "pjo_rector_in_members": 1,
+      "latest_member_id": "005452N20",
+      "latest_member_fecha": "2020-03-03",
+      "latest_member_titulo": "Reconsideración parcial gratuidad y aranceles excedidos en educación superior",
+      "temporal_lag_days": 0,
+      "relation_stats": {
+        "regimen_id": "regimen-014923n17",
+        "relation_count": 7,
+        "destabilizing_count": 0,
+        "reconsiderado": 0,
+        "reconsiderado_parcialmente": 0,
+        "alterado": 0
+      },
+      "normas_top": [],
+      "timeline_eventos": [
+        {
+          "regimen_id": "regimen-014923n17",
+          "dictamen_id": "021324N90",
+          "fecha": "1990-07-27",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-014923n17",
+          "dictamen_id": "021324N90",
+          "fecha": "1990-07-27",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-014923n17",
+          "dictamen_id": "005452N20",
+          "fecha": "2020-03-03",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        },
+        {
+          "regimen_id": "regimen-014923n17",
+          "dictamen_id": "005452N20",
+          "fecha": "2020-03-03",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        }
+      ],
+      "audit": {
+        "status": "util_incompleto",
+        "issues": [],
+        "warnings": [
+          "pjo_sin_membresia_pjo_dictamenes",
+          "sin_normas_nucleares"
+        ]
+      }
+    },
+    {
+      "regimen_id": "regimen-092238n16",
+      "regimen_nombre": "Inhabilidad por percepción de bono de retiro y nulidad de nombramiento",
+      "regimen_estado": "activo",
+      "estado_razon": null,
+      "confianza": 0.73,
+      "estabilidad": 1,
+      "regimen_dictamen_rector_id": "E370771N23",
+      "fecha_ultimo_pronunciamiento": "2023-07-20",
+      "regimen_rector_fecha": "2023-07-20",
+      "regimen_rector_titulo": "Inhabilidad post empleo en LGPA y nulidad de nombramiento",
+      "pjo_id": "pjo-092238n16",
+      "pjo_estado": "resuelto",
+      "pregunta": "¿Puede un exfuncionario público que percibió una bonificación por retiro voluntario ser nombrado nuevamente en un cargo de la Administración del Estado sin haber restituido previamente los fondos recibidos, o dicha situación constituye una inhabilidad sobreviniente que acarrea la nulidad de su nuevo nombramiento?",
+      "respuesta_sintetica": "La CGR ha establecido que la percepción de un bono de retiro voluntario conlleva una inhabilidad para reingresar a la Administración del Estado, por lo que el nuevo nombramiento es nulo, salvo que el interesado restituya íntegramente los fondos percibidos por concepto de dicho beneficio.",
+      "pjo_dictamen_rector_id": "E370771N23",
+      "pjo_rector_fecha": "2023-07-20",
+      "pjo_rector_titulo": "Inhabilidad post empleo en LGPA y nulidad de nombramiento",
+      "member_count": 8,
+      "pjo_member_count": 0,
+      "norma_count": 0,
+      "timeline_count": 4,
+      "regimen_rector_in_members": 1,
+      "pjo_rector_in_members": 1,
+      "latest_member_id": "E370771N23",
+      "latest_member_fecha": "2023-07-20",
+      "latest_member_titulo": "Inhabilidad post empleo en LGPA y nulidad de nombramiento",
+      "temporal_lag_days": 0,
+      "relation_stats": {
+        "regimen_id": "regimen-092238n16",
+        "relation_count": 10,
+        "destabilizing_count": 0,
+        "reconsiderado": 0,
+        "reconsiderado_parcialmente": 0,
+        "alterado": 0
+      },
+      "normas_top": [],
+      "timeline_eventos": [
+        {
+          "regimen_id": "regimen-092238n16",
+          "dictamen_id": "032624N08",
+          "fecha": "2008-07-14",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-092238n16",
+          "dictamen_id": "032624N08",
+          "fecha": "2008-07-14",
+          "tipo_evento": "fundacion",
+          "impacto": "alto",
+          "descripcion": "Primer pronunciamiento conocido en el régimen"
+        },
+        {
+          "regimen_id": "regimen-092238n16",
+          "dictamen_id": "E370771N23",
+          "fecha": "2023-07-20",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        },
+        {
+          "regimen_id": "regimen-092238n16",
+          "dictamen_id": "E370771N23",
+          "fecha": "2023-07-20",
+          "tipo_evento": "consolidacion",
+          "impacto": "medio",
+          "descripcion": "Último pronunciamiento conocido; criterio vigente"
+        }
+      ],
+      "audit": {
+        "status": "util_incompleto",
+        "issues": [],
+        "warnings": [
+          "pjo_sin_membresia_pjo_dictamenes",
+          "sin_normas_nucleares"
+        ]
+      }
+    }
+  ]
+}

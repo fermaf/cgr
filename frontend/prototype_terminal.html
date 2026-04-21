@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indubia | Intelligence Terminal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lora:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --navy: #0a192f;
+            --navy-light: #112240;
+            --navy-lighter: #233554;
+            --gold: #c5a358;
+            --gold-light: #e6d5a7;
+            --slate-100: #f1f5f9;
+            --slate-200: #e2e8f0;
+            --slate-300: #cbd5e1;
+            --slate-400: #94a3b8;
+            --slate-500: #64748b;
+            --slate-600: #475569;
+            --slate-700: #334155;
+            --emerald: #10b981;
+            --amber: #f59e0b;
+            --red: #ef4444;
+            --bg-app: #060d1a;
+            --border-alpha: rgba(255, 255, 255, 0.08);
+            --bg-card: rgba(17, 34, 64, 0.6);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-app);
+            color: var(--slate-300);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ─── TOP COMMAND BAR ─── */
+        .top-bar {
+            height: 56px;
+            border-bottom: 1px solid var(--border-alpha);
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            gap: 24px;
+            background: rgba(6, 13, 26, 0.8);
+            backdrop-filter: blur(12px);
+            z-index: 100;
+        }
+
+        .logo {
+            font-family: 'Inter', sans-serif;
+            font-weight: 700;
+            font-size: 18px;
+            color: #fff;
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .logo span { color: var(--gold); }
+
+        .search-container {
+            flex: 1;
+            max-width: 600px;
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            background: var(--navy-light);
+            border: 1px solid var(--border-alpha);
+            border-radius: 8px;
+            padding: 8px 12px 8px 36px;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .search-input:focus {
+            border-color: var(--gold);
+            box-shadow: 0 0 0 2px rgba(197, 163, 88, 0.1);
+            background: var(--navy-lighter);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--slate-500);
+            width: 16px;
+            height: 16px;
+        }
+
+        .kbd {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: var(--slate-500);
+            background: rgba(255,255,255,0.05);
+            padding: 2px 4px;
+            border-radius: 4px;
+            border: 1px solid var(--border-alpha);
+        }
+
+        .top-meta {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 12px;
+            color: var(--slate-500);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--emerald);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--emerald);
+        }
+
+        /* ─── MAIN LAYOUT ─── */
+        .app-container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            overflow: hidden;
+        }
+
+        /* ─── SIDEBAR (Master) ─── */
+        .sidebar {
+            border-right: 1px solid var(--border-alpha);
+            display: flex;
+            flex-direction: column;
+            background: rgba(10, 25, 47, 0.3);
+        }
+
+        .sidebar-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-alpha);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sidebar-header h2 {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--slate-500);
+        }
+
+        .line-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .line-item {
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 4px;
+        }
+
+        .line-item:hover {
+            background: rgba(255,255,255,0.02);
+            border-color: var(--border-alpha);
+        }
+
+        .line-item.active {
+            background: var(--navy-light);
+            border-color: var(--gold);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+
+        .line-item .line-title {
+            font-family: 'Lora', serif;
+            font-size: 15px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+
+        .line-item .line-summary {
+            font-size: 12px;
+            color: var(--slate-500);
+            line-clamp: 2;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+
+        .line-item .line-tags {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border-alpha);
+            color: var(--slate-400);
+            text-transform: uppercase;
+        }
+
+        .tag-amber { color: var(--amber); border-color: rgba(245, 158, 11, 0.2); background: rgba(245, 158, 11, 0.05); }
+        .tag-emerald { color: var(--emerald); border-color: rgba(16, 185, 129, 0.2); background: rgba(16, 185, 129, 0.05); }
+
+        /* ─── MAIN CONTENT (Detail) ─── */
+        .main-content {
+            background: radial-gradient(circle at top right, rgba(16, 34, 64, 0.4), transparent);
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .content-inner {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 48px 40px;
+        }
+
+        .empty-state {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: var(--slate-600);
+        }
+
+        .empty-icon {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 24px;
+            opacity: 0.2;
+        }
+
+        /* ─── MICROSCOPE VIEW ─── */
+        .microscope-header {
+            margin-bottom: 40px;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .breadcrumb {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--gold);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .main-title {
+            font-family: 'Lora', serif;
+            font-size: 32px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 24px;
+            line-height: 1.2;
+        }
+
+        .grid-bento {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .bento-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-alpha);
+            border-radius: 16px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+
+        .bento-card:hover {
+            border-color: rgba(255,255,255,0.15);
+        }
+
+        .bento-card.large {
+            grid-column: span 2;
+        }
+
+        .card-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--slate-500);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .card-label svg { width: 12px; height: 12px; }
+
+        .card-content {
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--slate-300);
+        }
+
+        .card-content-serif {
+            font-family: 'Lora', serif;
+            font-size: 16px;
+            line-height: 1.6;
+            color: #fff;
+        }
+
+        .metric-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 32px;
+            font-weight: 500;
+            color: var(--gold);
+        }
+
+        .metric-sub {
+            font-size: 12px;
+            color: var(--slate-500);
+            margin-top: 4px;
+        }
+
+        /* ─── TIMELINE ─── */
+        .timeline-container {
+            margin-top: 32px;
+            padding: 24px;
+            background: rgba(10, 25, 47, 0.4);
+            border-radius: 16px;
+            border: 1px solid var(--border-alpha);
+        }
+
+        .timeline-track {
+            height: 4px;
+            background: var(--navy-lighter);
+            position: relative;
+            margin: 60px 0 20px;
+            border-radius: 2px;
+        }
+
+        .timeline-event {
+            position: absolute;
+            top: -6px;
+            width: 14px;
+            height: 14px;
+            background: var(--bg-app);
+            border: 2px solid var(--gold);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .timeline-event:hover {
+            transform: scale(1.4);
+            box-shadow: 0 0 15px var(--gold);
+        }
+
+        .timeline-event::after {
+            content: attr(data-id);
+            position: absolute;
+            top: -28px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: var(--slate-400);
+            white-space: nowrap;
+        }
+
+        .timeline-event::before {
+            content: attr(data-date);
+            position: absolute;
+            bottom: -24px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 9px;
+            color: var(--slate-600);
+            white-space: nowrap;
+        }
+
+        /* ─── SCROLLBAR ─── */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-alpha);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+
+    </style>
+</head>
+<body>
+
+    <header class="top-bar">
+        <div class="logo">INDUBIA<span>.AI</span></div>
+        <div class="search-container">
+            <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <input type="text" class="search-input" placeholder="Buscar doctrina, dictamen o concepto jurídico..." value="confianza legítima contrata">
+            <span class="kbd">⌘K</span>
+        </div>
+        <div class="top-meta">
+            <div class="status-dot"></div>
+            <span>Terminal Alpha v4.2</span>
+            <span>|</span>
+            <span id="clock">13:32:09</span>
+        </div>
+    </header>
+
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Líneas Doctrinales (4)</h2>
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div class="line-list">
+                <div class="line-item active" onclick="selectLine(0)">
+                    <div class="line-title">Confianza legítima en la renovación de contratas</div>
+                    <div class="line-summary">Aplicación del principio de confianza legítima ante renovaciones sucesivas superior a 2 años. Exigencia de acto fundado para el cese.</div>
+                    <div class="line-tags">
+                        <span class="tag tag-emerald">Consolidada</span>
+                        <span class="tag">Administrativo</span>
+                    </div>
+                </div>
+                <div class="line-item" onclick="selectLine(1)">
+                    <div class="line-title">Competencia sancionatoria en Municipalidades</div>
+                    <div class="line-summary">Límites de la potestad sancionadora municipal frente a conductas reguladas por leyes especiales de salud.</div>
+                    <div class="line-tags">
+                        <span class="tag tag-amber">En Evolución</span>
+                        <span class="tag">Municipal</span>
+                    </div>
+                </div>
+                <div class="line-item" onclick="selectLine(2)">
+                    <div class="line-title">Invalidación administrativa de otorgamiento de pensiones</div>
+                    <div class="line-summary">Plazos de prescripción y condiciones de error de hecho para la revocación de beneficios previsionales otorgados por error de la administración.</div>
+                    <div class="line-tags">
+                        <span class="tag">Previsional</span>
+                        <span class="tag">Estable</span>
+                    </div>
+                </div>
+                <div class="line-item" onclick="selectLine(3)">
+                    <div class="line-title">Principio de Proporcionalidad en Multas Ambientales</div>
+                    <div class="line-summary">Criterios de ponderación entre el beneficio económico obtenido y la gravedad del daño ambiental causado para la determinación del monto.</div>
+                    <div class="line-tags">
+                        <span class="tag tag-amber">Tensión Doctrinal</span>
+                        <span class="tag">Ambiental</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content" id="main-content">
+            <div class="content-inner">
+                <div class="microscope-header">
+                    <div class="breadcrumb">
+                        <span>ESTRUCTURA DE DATOS</span>
+                        <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        <span>TEMA: PERSONAL</span>
+                        <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        <span>ID: LN-2024-001</span>
+                    </div>
+                    <h1 class="main-title">Confianza legítima en la renovación de contratas</h1>
+                    
+                    <div class="grid-bento">
+                        <div class="bento-card large">
+                            <div class="card-label">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                Síntesis Doctrinal de Inteligencia
+                            </div>
+                            <div class="card-content-serif">
+                                Indubia detecta una consolidación absoluta del criterio de los "dos años". La jurisprudencia administrativa de la CGR establece que si un funcionario a contrata ha sido renovado por dos años consecutivos (o más), nace a su favor la confianza legítima de que su vínculo continuará, exigiendo para su término un acto administrativo fundado y no una mera decisión discrecional.
+                            </div>
+                        </div>
+                        <div class="bento-card">
+                            <div class="card-label">Estado de Consolidación</div>
+                            <div class="metric-value">98%</div>
+                            <div class="metric-sub">Criterio Altamente Estable</div>
+                        </div>
+                        <div class="bento-card">
+                            <div class="card-label">Relación Ley 19.880</div>
+                            <div class="card-content">
+                                Vínculo fuerte con Art. 11 y 41 sobre fundamentación de actos. La omisión de fundamento es el vicio recurrente.
+                            </div>
+                        </div>
+                        <div class="bento-card">
+                            <div class="card-label">Dictamen Clave (Ancla)</div>
+                            <div class="card-content">
+                                <span style="display: block; font-family: 'JetBrains Mono', monospace; font-size: 11px; margin-bottom: 4px; color: var(--gold);">003348N18</span>
+                                <span style="color: #fff; font-weight: 600;">Establece regla de los 2 años como umbral de confianza.</span>
+                            </div>
+                        </div>
+                        <div class="bento-card">
+                            <div class="card-label">Riesgo de Cambio</div>
+                            <div class="metric-value" style="color: var(--emerald);">Bajo</div>
+                            <div class="metric-sub">Sin señales de divergencia en los últimos 18 meses.</div>
+                        </div>
+                    </div>
+
+                    <div class="timeline-container">
+                        <div class="card-label">Evolución Histórica de la Línea</div>
+                        <div class="timeline-track">
+                            <div class="timeline-event" style="left: 10%;" data-id="N11252" data-date="ENE 2012"></div>
+                            <div class="timeline-event" style="left: 40%;" data-id="N48002" data-date="MAR 2015"></div>
+                            <div class="timeline-event" style="left: 75%;" data-id="003348N18" data-date="FEB 2018"></div>
+                            <div class="timeline-event" style="left: 95%;" data-id="012445N24" data-date="DIC 2024"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Reloj en tiempo real
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toTimeString().split(' ')[0];
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        const data = [
+            {
+                title: "Confianza legítima en la renovación de contratas",
+                id: "LN-2024-001",
+                topic: "PERSONAL",
+                summary: "Indubia detecta una consolidación absoluta del criterio de los 'dos años'. La jurisprudencia administrativa de la CGR establece que si un funcionario a contrata ha sido renovado por dos años consecutivos (o más), nace a su favor la confianza legítima de que su vínculo continuará, exigiendo para su término un acto administrativo fundado y no una mera decisión discrecional.",
+                cons: "98%",
+                rel: "Vínculo fuerte con Art. 11 y 41 sobre fundamentación de actos. La omisión de fundamento es el vicio recurrente.",
+                anchor: "003348N18",
+                anchorTitle: "Establece regla de los 2 años como umbral de confianza.",
+                risk: "Bajo",
+                riskColor: "var(--emerald)"
+            },
+            {
+                title: "Competencia sancionatoria en Municipalidades",
+                id: "LN-2024-042",
+                topic: "MUNICIPAL",
+                summary: "Se observa una transición doctrinal. La CGR ha comenzado a restringir las multas aplicadas por inspectores municipales en materias de contaminación acústica cuando existe solapamiento con las atribuciones de la SMA (Superintendencia del Medio Ambiente).",
+                cons: "65%",
+                rel: "Art. 53 Ley de Municipalidades vs Ley Orgánica SMA. Tensión de jerarquía normativa.",
+                anchor: "112455N23",
+                anchorTitle: "Primacía de ente fiscalizador técnico sobre municipal.",
+                risk: "Medio-Alto",
+                riskColor: "var(--amber)"
+            },
+            // Otros objetos de datos para simular hidratación rápida
+        ];
+
+        function selectLine(index) {
+            const items = document.querySelectorAll('.line-item');
+            items.forEach(it => it.classList.remove('active'));
+            items[index].classList.add('active');
+
+            const content = document.getElementById('main-content');
+            content.style.opacity = '0';
+            
+            setTimeout(() => {
+                // Simulación de hidratación de datos
+                const entry = data[index] || data[0];
+                document.querySelector('.id-label')?.innerText || (document.querySelector('.breadcrumb span:last-child').innerText = 'ID: ' + entry.id);
+                document.querySelector('.breadcrumb span:nth-child(3)').innerText = 'TEMA: ' + entry.topic;
+                document.querySelector('.main-title').innerText = entry.title;
+                document.querySelector('.bento-card .card-content-serif').innerText = entry.summary;
+                document.querySelector('.metric-value').innerText = entry.cons;
+                document.querySelector('.bento-card:nth-child(3) .card-content').innerText = entry.rel;
+                document.querySelector('.bento-card:nth-child(4) .card-content span:first-child').innerText = entry.anchor;
+                document.querySelector('.bento-card:nth-child(4) .card-content span:last-child').innerText = entry.anchorTitle;
+                document.querySelector('.bento-card:nth-child(5) .metric-value').innerText = entry.risk;
+                document.querySelector('.bento-card:nth-child(5) .metric-value').style.color = entry.riskColor;
+                
+                content.style.opacity = '1';
+                content.style.transition = 'opacity 0.2s';
+            }, 100);
+        }
+    </script>
+</body>
+</html>

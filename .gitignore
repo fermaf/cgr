@@ -1,0 +1,34 @@
+mongoBackup/
+node_modules/
+.mf/
+.wrangler/
+.wrangler-persist/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+logs/
+/migracion/.wrangler/
+/migracion/node_modules/
+/migracion/logs/
+/borrame/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+.agents-dist/
+frontend/dist/
+agents/out/
+*.png
+.env.vars
+
+# Artefactos generados por compilación TypeScript accidental dentro del árbol fuente.
+/cgr-platform/src/**/*.js
+
+# Salidas locales de pruebas, benchmarks y exploración.
+/cgr-platform/benchmark_report.md
+/cgr-platform/kv_keys.json
+/cgr-platform/mistral_outputs.json
+/cgr-platform/model_outputs.json
+/trajectorySummaries_backup.txt
+
+# SQL generado por dry-runs de auditoria/backfill. Debe regenerarse antes de ejecutar.
+/cgr-platform/scripts/*.generated.sql

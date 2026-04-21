@@ -226,7 +226,6 @@ export interface Env {
   KV_SYNC_WORKFLOW: Workflow;
   CANONICAL_RELATIONS_WORKFLOW: Workflow;
   DOCTRINAL_METADATA_WORKFLOW: Workflow;
-  BOLETIN_WORKFLOW: Workflow;
   REGIMEN_BACKFILL_WORKFLOW: Workflow;
   DB: D1Database;
   DICTAMENES_SOURCE: KVNamespace;

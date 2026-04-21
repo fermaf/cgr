@@ -1,9 +1,9 @@
-import { ArrowUpRight, BookOpenText, ChevronRight, GitBranch, Landmark, LibraryBig, Scale, Sparkles } from "lucide-react";
+import { ArrowUpRight, BookOpenText, ChevronRight, GitBranch, Landmark, LibraryBig, Scale } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { DoctrineLine, DoctrineKeyDictamen } from "../../types";
 import { cn } from "../../lib/utils";
 import { formatSimpleDate } from "../../lib/date";
-import { doctrinalStateNarrative, graphStatusNarrative, lineClarityLabel, relationPatternNarrative, simplifyDoctrineLanguage } from "../../lib/doctrineLanguage";
+import { graphStatusNarrative, simplifyDoctrineLanguage } from "../../lib/doctrineLanguage";
 
 function normalizeDate(value: string | null) {
     if (!value) return null;
@@ -19,6 +19,17 @@ function sortTimeline(items: DoctrineKeyDictamen[]) {
     });
 }
 
+function statusTone(line: DoctrineLine) {
+    const status = line.graph_doctrinal_status?.status ?? line.doctrinal_state;
+    if (status === "criterio_en_revision" || status === "criterio_tensionado" || status === "bajo_tension") {
+        return "border-cgr-red/20 bg-cgr-red/5 text-cgr-red";
+    }
+    if (status === "criterio_estable" || status === "consolidado") {
+        return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    }
+    return "border-amber-200 bg-amber-50 text-amber-700";
+}
+
 function roleTone(role: DoctrineKeyDictamen["rol_en_linea"], isRepresentative: boolean) {
     if (isRepresentative) {
         return "border-cgr-navy/20 bg-cgr-navy text-white";
@@ -29,39 +40,56 @@ function roleTone(role: DoctrineKeyDictamen["rol_en_linea"], isRepresentative: b
     }
 
     if (role === "pivote de cambio") {
-        return "border-cgr-red/25 bg-cgr-red/10 text-cgr-red";
+        return "border-amber-200 bg-amber-100 text-amber-800";
     }
 
     return "border-slate-200 bg-white text-slate-700";
 }
 
-function roleHint(index: number, total: number, isRepresentative: boolean) {
-    if (isRepresentative) return "dictamen guía";
-    if (index === 0) return "primer hito visible";
-    if (index === total - 1) return "último hito visible";
-    return "punto de apoyo";
+function firstReadId(line: DoctrineLine) {
+    return line.semantic_anchor_dictamen?.id ?? line.representative_dictamen_id;
 }
 
-function coherenceActionHints(line: DoctrineLine) {
-    const hints: string[] = [];
-    if (line.structure_adjustments?.action === "merge_clusters") {
-        hints.push("criterio ya consolidado");
-    }
-    if (line.coherence_signals.coherence_status === "fragmentada") {
-        hints.push("la agrupación podría refinarse");
-    }
-    if (line.coherence_signals.outlier_probability >= 0.22) {
-        hints.push("hay decisiones con relación poco clara");
-    }
-    if (line.coherence_signals.descriptor_noise_score >= 0.4) {
-        hints.push("conviene ordenar mejor los nombres del criterio");
-    }
-    return hints.slice(0, 3);
+function firstReadTitle(line: DoctrineLine) {
+    return line.semantic_anchor_dictamen?.titulo
+        ?? line.key_dictamenes.find((item) => item.id === line.representative_dictamen_id)?.titulo
+        ?? line.title;
 }
 
-function pivotLabel(signal: NonNullable<DoctrineLine["pivot_dictamen"]>["signal"]) {
-    if (signal === "pivote_de_cambio") return "decisión que marca un cambio en el criterio";
-    return "decisión que marca un hito visible del criterio";
+function firstReadReason(line: DoctrineLine) {
+    return simplifyDoctrineLanguage(
+        line.reading_priority_reason
+        ?? line.semantic_anchor_dictamen?.reason
+        ?? "Es el mejor punto de entrada para entender la línea."
+    );
+}
+
+function dictamenContext(line: DoctrineLine, dictamen: DoctrineKeyDictamen) {
+    if (dictamen.id === line.representative_dictamen_id) {
+        return "Concentra la lectura principal del criterio y conviene abrirlo primero.";
+    }
+    if (dictamen.id === line.semantic_anchor_dictamen?.id) {
+        return simplifyDoctrineLanguage(line.semantic_anchor_dictamen.reason);
+    }
+    if (dictamen.id === line.pivot_dictamen?.id) {
+        return simplifyDoctrineLanguage(line.pivot_dictamen.reason);
+    }
+    if (dictamen.rol_en_linea === "núcleo doctrinal") {
+        return "Fija la base del criterio y ayuda a distinguirlo de problemas cercanos.";
+    }
+    return "Sirve para ver cómo la línea se proyecta o se ajusta en el tiempo.";
+}
+
+function formatFuenteLabel(tipo: string, numero: string | null) {
+    if (tipo === "Ley" && numero === "18834") return "Estatuto Administrativo";
+    if (tipo === "Ley" && numero === "18883") return "Estatuto Administrativo Municipal";
+    if (tipo === "Ley" && numero === "19880") return "Ley de Procedimiento Administrativo";
+    if (tipo === "Ley" && numero === "18575") return "Ley de Bases de la Administración";
+    return numero ? `${tipo} ${numero}` : tipo;
+}
+
+function sameDictamen(left?: string | null, right?: string | null) {
+    return Boolean(left && right && left === right);
 }
 
 interface DoctrineReadingWorkspaceProps {
@@ -70,16 +98,10 @@ interface DoctrineReadingWorkspaceProps {
 }
 
 export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspaceProps) {
-    const representative = line.key_dictamenes.find((item) => item.id === line.representative_dictamen_id)
-        ?? line.key_dictamenes[0]
-        ?? {
-            id: line.representative_dictamen_id,
-            titulo: "Abrir dictamen representativo",
-            fecha: line.time_span.to,
-            rol_en_linea: "representativo" as const
-        };
     const timeline = sortTimeline(line.key_dictamenes);
-    const coherenceHints = coherenceActionHints(line);
+    const firstReadMatchesRepresentative = sameDictamen(firstReadId(line), line.representative_dictamen_id);
+    const pivotMatchesRepresentative = sameDictamen(line.pivot_dictamen?.id, line.representative_dictamen_id);
+    const pivotMatchesFirstRead = sameDictamen(line.pivot_dictamen?.id, firstReadId(line));
 
     return (
         <div className="space-y-5">
@@ -89,11 +111,14 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                         <div className="space-y-3">
                             <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-cgr-gold">
                                 <LibraryBig className="h-3.5 w-3.5" />
-                                Lectura sugerida
+                                Ruta de lectura
                             </div>
                             <div className="space-y-2">
                                 <h3 className="font-serif text-3xl font-semibold leading-tight text-white">{line.title}</h3>
-                                <p className="max-w-2xl text-sm leading-7 text-blue-100">{simplifyDoctrineLanguage(line.summary)}</p>
+                                <p className="max-w-2xl text-sm leading-7 text-blue-100">
+                                    {simplifyDoctrineLanguage(line.summary)}
+                                    {query ? ` Esta lectura parte de la consulta “${query}”.` : ""}
+                                </p>
                             </div>
                         </div>
 
@@ -106,46 +131,76 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                         </Link>
                     </div>
 
-                    <div className="rounded-[1.35rem] border border-white/10 bg-white/10 p-5">
-                        <div className="space-y-5">
-                            <div>
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-100">Dictamen más cercano a su búsqueda</p>
-                                <p className="mt-2 font-mono text-sm text-cgr-gold">{line.semantic_anchor_dictamen?.id ?? representative.id}</p>
-                                <p className="mt-2 font-serif text-2xl font-semibold text-white">
-                                    {line.semantic_anchor_dictamen?.titulo ?? representative.titulo}
-                                </p>
-                                <p className="mt-3 text-sm leading-6 text-blue-100">
-                                    {simplifyDoctrineLanguage(line.reading_priority_reason ?? line.semantic_anchor_dictamen?.reason ?? "Es el dictamen que conviene leer primero para entender este criterio.")}
-                                </p>
+                    <div className={cn("grid gap-4", pivotMatchesRepresentative || pivotMatchesFirstRead ? "md:grid-cols-2" : "md:grid-cols-3")}>
+                        <div className="rounded-[1.2rem] border border-white/10 bg-white/10 p-4">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-100">Estado jurisprudencial visible</p>
+                            <div className={cn("mt-3 inline-flex rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]", statusTone(line))}>
+                                {String(line.graph_doctrinal_status?.status ?? line.doctrinal_state).replace(/_/g, " ")}
                             </div>
-
-                            <div className="border-t border-white/10 pt-4">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-100">Período en que este criterio aparece</p>
-                                <p className="mt-2 text-sm text-white">
-                                    {formatSimpleDate(line.time_span.from, "s/d")} → {formatSimpleDate(line.time_span.to, "s/d")}
-                                </p>
-                            </div>
-
-                            <div className="border-t border-white/10 pt-4">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-100">Cómo se comporta el criterio</p>
-                                <div className="mt-2 flex items-start gap-2 text-sm text-white">
-                                    <GitBranch className="mt-0.5 h-4 w-4 shrink-0 text-cgr-gold" />
-                                    <span>{graphStatusNarrative(line) || doctrinalStateNarrative(line.doctrinal_state)}</span>
-                                </div>
-                                <p className="mt-2 text-xs leading-5 text-blue-100">{simplifyDoctrineLanguage(line.graph_doctrinal_status?.summary ?? line.doctrinal_state_reason)}</p>
-                            </div>
+                            <p className="mt-3 text-sm leading-6 text-blue-100">
+                                {simplifyDoctrineLanguage(line.graph_doctrinal_status?.summary ?? graphStatusNarrative(line))}
+                            </p>
                         </div>
+
+                        <div className="rounded-[1.2rem] border border-white/10 bg-white/10 p-4">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-100">
+                                {firstReadMatchesRepresentative ? "Dictamen que conviene leer primero" : "Qué leer primero"}
+                            </p>
+                            <p className="mt-2 font-mono text-sm text-cgr-gold">{firstReadId(line)}</p>
+                            <p className="mt-2 text-sm font-semibold text-white">{firstReadTitle(line)}</p>
+                            <p className="mt-2 text-sm leading-6 text-blue-100">{firstReadReason(line)}</p>
+                        </div>
+
+                        {!pivotMatchesRepresentative && !pivotMatchesFirstRead && (
+                            <div className="rounded-[1.2rem] border border-white/10 bg-white/10 p-4">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-100">Cambio visible</p>
+                                <p className="mt-2 font-mono text-sm text-cgr-gold">{line.pivot_dictamen?.id ?? "Sin hito distinto"}</p>
+                                <p className="mt-2 text-sm font-semibold text-white">{line.pivot_dictamen?.titulo ?? "Sin hito distinto"}</p>
+                                <p className="mt-2 text-sm leading-6 text-blue-100">
+                                    {simplifyDoctrineLanguage(line.pivot_dictamen?.reason ?? "No aparece un segundo dictamen distinto que cambie la lectura principal.")}
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </div>
             </section>
 
-            <section className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-                <div className="rounded-[1.6rem] border border-slate-200 bg-white p-5 shadow-sm">
-                        <div className="flex items-center gap-2">
-                            <Sparkles className="h-4 w-4 text-cgr-navy" />
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Ruta de lectura sugerida</p>
-                        </div>
+            <section className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
+                <section className="rounded-[1.6rem] border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="flex items-center gap-2">
+                        <BookOpenText className="h-4 w-4 text-cgr-navy" />
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Secuencia de lectura</p>
+                    </div>
 
+                    {timeline.length === 1 ? (
+                        <div className="mt-5 rounded-[1.25rem] border border-slate-200 bg-slate-50/70 p-5">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div className="space-y-2">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="font-mono text-xs text-cgr-navy">{timeline[0].id}</span>
+                                        <span className={cn("rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]", roleTone(timeline[0].rol_en_linea, true))}>
+                                            {timeline[0].rol_en_linea}
+                                        </span>
+                                    </div>
+                                    <h4 className="font-serif text-xl font-semibold text-cgr-navy">{timeline[0].titulo}</h4>
+                                    <p className="text-sm leading-7 text-slate-600">{firstReadReason(line)}</p>
+                                </div>
+                                <p className="text-sm text-slate-500">{formatSimpleDate(timeline[0].fecha, "Sin fecha")}</p>
+                            </div>
+                            <div className="mt-4 flex flex-wrap items-center gap-3">
+                                <Link
+                                    to={`/dictamen/${timeline[0].id}`}
+                                    className="inline-flex items-center gap-2 rounded-full border border-cgr-navy/10 bg-white px-3 py-2 text-sm font-semibold text-cgr-navy transition hover:border-cgr-navy/25 hover:bg-slate-50"
+                                >
+                                    Leer dictamen
+                                    <ArrowUpRight className="h-4 w-4" />
+                                </Link>
+                                <span className="inline-flex items-center gap-2 rounded-full bg-cgr-gold/15 px-3 py-2 text-sm font-medium text-cgr-navy">
+                                    No hay otra secuencia visible que revisar
+                                </span>
+                            </div>
+                        </div>
+                    ) : (
                     <div className="mt-5 space-y-5">
                         {timeline.map((dictamen, index) => {
                             const isRepresentative = dictamen.id === line.representative_dictamen_id;
@@ -158,7 +213,7 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                                             isRepresentative
                                                 ? "border-cgr-gold bg-cgr-gold"
                                                 : isPivot
-                                                    ? "border-cgr-red bg-cgr-red"
+                                                    ? "border-amber-500 bg-amber-500"
                                                     : "border-cgr-navy/20 bg-white"
                                         )} />
                                         {index < timeline.length - 1 && <span className="mt-2 h-full w-px bg-slate-200" />}
@@ -177,14 +232,10 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                                                     </span>
                                                 </div>
                                                 <h4 className="font-serif text-xl font-semibold text-cgr-navy">{dictamen.titulo}</h4>
+                                                <p className="text-sm leading-7 text-slate-600">{dictamenContext(line, dictamen)}</p>
                                             </div>
 
-                                            <div className="text-right">
-                                                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                                                    {isPivot ? "decisión que marca un cambio" : roleHint(index, timeline.length, isRepresentative)}
-                                                </p>
-                                                <p className="mt-2 text-sm text-slate-600">{formatSimpleDate(dictamen.fecha)}</p>
-                                            </div>
+                                            <p className="text-sm text-slate-500">{formatSimpleDate(dictamen.fecha, "Sin fecha")}</p>
                                         </div>
 
                                         <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -192,19 +243,18 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                                                 to={`/dictamen/${dictamen.id}`}
                                                 className="inline-flex items-center gap-2 rounded-full border border-cgr-navy/10 bg-white px-3 py-2 text-sm font-semibold text-cgr-navy transition hover:border-cgr-navy/25 hover:bg-slate-50"
                                             >
-                                                Ver dictamen
+                                                Leer dictamen
                                                 <ArrowUpRight className="h-4 w-4" />
                                             </Link>
                                             {isRepresentative && (
                                                 <span className="inline-flex items-center gap-2 rounded-full bg-cgr-gold/15 px-3 py-2 text-sm font-medium text-cgr-navy">
-                                                    <BookOpenText className="h-4 w-4" />
                                                     Conviene empezar aquí
                                                 </span>
                                             )}
                                             {isPivot && (
-                                                <span className="inline-flex items-center gap-2 rounded-full bg-cgr-red/10 px-3 py-2 text-sm font-medium text-cgr-red">
+                                                <span className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-2 text-sm font-medium text-amber-800">
                                                     <GitBranch className="h-4 w-4" />
-                                                    {line.pivot_dictamen ? pivotLabel(line.pivot_dictamen.signal) : "decisión relevante"}
+                                                    Revisa el cambio visible
                                                 </span>
                                             )}
                                         </div>
@@ -213,159 +263,42 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                             );
                         })}
                     </div>
-                </div>
+                    )}
+                </section>
 
                 <div className="space-y-5">
                     <section className="rounded-[1.6rem] border border-slate-200 bg-white p-5 shadow-sm">
                         <div className="flex items-center gap-2">
                             <GitBranch className="h-4 w-4 text-cgr-navy" />
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Cómo se aplica este criterio</p>
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Cómo leer esta línea</p>
                         </div>
-                        <p className="mt-4 text-sm leading-6 text-slate-600">{simplifyDoctrineLanguage(line.graph_doctrinal_status?.summary ?? line.doctrinal_state_reason)}</p>
-                        {line.reading_priority_reason && (
-                            <p className="mt-3 text-sm leading-6 text-slate-600">{simplifyDoctrineLanguage(line.reading_priority_reason)}</p>
-                        )}
-                        {line.pivot_dictamen && (
-                            <div className="mt-4 rounded-[1.2rem] border border-cgr-red/15 bg-cgr-red/5 p-4">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cgr-red">Dictamen pivote</p>
-                                <div className="mt-2 flex items-start justify-between gap-3">
-                                    <div>
-                                        <p className="font-mono text-xs text-cgr-red">{line.pivot_dictamen.id}</p>
-                                        <p className="mt-2 font-serif text-lg font-semibold text-cgr-navy">{line.pivot_dictamen.titulo}</p>
-                                        <p className="mt-2 text-sm leading-6 text-slate-600">{simplifyDoctrineLanguage(line.pivot_dictamen.reason)}</p>
-                                    </div>
-                                    <p className="text-sm text-slate-500">{formatSimpleDate(line.pivot_dictamen.fecha)}</p>
+                        <div className="mt-4 space-y-4 text-sm leading-6 text-slate-600">
+                            <p>{firstReadReason(line)}</p>
+                            <p>{simplifyDoctrineLanguage(line.graph_doctrinal_status?.summary ?? line.doctrinal_state_reason)}</p>
+                            {line.pivot_dictamen && !pivotMatchesRepresentative && !pivotMatchesFirstRead && (
+                                <div className="rounded-[1rem] border border-amber-200 bg-amber-50 p-4">
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-800">Cambio visible</p>
+                                    <p className="mt-2 font-mono text-xs text-amber-900">{line.pivot_dictamen.id}</p>
+                                    <p className="mt-2 font-serif text-lg font-semibold text-cgr-navy">{line.pivot_dictamen.titulo}</p>
+                                    <p className="mt-2">{simplifyDoctrineLanguage(line.pivot_dictamen.reason)}</p>
                                 </div>
-                                <Link
-                                    to={`/dictamen/${line.pivot_dictamen.id}`}
-                                    className="mt-4 inline-flex items-center gap-2 rounded-full border border-cgr-red/15 bg-white px-3 py-2 text-sm font-semibold text-cgr-red transition hover:bg-cgr-red/5"
-                                >
-                                    Abrir pivote
-                                    <ArrowUpRight className="h-4 w-4" />
-                                </Link>
-                            </div>
-                        )}
-                        {line.semantic_anchor_dictamen && (
-                            <div className="mt-4 rounded-[1.2rem] border border-blue-200 bg-blue-50 p-4">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cgr-navy">Más cercano a su búsqueda</p>
-                                <div className="mt-2 flex items-start justify-between gap-3">
-                                    <div>
-                                        <p className="font-mono text-xs text-cgr-navy">{line.semantic_anchor_dictamen.id}</p>
-                                        <p className="mt-2 font-serif text-lg font-semibold text-cgr-navy">{line.semantic_anchor_dictamen.titulo}</p>
-                                        <p className="mt-2 text-sm leading-6 text-slate-600">{simplifyDoctrineLanguage(line.semantic_anchor_dictamen.reason)}</p>
-                                    </div>
-                                    <p className="text-sm text-slate-500">{formatSimpleDate(line.semantic_anchor_dictamen.fecha, "Sin fecha")}</p>
-                                </div>
-                            </div>
-                        )}
-                    </section>
-
-                    <section className="rounded-[1.6rem] border border-slate-200 bg-white p-5 shadow-sm">
-                        <div className="flex items-center gap-2">
-                            <ChevronRight className="h-4 w-4 text-cgr-navy" />
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Patrón de decisiones</p>
-                        </div>
-                        <p className="mt-4 text-sm leading-6 text-slate-600">{simplifyDoctrineLanguage(line.relation_dynamics.summary)}</p>
-                        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                            <div className="rounded-[1rem] border border-emerald-200 bg-emerald-50 px-4 py-3">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-700">Consolidan</p>
-                                <p className="mt-2 text-2xl font-semibold text-cgr-navy">{line.relation_dynamics.consolida}</p>
-                            </div>
-                            <div className="rounded-[1rem] border border-amber-200 bg-amber-50 px-4 py-3">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-700">Desarrollan</p>
-                                <p className="mt-2 text-2xl font-semibold text-cgr-navy">{line.relation_dynamics.desarrolla}</p>
-                            </div>
-                            <div className="rounded-[1rem] border border-cgr-red/20 bg-cgr-red/5 px-4 py-3">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cgr-red">Ajustan</p>
-                                <p className="mt-2 text-2xl font-semibold text-cgr-navy">{line.relation_dynamics.ajusta}</p>
-                            </div>
-                        </div>
-                        <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                            Patrón dominante: {relationPatternNarrative(line)}
-                        </p>
-                    </section>
-
-                    <section className="rounded-[1.6rem] border border-slate-200 bg-white p-5 shadow-sm">
-                        <div className="flex items-center gap-2">
-                            <Sparkles className="h-4 w-4 text-cgr-navy" />
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Claridad de la línea</p>
-                        </div>
-                        <div className="mt-4 flex flex-wrap items-center gap-2">
-                            <span className={cn(
-                                "rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em]",
-                                line.coherence_signals.coherence_status === "fragmentada"
-                                    ? "border-cgr-red/20 bg-cgr-red/10 text-cgr-red"
-                                    : line.coherence_signals.coherence_status === "mixta"
-                                        ? "border-amber-200 bg-amber-50 text-amber-700"
-                                        : "border-emerald-200 bg-emerald-50 text-emerald-700"
-                            )}>
-                                {lineClarityLabel(line)}
-                            </span>
-                        </div>
-                        <p className="mt-4 text-sm leading-6 text-slate-600">{simplifyDoctrineLanguage(line.coherence_signals.summary)}</p>
-                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                            <div className="rounded-[1rem] border border-slate-200 bg-slate-50 px-4 py-3">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Cercanía entre dictámenes</p>
-                                <p className="mt-2 text-2xl font-semibold text-cgr-navy">{line.coherence_signals.cluster_cohesion_score}</p>
-                            </div>
-                            <div className="rounded-[1rem] border border-slate-200 bg-slate-50 px-4 py-3">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Riesgo de mezcla</p>
-                                <p className="mt-2 text-2xl font-semibold text-cgr-navy">{line.coherence_signals.fragmentation_risk}</p>
-                            </div>
-                        </div>
-                        {line.structure_adjustments && (
-                            <p className="mt-4 text-sm leading-6 text-emerald-800">{simplifyDoctrineLanguage(line.structure_adjustments.note)}</p>
-                        )}
-                        {coherenceHints.length > 0 && (
-                            <div className="mt-4">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Qué conviene revisar</p>
-                                <div className="mt-2 flex flex-wrap gap-2">
-                                    {coherenceHints.map((hint) => (
-                                        <span
-                                            key={hint}
-                                            className={cn(
-                                                "rounded-full border px-3 py-1.5 text-xs font-medium",
-                                                hint === "fusión estructural aplicada"
-                                                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                                    : "border-cgr-red/15 bg-cgr-red/5 text-cgr-red"
-                                            )}
-                                        >
-                                            {hint}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </section>
-
-                    <section className="rounded-[1.6rem] border border-slate-200 bg-white p-5 shadow-sm">
-                        <div className="flex items-center gap-2">
-                            <Scale className="h-4 w-4 text-cgr-navy" />
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Dictámenes clave</p>
-                        </div>
-                        <div className="mt-4 flex flex-wrap gap-2">
-                            {line.core_dictamen_ids.map((id) => (
-                                <Link
-                                    key={id}
-                                    to={`/dictamen/${id}`}
-                                    className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 font-mono text-xs text-slate-700 transition hover:border-cgr-navy/20 hover:text-cgr-navy"
-                                >
-                                    {id}
-                                </Link>
-                            ))}
+                            )}
                         </div>
                     </section>
 
-                    {line.top_descriptores_AI.length > 0 && (
+                    {line.top_fuentes_legales.length > 0 && (
                         <section className="rounded-[1.6rem] border border-slate-200 bg-white p-5 shadow-sm">
                             <div className="flex items-center gap-2">
-                                <Landmark className="h-4 w-4 text-cgr-navy" />
-                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Descriptores dominantes</p>
+                                <Scale className="h-4 w-4 text-cgr-navy" />
+                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Normas predominantes</p>
                             </div>
                             <div className="mt-4 flex flex-wrap gap-2">
-                                {line.top_descriptores_AI.map((descriptor) => (
-                                    <span key={descriptor} className="rounded-full border border-cgr-navy/10 bg-slate-50 px-3 py-1.5 text-sm text-cgr-navy">
-                                        {descriptor}
+                                {line.top_fuentes_legales.slice(0, 6).map((fuente) => (
+                                    <span
+                                        key={`${fuente.tipo_norma}-${fuente.numero}`}
+                                        className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-cgr-navy"
+                                    >
+                                        {formatFuenteLabel(fuente.tipo_norma, fuente.numero)}
                                     </span>
                                 ))}
                             </div>
@@ -373,10 +306,43 @@ export function DoctrineReadingWorkspace({ line, query }: DoctrineReadingWorkspa
                     )}
 
                     <section className="rounded-[1.6rem] border border-slate-200 bg-white p-5 shadow-sm">
+                        <div className="flex items-center gap-2">
+                            <Landmark className="h-4 w-4 text-cgr-navy" />
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Profundizar</p>
+                        </div>
+                        <div className="mt-4 space-y-3">
+                            <Link
+                                to={`/dictamen/${line.representative_dictamen_id}`}
+                                className="block rounded-[1rem] border border-slate-200 bg-slate-50 p-4 transition hover:border-cgr-navy/20 hover:bg-white"
+                            >
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Dictamen guía</p>
+                                <p className="mt-2 font-mono text-xs text-cgr-navy">{line.representative_dictamen_id}</p>
+                            </Link>
+                            {line.semantic_anchor_dictamen && line.semantic_anchor_dictamen.id !== line.representative_dictamen_id && (
+                                <Link
+                                    to={`/dictamen/${line.semantic_anchor_dictamen.id}`}
+                                    className="block rounded-[1rem] border border-blue-100 bg-blue-50/70 p-4 transition hover:bg-blue-50"
+                                >
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cgr-navy">Más cercano a la consulta</p>
+                                    <p className="mt-2 font-mono text-xs text-cgr-navy">{line.semantic_anchor_dictamen.id}</p>
+                                </Link>
+                            )}
+                            {line.pivot_dictamen && (
+                                <Link
+                                    to={`/dictamen/${line.pivot_dictamen.id}`}
+                                    className="block rounded-[1rem] border border-amber-200 bg-amber-50 p-4 transition hover:bg-amber-100"
+                                >
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-800">Cambio visible</p>
+                                    <p className="mt-2 font-mono text-xs text-amber-900">{line.pivot_dictamen.id}</p>
+                                </Link>
+                            )}
+                        </div>
+                    </section>
+
+                    <section className="rounded-[1.6rem] border border-slate-200 bg-white p-5 shadow-sm">
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Siguiente acción</p>
                         <p className="mt-3 text-sm leading-6 text-slate-600">
-                            Abra el dictamen representativo y luego recorra la línea en orden temporal para ver cómo se consolida o cambia el criterio.
-                            {query ? ` Esta línea viene de la consulta “${query}”.` : ""}
+                            Abra el dictamen guía y luego compare con el cambio visible o con el dictamen más cercano a su consulta si necesita afinar el encuadre.
                         </p>
                         <div className="mt-4 flex flex-wrap gap-3">
                             <Link

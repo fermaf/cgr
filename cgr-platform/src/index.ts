@@ -8,17 +8,13 @@ import {
   updateDictamenStatus,
   insertEnrichment,
   insertDictamenBooleanosLLM,
-  insertDictamenEtiquetaLLM,
-  insertDictamenFuenteLegal,
+  insertDictamenEtiqueta,
+  insertDictamenFuente,
   getOrInsertDivisionId,
   getMigrationStats,
   getMigrationEvolution,
   getRecentMigrationEvents,
-  getDictamenRelacionesJuridicas,
-  createBoletin,
-  getBoletin,
-  listBoletines,
-  getBoletinEntregables
+  getDictamenRelacionesJuridicas
 } from './storage/d1';
 import type { Env, DictamenRaw } from './types';
 import { IngestWorkflow } from './workflows/ingestWorkflow';
@@ -28,7 +24,6 @@ import { KVSyncWorkflow } from './workflows/kvSyncWorkflow';
 import { CanonicalRelationsWorkflow } from './workflows/canonicalRelationsWorkflow';
 import { DoctrinalMetadataWorkflow } from './workflows/doctrinalMetadataWorkflow';
 import { RegimenBackfillWorkflow } from './workflows/regimenBackfillWorkflow';
-import { BoletinMultimediaWorkflow } from './workflows/boletinMultimediaWorkflow';
 import { analyzeDictamen } from './clients/mistral';
 import { fetchDictamenesSearchPage } from './clients/cgr';
 import { ingestDictamen, extractDictamenId } from './lib/ingest';
@@ -38,11 +33,9 @@ import { reprocessDoctrinalMetadata } from './lib/doctrinalMetadata';
 import { runRegimenPilot } from './lib/regimenDiscovery';
 import { buildAndPersistRegimen } from './lib/regimenBuilder';
 import { buildDoctrineLines, buildDoctrineSearch } from './lib/doctrineLines';
-import { buildGuidedDoctrineFlow, buildGuidedDoctrineFamily } from './lib/doctrineGuided';
 import { normalizeQueryLight } from './lib/queryUnderstanding/queryRewrite';
 import { normalizeLegalSourceForPresentation } from './lib/legalSourcesCanonical';
 import { logInfo, logError, setLogLevel } from './lib/log';
-import { validateElevenLabsAuth } from './lib/agents/elevenLabsSpeaker';
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -309,8 +302,7 @@ export {
   VectorizationWorkflow,
   KVSyncWorkflow,
   CanonicalRelationsWorkflow,
-  DoctrinalMetadataWorkflow,
-  BoletinMultimediaWorkflow
+  DoctrinalMetadataWorkflow
 };
 
 const app = new Hono<{ Bindings: Env }>();
@@ -342,273 +334,6 @@ app.use('*', async (c, next) => {
 app.get('/', (c) => c.text('CGR Platform API'));
 
 // --- ESTADÍSTICAS ---
-
-// --- AUDITORIA BIDIRECCIONAL (SRE) ---
-// --- BOLETINES MULTIMEDIA ---
-
-app.get('/api/v1/boletines/stats', async (c) => {
-  try {
-    const candidates = await c.env.DB.prepare(`
-      SELECT COUNT(*) as count
-      FROM dictamenes d
-      INNER JOIN atributos_juridicos a ON a.dictamen_id = d.id
-      WHERE a.en_boletin = 1 OR a.es_relevante = 1 OR a.recurso_proteccion = 1
-    `).first<{ count: number }>();
-
-    const lastBoletin = await c.env.DB.prepare("SELECT created_at FROM tabla_boletines ORDER BY created_at DESC LIMIT 1").first<{ created_at: string }>();
-
-    return c.json({
-      data: {
-        candidates: candidates?.count ?? 0,
-        last_generated: lastBoletin?.created_at ?? null
-      }
-    });
-  } catch (e: any) {
-    return c.json({ error: errorMessage(e) }, 500);
-  }
-});
-
-app.get('/api/v1/boletines', async (c) => {
-  const limit = parsePositiveInt(c.req.query('limit'), 20, 1, 100);
-  try {
-    const list = await listBoletines(c.env.DB, limit);
-    return c.json({ data: list });
-  } catch (e: any) {
-    return c.json({ error: errorMessage(e) }, 500);
-  }
-});
-
-app.get('/api/v1/boletines/:id', async (c) => {
-  const id = c.req.param('id');
-  try {
-    const boletin = await getBoletin(c.env.DB, id);
-    if (!boletin) return c.json({ error: 'No encontrado' }, 404);
-
-    const entregables = await getBoletinEntregables(c.env.DB, id);
-    return c.json({ data: { ...boletin, entregables } });
-  } catch (e: any) {
-    return c.json({ error: errorMessage(e) }, 500);
-  }
-});
-
-app.post('/api/v1/boletines', async (c) => {
-  const body = await readJsonBody(c);
-  const id = (body.id as string) || crypto.randomUUID();
-  const fechaInicio = (body.fecha_inicio as string) || new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().split('T')[0];
-  const fechaFin = (body.fecha_fin as string) || new Date().toISOString().split('T')[0];
-
-  try {
-    await createBoletin(c.env.DB, {
-      id,
-      fecha_inicio: fechaInicio,
-      fecha_fin: fechaFin,
-      filtro_boletin: body.filtro_boletin ? 1 : 0,
-      filtro_relevante: body.filtro_relevante ? 1 : 0,
-      filtro_recurso_prot: body.filtro_recurso_prot ? 1 : 0
-    });
-
-    const workflow = await c.env.BOLETIN_WORKFLOW.create({
-      params: { boletinId: id }
-    });
-
-    return c.json({ success: true, id, workflowInstanceId: workflow.id });
-  } catch (e: any) {
-    return c.json({ error: errorMessage(e) }, 500);
-  }
-});
-
-// Proxy de herramientas para el ElevenLabs Agent (Custom Header Auth)
-app.get('/api/v1/tools/elevenlabs/latest-script', async (c) => {
-  if (!validateElevenLabsAuth(c, c.env)) {
-    return c.json({ error: 'Unauthorized' }, 401);
-  }
-
-  try {
-    // Retornamos el script del último boletín generado como ejemplo
-    const latest = await c.env.DB.prepare(
-      "SELECT content_text FROM tabla_boletines_entregables WHERE canal = 'YOUTUBE_SHORTS' ORDER BY id DESC LIMIT 1"
-    ).first<{ content_text: string }>();
-
-    return c.json({
-      text: latest?.content_text || "Bienvenidos a Indubia. Aún no hay boletines procesados.",
-      voice_id: 'pNInz6obpgnuMvYJdGRp'
-    });
-  } catch (e: any) {
-    return c.json({ error: errorMessage(e) }, 500);
-  }
-});
-
-app.get('/api/v1/assets/image/:key', async (c) => {
-  if (!c.req.param('key')) return c.json({ error: 'Falta key' }, 400);
-  try {
-    const key = c.req.param('key');
-    const imageBytes = await c.env.DICTAMENES_PASO.get(key, 'arrayBuffer');
-
-    if (!imageBytes) {
-      return c.json({ error: 'Asset no encontrado' }, 404);
-    }
-
-    return c.body(imageBytes, 200, {
-      'Content-Type': 'image/png',
-      'Cache-Control': 'public, max-age=86400'
-    });
-  } catch (e: any) {
-    return c.json({ error: errorMessage(e) }, 500);
-  }
-});
-
-app.get('/api/v1/admin/audit-sync', async (c) => {
-  const db = c.env.DB;
-  const kv = c.env.DICTAMENES_SOURCE;
-  const executeFixes = c.req.query('fix') === 'true';
-  const fixLimit = parsePositiveInt(c.req.query('limit'), 50, 1, 500);
-
-  try {
-    const d1Res = await db.prepare("SELECT id, estado FROM dictamenes").all<{id: string, estado: string}>();
-    const d1Records = d1Res.results ?? [];
-    const d1Map = new Map<string, string>();
-    for (const r of d1Records) {
-      d1Map.set(r.id, r.estado);
-    }
-
-    const kvKeys = new Set<string>();
-    const garbageKeys: string[] = [];
-
-    let cursor: string | undefined = undefined;
-    do {
-      const listRes: any = await kv.list({ cursor });
-      for (const keyObj of listRes.keys) {
-        const name = keyObj.name;
-        if (name.includes(':') || name.includes('_') || name.startsWith('legacy') || name.startsWith('raw')) {
-           garbageKeys.push(name);
-        } else {
-           kvKeys.add(name);
-        }
-      }
-      cursor = listRes.list_complete ? undefined : listRes.cursor;
-    } while (cursor);
-
-    const missingInKv: string[] = [];
-    for (const [id, estado] of d1Map.entries()) {
-      if (!kvKeys.has(id)) {
-        const foundGarbage = garbageKeys.find(gk => gk.includes(id));
-        if (!foundGarbage) {
-            missingInKv.push(id);
-        }
-      }
-    }
-
-    const missingInD1: string[] = [];
-    for (const key of kvKeys) {
-      if (!d1Map.has(key)) {
-        missingInD1.push(key);
-      }
-    }
-
-    const withErrorButHasKv: string[] = [];
-    for (const [id, estado] of d1Map.entries()) {
-      if ((estado === 'error_sin_KV_source' || estado === 'error') && kvKeys.has(id)) {
-         withErrorButHasKv.push(id);
-      }
-    }
-
-    const fixesExecuted = {
-      garbageCleaned: 0,
-      missingKvCrawled: 0,
-      missingD1Ingested: 0,
-      errorStatusFixed: 0,
-      errors: [] as string[]
-    };
-
-    if (executeFixes) {
-      // 1. Fix Garbage (limit to fixLimit)
-      for (let i = 0; i < Math.min(garbageKeys.length, fixLimit); i++) {
-         const badKey = garbageKeys[i];
-         try {
-            const raw = await kv.get(badKey, 'json');
-            if (raw) {
-               const id = extractDictamenId(raw as any);
-               if (id !== 'unknown') {
-                  await kv.put(id, JSON.stringify(raw));
-                  await kv.delete(badKey);
-                  fixesExecuted.garbageCleaned++;
-               }
-            }
-         } catch (e: any) {
-            fixesExecuted.errors.push(`Garbage fix error ${badKey}: ${e.message}`);
-         }
-      }
-
-      // 2. Fix Error Status (limit to fixLimit)
-      for (let i = 0; i < Math.min(withErrorButHasKv.length, fixLimit); i++) {
-        const id = withErrorButHasKv[i];
-        try {
-          await db.prepare("UPDATE dictamenes SET estado = 'ingested' WHERE id = ?").bind(id).run();
-          await db.prepare("INSERT INTO historial_cambios (dictamen_id, campo_modificado, valor_anterior, valor_nuevo, origen) VALUES (?, ?, ?, ?, ?)")
-            .bind(id, 'estado', 'error_sin_KV_source', 'ingested', 'auditoria_bidireccional_kv_d1').run();
-          fixesExecuted.errorStatusFixed++;
-        } catch (e: any) {
-          fixesExecuted.errors.push(`Status fix error ${id}: ${e.message}`);
-        }
-      }
-
-      // 3. Fix missing in KV (Crawl) (limit to a smaller number to avoid timeouts, e.g. 5)
-      const crawlLimit = Math.min(missingInKv.length, Math.min(fixLimit, 5));
-      for (let i = 0; i < crawlLimit; i++) {
-        const id = missingInKv[i];
-        try {
-          const cgrUrl = c.env.CGR_BASE_URL || 'https://www.contraloria.cl';
-          const searchRes = await fetchDictamenesSearchPage(cgrUrl, 1, [], undefined, id);
-          if (searchRes.items && searchRes.items.length > 0) {
-            const raw = searchRes.items[0];
-            await ingestDictamen(c.env, raw as any, { force: true, origenImportacion: 'worker_manual' });
-            fixesExecuted.missingKvCrawled++;
-          } else {
-             fixesExecuted.errors.push(`Crawl found no results for ${id}`);
-          }
-        } catch (e: any) {
-          fixesExecuted.errors.push(`Crawl fix error ${id}: ${e.message}`);
-        }
-      }
-
-      // 4. Fix missing in D1 (Ingest from KV) (limit e.g. 5)
-      const ingestLimit = Math.min(missingInD1.length, Math.min(fixLimit, 5));
-      for (let i = 0; i < ingestLimit; i++) {
-        const id = missingInD1[i];
-        try {
-           const raw = await kv.get(id, 'json');
-           if (raw) {
-              await ingestDictamen(c.env, raw as any, { force: true, origenImportacion: 'worker_manual' });
-              fixesExecuted.missingD1Ingested++;
-           }
-        } catch (e: any) {
-           fixesExecuted.errors.push(`Missing D1 ingest error ${id}: ${e.message}`);
-        }
-      }
-    }
-
-    return c.json({
-      dryRun: !executeFixes,
-      stats: {
-        totalD1: d1Map.size,
-        totalKV: kvKeys.size + garbageKeys.length,
-        garbageKeys: garbageKeys.length,
-        missingInKv: missingInKv.length,
-        missingInD1: missingInD1.length,
-        withErrorButHasKv: withErrorButHasKv.length
-      },
-      fixesExecuted,
-      samples: {
-        garbage: garbageKeys.slice(0, 10),
-        missingD1: missingInD1.slice(0, 10),
-        missingKv: missingInKv.slice(0, 10),
-        withErrorButHasKv: withErrorButHasKv.slice(0, 10)
-      }
-    });
-  } catch (e: any) {
-    return c.json({ error: errorMessage(e) }, 500);
-  }
-});
 
 app.get('/api/v1/stats', async (c) => {
   const db = c.env.DB;
@@ -895,75 +620,7 @@ app.get('/api/v1/insights/doctrine-search', async (c) => {
   }
 });
 
-app.get('/api/v1/insights/doctrine-guided', async (c) => {
-  const qRaw = c.req.query('q')?.trim() || '';
-  const q = normalizeQueryLight(qRaw);
-  const limit = parsePositiveInt(c.req.query('limit'), 4, 1, 8);
 
-  if (!q) {
-    return c.json({ error: 'Missing q parameter' }, 400);
-  }
-
-  const cacheKey = `insights:doctrine-guided:v11:q:${q}:l:${limit}`;
-
-  try {
-    const cached = await c.env.DICTAMENES_PASO.get(cacheKey, 'json').catch(() => null);
-    if (cached && typeof cached === 'object') {
-      logInfo('INSIGHTS_DOCTRINE_GUIDED_CACHE_HIT', { cacheKey, q, limit });
-      return c.json(cached);
-    }
-
-    const response = await buildGuidedDoctrineFlow(c.env, { q: qRaw, limit });
-    await putAnalyticsCache(c, cacheKey, response);
-    logInfo('INSIGHTS_DOCTRINE_GUIDED_DONE', {
-      q,
-      limit,
-      totalFamilies: response.overview.total_families,
-      focusId: response.focus_directo?.dictamen_id ?? null
-    });
-    return c.json(response);
-  } catch (e: unknown) {
-    logError('INSIGHTS_DOCTRINE_GUIDED_ERROR', e, { q, limit });
-    return c.json({ error: errorMessage(e) }, 500);
-  }
-});
-
-app.get('/api/v1/insights/doctrine-guided/family', async (c) => {
-  const qRaw = c.req.query('q')?.trim() || '';
-  const q = normalizeQueryLight(qRaw);
-  const familyId = c.req.query('family_id')?.trim() || '';
-  const limit = parsePositiveInt(c.req.query('limit'), 4, 1, 8);
-
-  if (!q) {
-    return c.json({ error: 'Missing q parameter' }, 400);
-  }
-  if (!familyId) {
-    return c.json({ error: 'Missing family_id parameter' }, 400);
-  }
-
-  const cacheKey = `insights:doctrine-guided:family:v11:q:${q}:f:${familyId}:l:${limit}`;
-
-  try {
-    const cached = await c.env.DICTAMENES_PASO.get(cacheKey, 'json').catch(() => null);
-    if (cached && typeof cached === 'object') {
-      logInfo('INSIGHTS_DOCTRINE_GUIDED_FAMILY_CACHE_HIT', { cacheKey, q, familyId, limit });
-      return c.json(cached);
-    }
-
-    const response = await buildGuidedDoctrineFamily(c.env, { q: qRaw, familyId, limit });
-    await putAnalyticsCache(c, cacheKey, response);
-    logInfo('INSIGHTS_DOCTRINE_GUIDED_FAMILY_DONE', {
-      q,
-      familyId,
-      limit,
-      found: response.overview.family_found
-    });
-    return c.json(response);
-  } catch (e: unknown) {
-    logError('INSIGHTS_DOCTRINE_GUIDED_FAMILY_ERROR', e, { q, familyId, limit });
-    return c.json({ error: errorMessage(e) }, 500);
-  }
-});
 
 // Endpoint para obtener catálogo de divisiones real (Fase 11)
 app.get('/api/v1/divisions', async (c) => {
@@ -1291,10 +948,7 @@ app.get('/api/v1/analytics/suggest/tags', async (c) => {
 
     const suggestions = (canonicalResults.results || []).map(r => r.etiqueta_display);
 
-    return c.json({
-      suggestions,
-      _audit: { source: 'canonical' }
-    });
+    return c.json({ suggestions });
   } catch (e: any) {
     return c.json({ error: errorMessage(e) }, 500);
   }
@@ -1396,11 +1050,7 @@ app.get('/api/v1/dictamenes/:id', async (c) => {
           titulo: relation.titulo,
           bucket: relationBucket(relation.tipo_accion)
         })),
-        fuentes_legales: fuentesResult.map((source) => normalizeLegalSourceForPresentation(source)),
-        _audit: {
-          sources_source: 'canonical',
-          tags_source: 'canonical'
-        }
+        fuentes_legales: fuentesResult.map((source) => normalizeLegalSourceForPresentation(source))
       },
       raw: raw,
       extrae_jurisprudencia: enrichment ? {
@@ -1770,20 +1420,18 @@ app.post('/api/v1/dictamenes/:id/re-process', async (c) => {
       titulo: enrichment.extrae_jurisprudencia.titulo,
       resumen: enrichment.extrae_jurisprudencia.resumen,
       analisis: enrichment.extrae_jurisprudencia.analisis,
-      etiquetas_json: JSON.stringify(enrichment.extrae_jurisprudencia.etiquetas),
       genera_jurisprudencia_llm: enrichment.genera_jurisprudencia ? 1 : 0,
       booleanos_json: JSON.stringify(enrichment.booleanos),
-      fuentes_legales_json: JSON.stringify(enrichment.fuentes_legales),
       model: c.env.MISTRAL_MODEL,
     });
 
     await insertDictamenBooleanosLLM(db, id, enrichment.booleanos);
 
     for (const tag of enrichment.extrae_jurisprudencia.etiquetas) {
-      await insertDictamenEtiquetaLLM(db, id, tag);
+      await insertDictamenEtiqueta(db, id, tag);
     }
     for (const source of enrichment.fuentes_legales) {
-      await insertDictamenFuenteLegal(db, id, source);
+      await insertDictamenFuente(db, id, source);
     }
 
     // RETRO-UPDATES: Propagar cambios a dictámenes históricos

@@ -3,8 +3,8 @@ import { Home, Search, BarChart2, Shield, CircleDot, Scale, Sparkles } from "luc
 import { cn } from "../../lib/utils";
 
 const NAV_ITEMS = [
-    { label: "Inicio", icon: Home, href: "/" },
-    { label: "Búsqueda Avanzada", icon: Search, href: "/buscar" },
+    { label: "Consulta jurisprudencial", icon: Home, href: "/" },
+    { label: "Búsqueda documental", icon: Search, href: "/buscar" },
     { label: "Estadísticas", icon: BarChart2, href: "/stats" },
     { label: "Administración", icon: Shield, href: "/admin" },
 ];
@@ -24,9 +24,9 @@ export function Sidebar() {
                     </div>
                     <div>
                         <h1 className="text-3xl font-serif font-bold tracking-tight text-white m-0 leading-none group-hover:text-blue-100 transition-colors">
-                            CGR<span className="text-cgr-gold text-2xl">.ai</span>
+                            Indubia
                         </h1>
-                        <p className="text-[10px] text-blue-200 mt-1 uppercase tracking-widest font-semibold opacity-90">Plataforma Legal</p>
+                        <p className="text-[10px] text-blue-200 mt-1 uppercase tracking-widest font-semibold opacity-90">Jurisprudencia administrativa</p>
                     </div>
                 </div>
             </div>
@@ -71,7 +71,7 @@ export function Sidebar() {
                                 v2.1.0
                             </span>
                             <span className="text-[11px] font-semibold text-blue-100/80 leading-tight">
-                                Build: 2026-03-23 15:05
+                                Build: 2026-04-01 18:15 (Agent-First)
                             </span>
                         </div>
                     </div>

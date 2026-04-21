@@ -1,11 +1,13 @@
 import type { DoctrineLine } from "../types";
 
 const DOCTRINE_REPLACEMENTS: Array<[RegExp, string]> = [
+    [/doctrinal/gi, "jurisprudencial"],
+    [/doctrina/gi, "jurisprudencia"],
     [/ruido semántico/gi, "mezcla de criterios"],
-    [/fragmentación doctrinal/gi, "criterio dividido"],
+    [/fragmentación jurisprudencial/gi, "criterio dividido"],
     [/encaje débil/gi, "relación poco clara"],
     [/coherencia semántica/gi, "claridad del criterio"],
-    [/estructura doctrinal/gi, "criterio"],
+    [/estructura jurisprudencial/gi, "criterio"],
     [/dinámica relacional/gi, "cómo se aplica el criterio"],
     [/coherencia del corpus/gi, "claridad de la línea"],
 ];

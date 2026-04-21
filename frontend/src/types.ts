@@ -34,8 +34,10 @@ export interface RelacionEfecto {
 export interface RegimenSimulado {
     id: string;
     nombre: string;
-    estado: 'activo' | 'desplazado' | 'en_revision';
-    pjo_pregunta?: string;
+    estado: 'activo' | 'desplazado' | 'en_revision' | 'zona_litigiosa' | 'en_transicion';
+    pjo_pregunta?: string | null;
+    pjo_respuesta?: string | null;
+    normas_count?: number;
 }
 
 export interface ProblemaJuridicoOperativo {
@@ -57,7 +59,7 @@ export interface DictamenMeta {
     division_id: number;
     division_nombre?: string;
     criterio?: string;
-    estado?: 'ingested' | 'enriched' | 'vectorized' | 'error' | null;
+    estado?: 'ingested' | 'ingested_importante' | 'ingested_trivial' | 'enriching_ingested' | 'enriching_importante' | 'enriching_trivial' | 'processing' | 'enriched' | 'enriched_pending_vectorization' | 'vectorizing' | 'vectorized' | 'error' | 'error_longitud' | 'error_sin_KV_source' | 'error_quota' | 'error_quota_pinecone' | null;
     origen_busqueda?: 'vectorial' | 'literal';
     genera_jurisprudencia?: boolean;
     relaciones_causa?: RelacionCausa[];
@@ -117,9 +119,28 @@ export interface StatsResponse {
 }
 
 export interface MultidimensionalResponse {
-    volumetria: { anio: number; count: number; jurisprudencia: number; vectorized: number }[];
-    transaccional: { estado: string; count: number }[];
+    volumetria: {
+        anio: number;
+        count: number;
+        jurisprudencia: number;
+        pending_enrichment: number;
+        enriching: number;
+        pending_vectorization: number;
+        vectorizing: number;
+        vectorized: number;
+        errors: number;
+    }[];
+    transaccional: {
+        estado: string | null;
+        nombre: string;
+        descripcion: string;
+        orden: number;
+        etapa: string;
+        catalogado: 0 | 1;
+        count: number;
+    }[];
     operacional: { en_paso: number; en_source: number; count: number }[];
+    modelos: { modelo: string; count: number }[];
     semantica: {
         topMaterias: { materia: string; count: number }[];
         impacto: { relevantes: number; recursos: number; jurisprudencia: number };
@@ -163,6 +184,7 @@ export interface MigrationInfoResponse {
     stats: MigrationStats;
     evolution: { date: string; count: number; model: string }[];
     events: MigrationEvent[];
+    models: { modelo: string; count: number }[];
     modelTarget: string;
 }
 
@@ -273,6 +295,7 @@ export interface DoctrineLine {
     time_span: DoctrineTimeSpan;
     technical?: DoctrineLineTechnical;
     structure_adjustments?: DoctrineStructureAdjustment;
+    regimen?: RegimenSimulado | null;
 }
 
 export interface DoctrineInsightsOverview {

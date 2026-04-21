@@ -1,4 +1,4 @@
-import { FileText, Calendar, Building2, Download, Share2, Sparkles, FileStack, Info } from "lucide-react";
+import { FileText, Calendar, Building2, Download, Share2, Sparkles, FileStack, Info, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { DictamenMeta } from "../../types";
 import { formatRobustDate } from "../../lib/date";
@@ -99,40 +99,43 @@ export function DictamenCard({ dictamen }: DictamenCardProps) {
                 </div>
             </Link>
 
-            {/* TAREA 3: Badge del Régimen Jurisprudencial (PJO) - Fuera del link principal para evitar anidamiento */}
             {dictamen.regimen && (
                 <Link 
                     to={`/regimen/${dictamen.regimen.id}`}
-                    className="block mt-2 mx-6 mb-6 p-4 bg-slate-50 border border-blue-100 rounded-xl relative overflow-hidden group/regimen transition-all hover:bg-blue-50 hover:border-blue-200 hover:shadow-md"
+                    className="group/regimen relative block mt-2 mx-6 mb-6 overflow-hidden rounded-lg border border-cgr-gold/20 bg-white p-5 shadow-sm transition-all duration-300 hover:border-cgr-gold/40 hover:bg-slate-50 hover:shadow-lg hover:shadow-cgr-gold/10"
                 >
-                    {/* Indicador sutil de "Jurisprudencia Viva" */}
-                    <div className="absolute top-0 right-0 p-2 text-right">
-                         <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-cgr-blue/10 rounded-full">
-                             <span className="w-1.5 h-1.5 rounded-full bg-cgr-blue animate-pulse" />
-                             <span className="text-[9px] font-bold text-cgr-blue uppercase tracking-tighter">Vigencia Doctrinaria</span>
-                         </div>
-                    </div>
+                    <div className="absolute -inset-1 opacity-0 group-hover/regimen:opacity-100 bg-gradient-to-r from-cgr-gold/0 via-cgr-gold/10 to-cgr-gold/0 blur-xl transition-opacity duration-500" />
 
-                    <div className="flex items-start gap-3">
-                        <div className="mt-1 bg-cgr-blue/10 p-1.5 rounded-lg text-cgr-blue group-hover/regimen:bg-cgr-blue group-hover/regimen:text-white transition-colors">
-                            <Sparkles className="w-4 h-4" />
-                        </div>
-                        <div className="flex-1">
-                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2">
-                                PJO: Problema Jurídico Operativo
-                                <span className={`px-1.5 py-0.5 rounded text-[8px] ${
-                                    dictamen.regimen.estado === 'activo' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
-                                }`}>
-                                    {dictamen.regimen.estado.toUpperCase()}
+                    <div className="relative z-10 flex flex-col gap-3">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-cgr-gold/20 text-cgr-gold shadow-inner group-hover/regimen:scale-110 transition-transform">
+                                    <Sparkles className="h-3.5 w-3.5" />
+                                </div>
+                                <span className="text-[10px] font-black uppercase tracking-[0.15em] text-cgr-navy/60">
+                                    Régimen jurisprudencial
                                 </span>
                             </div>
-                            <p className="text-sm font-semibold text-slate-800 leading-snug group-hover/regimen:text-cgr-navy transition-colors">
-                                {dictamen.regimen.pjo_pregunta}
-                            </p>
-                            <div className="mt-2 flex items-center gap-1.5 text-[10px] text-cgr-blue font-bold group-hover/regimen:translate-x-1 transition-transform">
-                                <span>Ver línea jurisprudencial completa</span>
-                                <Share2 className="w-3 h-3 rotate-90" />
+                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-100">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                <span className="text-[9px] font-black text-emerald-700 uppercase tracking-tighter">{dictamen.regimen.estado}</span>
                             </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <p className="text-sm font-bold text-slate-800 leading-tight group-hover/regimen:text-cgr-navy transition-colors">
+                                {dictamen.regimen.pjo_pregunta || dictamen.regimen.nombre}
+                            </p>
+                            {dictamen.regimen.pjo_respuesta && (
+                                <p className="text-xs text-slate-500 line-clamp-1">
+                                    {dictamen.regimen.pjo_respuesta}
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-cgr-gold group-hover/regimen:translate-x-1 transition-transform">
+                            <span>Explorar evolución jurisprudencial</span>
+                            <ChevronRight className="h-3 w-3" />
                         </div>
                     </div>
                 </Link>

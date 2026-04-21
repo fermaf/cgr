@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Activity, Database, Clock, BrainCircuit, AlertCircle, Bot } from "lucide-react";
+import { Activity, Database, Clock, BrainCircuit, AlertCircle, Bot, Layers } from "lucide-react";
 import { useAdminDashboard } from "../hooks/useAdminDashboard";
 import { TimelineChart } from "../components/admin/TimelineChart";
 import { DictamenHistory } from "../components/admin/DictamenHistory";
@@ -8,6 +8,7 @@ import { OperacionalStats } from "../components/admin/OperacionalStats";
 import { SemanticHeatmap } from "../components/admin/SemanticHeatmap";
 import { SkillgenHub } from "../components/admin/SkillgenHub";
 import { MigrationDashboard } from "../components/admin/MigrationDashboard";
+import { BoletinesManager } from "../components/admin/BoletinesManager";
 
 export function AdminDashboard() {
     const [activeTab, setActiveTab] = useState("volumetria");
@@ -17,6 +18,12 @@ export function AdminDashboard() {
         yearFrom: yearFilter,
         yearTo: yearFilter
     });
+
+    const totalDictamenes = data?.volumetria.reduce((acc, item) => acc + item.count, 0) ?? 0;
+    const totalVectorized = data?.volumetria.reduce((acc, item) => acc + item.vectorized, 0) ?? 0;
+    const totalPendingVectorization = data?.volumetria.reduce((acc, item) => acc + item.pending_vectorization, 0) ?? 0;
+    const totalPendingEnrichment = data?.volumetria.reduce((acc, item) => acc + item.pending_enrichment + item.enriching, 0) ?? 0;
+    const topModel = data?.modelos.find((item) => item.modelo !== "sin_modelo") ?? data?.modelos[0];
 
     return (
         <div className="space-y-8 animate-in fade-in duration-700 w-full max-w-7xl mx-auto text-slate-900">
@@ -93,6 +100,12 @@ export function AdminDashboard() {
                     active={activeTab === "migracion"}
                     onClick={() => setActiveTab("migracion")}
                 />
+                <TabButton
+                    icon={Layers}
+                    label="Boletín Multimedia"
+                    active={activeTab === "boletines"}
+                    onClick={() => setActiveTab("boletines")}
+                />
             </div>
 
             {/* Contenido Dinámico */}
@@ -119,8 +132,20 @@ export function AdminDashboard() {
                     >
                         <h2 className="text-xl font-bold mb-6 text-slate-800 flex items-center gap-2">
                             <Database className="w-5 h-5 text-cgr-gold" />
-                            Tasa de Crecimiento y Brechas Históricas
+                            Volumetría por estado operativo
                         </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                            <MetricCard label="Total filtrado" value={totalDictamenes} />
+                            <MetricCard label="Vectorizados" value={totalVectorized} tone="gold" />
+                            <MetricCard label="Pendientes de vectorización" value={totalPendingVectorization} tone="green" />
+                            <MetricCard label="Pendientes de enrichment" value={totalPendingEnrichment} tone="blue" />
+                        </div>
+                        {topModel && (
+                            <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                                Modelo LLM dominante: <span className="font-mono font-semibold text-slate-800">{topModel.modelo}</span>
+                                <span className="ml-2 font-semibold text-slate-800">{topModel.count.toLocaleString()} dictámenes</span>
+                            </div>
+                        )}
                         <TimelineChart data={data.volumetria} />
                     </motion.div>
                 )}
@@ -179,6 +204,17 @@ export function AdminDashboard() {
                         <MigrationDashboard />
                     </motion.div>
                 )}
+
+                {activeTab === "boletines" && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4 }}
+                        className="mt-6"
+                    >
+                        <BoletinesManager />
+                    </motion.div>
+                )}
             </div>
         </div>
     );
@@ -196,5 +232,21 @@ function TabButton({ icon: Icon, label, active, onClick }: { icon: any, label: s
             <Icon className={`w-4 h-4 ${active ? "text-cgr-gold" : ""}`} />
             {label}
         </button>
+    );
+}
+
+function MetricCard({ label, value, tone = "slate" }: { label: string; value: number; tone?: "slate" | "gold" | "green" | "blue" }) {
+    const toneClass = {
+        slate: "border-slate-200 bg-slate-50 text-slate-900",
+        gold: "border-yellow-200 bg-yellow-50 text-yellow-800",
+        green: "border-emerald-200 bg-emerald-50 text-emerald-800",
+        blue: "border-sky-200 bg-sky-50 text-sky-800",
+    }[tone];
+
+    return (
+        <div className={`rounded-xl border p-4 ${toneClass}`}>
+            <p className="text-xs font-bold uppercase tracking-wider opacity-70">{label}</p>
+            <p className="mt-1 text-2xl font-black">{value.toLocaleString()}</p>
+        </div>
     );
 }
