@@ -45,3 +45,13 @@ Esto incluye:
 - pseudo-precisión jurídica;
 - abrir cinco frentes a la vez;
 - introducir arquitectura paralela innecesaria.
+
+## Frente recientemente cerrado
+
+El backfill canónico de derivativas quedó cerrado el `2026-04-21` con:
+
+- etiquetas completas hasta `420648`;
+- fuentes completas hasta `287495`;
+- duplicados técnicos finales en `0`.
+
+Ese frente ya no requiere nuevas campañas. El siguiente trabajo relacionado, si se abre, debe enfocarse en **cutover de lectura legacy -> canónico**, no en migración histórica.

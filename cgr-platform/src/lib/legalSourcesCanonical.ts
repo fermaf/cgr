@@ -101,6 +101,7 @@ const TYPE_ALIAS_MAP: Record<string, CanonicalEntry> = {
   'resolucion exenta': { canonicalType: 'Resolución Exenta', confidence: 'alta' },
   'oficio circular': { canonicalType: 'Oficio Circular', confidence: 'alta' },
   oficio: { canonicalType: 'Oficio', confidence: 'alta' },
+  ctb: { canonicalType: 'Código del Trabajo', displayName: 'Código del Trabajo', confidence: 'alta' },
   ctr: { canonicalType: 'Código del Trabajo', displayName: 'Código del Trabajo', confidence: 'alta' },
   cci: { canonicalType: 'Código Civil', displayName: 'Código Civil', confidence: 'alta' },
   cag: { canonicalType: 'Código de Aguas', displayName: 'Código de Aguas', confidence: 'alta' },

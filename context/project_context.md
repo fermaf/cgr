@@ -65,6 +65,27 @@ La plataforma ya tiene:
 - saneamiento histórico seguro para alias y variantes triviales;
 - render más confiable en detalle de dictamen.
 
+## Catálogos derivados canónicos
+
+El backfill histórico de derivativas quedó completado al `100%` el `2026-04-21`:
+
+- `dictamen_etiquetas_llm` -> `etiquetas_catalogo` + `dictamen_etiquetas`
+- `dictamen_fuentes_legales` -> `fuentes_legales_catalogo` + `dictamen_fuentes`
+
+El hot path de enrichment ya quedó en **dual-write** para ambos mundos:
+
+- legacy;
+- canónico.
+
+Eso resuelve el histórico y deja sincronizadas las nuevas ingestas sin necesidad de relanzar campañas de backfill para este frente.
+
+Nota operativa importante:
+
+- el **write path** ya está modernizado;
+- el **read path** productivo sigue leyendo en parte desde legacy/JSON (`enriquecimiento.*_json`, `dictamen_fuentes_legales`).
+
+Por eso, el siguiente trabajo relacionado con derivativas no es otro backfill, sino el **cutover de lectura** hacia la capa canónica.
+
 ## Metadata doctrinal
 
 La plataforma ahora cuenta con:

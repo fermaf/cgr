@@ -299,6 +299,32 @@ async function getDictamenProcessingProfile(db: D1Database, id: string): Promise
     };
   }
 
+  // 1. Enrutamiento Estricto por Estado Principal (Doctrina Mandatoria)
+  if (row.current_status === 'ingested') {
+    return {
+      ...row,
+      target_status: 'ingested',
+      route: 'mistral_2512'
+    };
+  }
+
+  if (row.current_status === 'ingested_importante') {
+    return {
+      ...row,
+      target_status: 'ingested_importante',
+      route: 'mistral_importantes_olga'
+    };
+  }
+
+  if (row.current_status === 'ingested_trivial') {
+    return {
+      ...row,
+      target_status: 'ingested_trivial',
+      route: 'mistral_2411'
+    };
+  }
+
+  // 2. Fallback de Enrutamiento para reintentos (ej: error_quota) basado en atributos de metadata
   if ((row.anio ?? 0) >= 2020) {
     return {
       ...row,
@@ -503,7 +529,7 @@ async function listDictamenes(
                       d.destinatarios, d.estado, d.created_at, d.updated_at,
                       e.titulo, e.resumen,
                       (SELECT '[' || GROUP_CONCAT('{"origen_id":"' || r.dictamen_origen_id || '","tipo_accion":"' || r.tipo_accion || '"}') || ']'
-                       FROM dictamen_relaciones_juridicas r 
+                       FROM dictamen_relaciones_juridicas r
                        WHERE r.dictamen_destino_id = d.id) as relaciones_json
                FROM dictamenes d
                LEFT JOIN enriquecimiento e ON e.dictamen_id = d.id
@@ -632,20 +658,55 @@ async function updateEnrichmentFuentes(db: D1Database, dictamenId: string, fuent
 
 // ─── Tablas M:N (etiquetas, booleanos, fuentes, referencias) ─────────
 
-import { findSemanticMatch, normalizeDisplay } from '../lib/stringMatch';
-import { normalizeLegalSourceForStorage } from '../lib/legalSourcesCanonical';
+import {
+  normalizeEtiquetaNorm,
+  normalizeEtiquetaDisplay,
+  etiquetaSlugFromNorm,
+  buildFuenteNormaKey,
+  buildFuenteDisplayLabel
+} from '../lib/derivedCatalogs';
+import { normalizeLegalSourceForStorage, type LegalSourceLike } from '../lib/legalSourcesCanonical';
 
-async function insertDictamenEtiquetaLLM(db: D1Database, dictamenId: string, etiqueta: string): Promise<void> {
-  const displayTerm = normalizeDisplay(etiqueta);
-  const existingMatch = await findSemanticMatch(db, 'dictamen_etiquetas_llm', 'etiqueta', displayTerm);
-  const insertTerm = existingMatch ?? displayTerm;
+async function insertDictamenEtiquetaLLM(
+  db: D1Database,
+  dictamenId: string,
+  etiqueta: string,
+  model?: string | null
+): Promise<void> {
+  const etiquetaNorm = normalizeEtiquetaNorm(etiqueta);
+  if (!etiquetaNorm) return;
 
+  const etiquetaDisplay = normalizeEtiquetaDisplay(etiqueta);
+  const etiquetaSlug = etiquetaSlugFromNorm(etiquetaNorm);
+
+  // 1. Insercion Legacy
   await db.prepare(
     `INSERT INTO dictamen_etiquetas_llm (dictamen_id, etiqueta) VALUES (?, ?)`
-  ).bind(dictamenId, insertTerm).run();
+  ).bind(dictamenId, etiquetaDisplay).run();
+
+  // 2. Insercion en Catalogo Canonico
+  await db.prepare(
+    `INSERT OR IGNORE INTO etiquetas_catalogo
+     (etiqueta_display, etiqueta_norm, etiqueta_slug, origen)
+     VALUES (?, ?, ?, 'llm')`
+  ).bind(etiquetaDisplay, etiquetaNorm, etiquetaSlug).run();
+
+  // 3. Insercion de Relacion
+  await db.prepare(
+    `INSERT OR IGNORE INTO dictamen_etiquetas
+     (dictamen_id, etiqueta_id, raw_etiqueta, modelo_llm)
+     SELECT ?, id, ?, ?
+     FROM etiquetas_catalogo
+     WHERE etiqueta_norm = ?`
+  ).bind(dictamenId, etiqueta, model ?? null, etiquetaNorm).run();
 }
 
-async function insertDictamenFuenteLegal(db: D1Database, dictamenId: string, fuente: any): Promise<void> {
+async function insertDictamenFuenteLegal(
+  db: D1Database,
+  dictamenId: string,
+  fuente: any,
+  model?: string | null
+): Promise<void> {
   const normalized = normalizeLegalSourceForStorage({
     tipo_norma: fuente.nombre || fuente.tipo_norma || 'Desconocido',
     numero: fuente.numero || null,
@@ -655,6 +716,7 @@ async function insertDictamenFuenteLegal(db: D1Database, dictamenId: string, fue
     sector: fuente.sector || null
   });
 
+  // 1. Insercion Legacy
   await db.prepare(
     `INSERT INTO dictamen_fuentes_legales (dictamen_id, tipo_norma, numero, articulo, extra, year, sector)
      VALUES (?, ?, ?, ?, ?, ?, ?)`
@@ -666,6 +728,54 @@ async function insertDictamenFuenteLegal(db: D1Database, dictamenId: string, fue
     normalized.extra || null,
     normalized.year || null,
     normalized.sector || null
+  ).run();
+
+  // 2. Insercion Canonica
+  const normaKey = buildFuenteNormaKey(normalized);
+  if (!normaKey) return;
+
+  const displayLabel = buildFuenteDisplayLabel({
+    tipo_norma: normalized.tipo_norma ?? 'Desconocido',
+    numero: normalized.numero,
+    articulo: normalized.articulo,
+    year: normalized.year,
+    sector: normalized.sector
+  });
+
+  const mentionKey = [
+    normaKey,
+    normalized.extra || '-'
+  ].join('|');
+
+  await db.prepare(
+    `INSERT OR IGNORE INTO fuentes_legales_catalogo
+     (norma_key, tipo_norma, numero, articulo, year, sector, display_label)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).bind(
+    normaKey,
+    normalized.tipo_norma,
+    normalized.numero,
+    normalized.articulo,
+    normalized.year,
+    normalized.sector,
+    displayLabel
+  ).run();
+
+  await db.prepare(
+    `INSERT OR IGNORE INTO dictamen_fuentes
+     (dictamen_id, fuente_id, raw_tipo_norma, raw_numero, raw_articulo, raw_extra, modelo_llm, mention_key)
+     SELECT ?, id, ?, ?, ?, ?, ?, ?
+     FROM fuentes_legales_catalogo
+     WHERE norma_key = ?`
+  ).bind(
+    dictamenId,
+    fuente.nombre || fuente.tipo_norma || null,
+    fuente.numero || null,
+    fuente.articulo || null,
+    fuente.extra || null,
+    model ?? null,
+    mentionKey,
+    normaKey
   ).run();
 }
 
@@ -691,7 +801,9 @@ async function insertDictamenBooleanosLLM(db: D1Database, dictamenId: string, bo
 async function clearEnrichmentDerivedData(db: D1Database, dictamenId: string): Promise<void> {
   await db.batch([
     db.prepare(`DELETE FROM dictamen_etiquetas_llm WHERE dictamen_id = ?`).bind(dictamenId),
-    db.prepare(`DELETE FROM dictamen_fuentes_legales WHERE dictamen_id = ?`).bind(dictamenId)
+    db.prepare(`DELETE FROM dictamen_fuentes_legales WHERE dictamen_id = ?`).bind(dictamenId),
+    db.prepare(`DELETE FROM dictamen_etiquetas WHERE dictamen_id = ?`).bind(dictamenId),
+    db.prepare(`DELETE FROM dictamen_fuentes WHERE dictamen_id = ?`).bind(dictamenId)
   ]);
 }
 
@@ -811,7 +923,7 @@ async function getDictamenRelacionesJuridicas(db: D1Database, dictamenId: string
 
 async function getMigrationStats(db: D1Database): Promise<Record<string, number>> {
   const stats = await db.prepare(`
-    SELECT 
+    SELECT
       COUNT(*) as total,
       SUM(CASE WHEN d.estado LIKE 'error%' THEN 1 ELSE 0 END) as errors,
       SUM(CASE WHEN d.estado IN (
@@ -837,11 +949,11 @@ async function getMigrationStats(db: D1Database): Promise<Record<string, number>
 
 async function getMigrationEvolution(db: D1Database): Promise<Array<{ date: string; count: number; model: string }>> {
   const res = await db.prepare(`
-    SELECT 
+    SELECT
       strftime('%Y-%m-%d', fecha_enriquecimiento) as date,
-      CASE 
+      CASE
         WHEN modelo_llm IN ('mistral-large-2411', 'mistralLarge2411') THEN 'mistral-large-2411'
-        ELSE modelo_llm 
+        ELSE modelo_llm
       END as model,
       COUNT(*) as count
     FROM enriquecimiento
@@ -855,7 +967,7 @@ async function getMigrationEvolution(db: D1Database): Promise<Array<{ date: stri
 async function getRecentMigrationEvents(db: D1Database): Promise<Array<any>> {
   // Combinar eventos de skill_events y cambios relevantes en historial_cambios
   const skills = await db.prepare(`
-    SELECT 
+    SELECT
       ts as timestamp,
       'skill_event' as type,
       service,
@@ -870,7 +982,7 @@ async function getRecentMigrationEvents(db: D1Database): Promise<Array<any>> {
   `).all<any>();
 
   const changes = await db.prepare(`
-    SELECT 
+    SELECT
       fecha_cambio as timestamp,
       'data_change' as type,
       dictamen_id as code,
@@ -914,7 +1026,7 @@ async function insertDictamenRelacionJuridica(
   }
 ): Promise<void> {
   await db.prepare(
-    `INSERT OR IGNORE INTO dictamen_relaciones_juridicas 
+    `INSERT OR IGNORE INTO dictamen_relaciones_juridicas
      (dictamen_origen_id, dictamen_destino_id, tipo_accion, origen_extracccion)
      VALUES (?, ?, ?, ?)`
   ).bind(
@@ -943,7 +1055,7 @@ async function updateEnrichmentBooleanos(
   value: boolean
 ): Promise<void> {
   await db.prepare(
-    `UPDATE enriquecimiento 
+    `UPDATE enriquecimiento
      SET booleanos_json = json_set(COALESCE(booleanos_json, '{}'), '$.' || ?, json(?))
      WHERE dictamen_id = ?`
   ).bind(flag, value ? 'true' : 'false', dictamenId).run();
