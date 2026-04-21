@@ -165,8 +165,8 @@ async function queryHeatmapLive(
     INNER JOIN dictamenes d ON d.id = f.dictamen_id
     WHERE (? IS NULL OR d.anio >= ?)
       AND (? IS NULL OR d.anio <= ?)
-      AND LOWER(c.tipo_norma) NOT LIKE '%valor de relleno%'
-      AND LOWER(COALESCE(c.numero, '')) NOT LIKE '%valor de relleno%'
+      AND COALESCE(NULLIF(TRIM(c.tipo_norma), ''), 'Desconocido') NOT IN ('valor de relleno', 'Desconocido')
+      AND (c.numero IS NOT NULL AND c.numero NOT IN ('valor de relleno', 'n/a', ''))
     GROUP BY d.anio, COALESCE(NULLIF(TRIM(c.tipo_norma), ''), 'Desconocido'), COALESCE(NULLIF(TRIM(c.numero), ''), '-')
     ORDER BY total_refs DESC, total_dictamenes DESC
     LIMIT ?
@@ -229,8 +229,8 @@ async function refreshAnalyticsSnapshots(
     INNER JOIN dictamenes d ON d.id = f.dictamen_id
     WHERE (? IS NULL OR d.anio >= ?)
       AND (? IS NULL OR d.anio <= ?)
-      AND LOWER(c.tipo_norma) NOT LIKE '%valor de relleno%'
-      AND LOWER(COALESCE(c.numero, '')) NOT LIKE '%valor de relleno%'
+      AND COALESCE(NULLIF(TRIM(c.tipo_norma), ''), 'Desconocido') NOT IN ('valor de relleno', 'Desconocido')
+      AND (c.numero IS NOT NULL AND c.numero NOT IN ('valor de relleno', 'n/a', ''))
     GROUP BY d.anio, COALESCE(NULLIF(TRIM(c.tipo_norma), ''), 'Desconocido'), COALESCE(NULLIF(TRIM(c.numero), ''), '-')
     ORDER BY total_refs DESC, total_dictamenes DESC
     LIMIT ?
