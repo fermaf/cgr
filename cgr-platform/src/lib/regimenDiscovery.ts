@@ -382,9 +382,8 @@ export async function findSharedNorms(
     INNER JOIN fuentes_legales_catalogo c ON c.id = f.fuente_id
     WHERE f.dictamen_id IN (${placeholders})
       AND c.numero IS NOT NULL
-      AND LENGTH(TRIM(c.numero)) > 0
-      AND c.tipo_norma != 'valor de relleno'
-      AND c.tipo_norma != 'Desconocido'
+      AND c.numero != ''
+      AND c.tipo_norma NOT IN ('valor de relleno', 'Desconocido')
     GROUP BY c.tipo_norma, c.numero, c.articulo, c.year, c.sector
     HAVING dictamenes_count >= 2
     ORDER BY dictamenes_count DESC
