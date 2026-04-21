@@ -154,20 +154,29 @@ async function queryHeatmapLive(
 ): Promise<AnalyticsHeatmapRow[]> {
   const res = await db.prepare(`
     SELECT
-      d.anio AS year,
+      agg.year,
       COALESCE(NULLIF(TRIM(c.tipo_norma), ''), 'Desconocido') AS tipo_norma,
       COALESCE(NULLIF(TRIM(c.numero), ''), '-') AS numero,
-      COUNT(*) AS total_refs,
-      COUNT(DISTINCT d.id) AS total_dictamenes,
-      MAX(COALESCE(d.fecha_documento, d.created_at)) AS last_source_date
-    FROM dictamen_fuentes f
-    INNER JOIN fuentes_legales_catalogo c ON c.id = f.fuente_id
-    INNER JOIN dictamenes d ON d.id = f.dictamen_id
-    WHERE (? IS NULL OR d.anio >= ?)
-      AND (? IS NULL OR d.anio <= ?)
-      AND COALESCE(NULLIF(TRIM(c.tipo_norma), ''), 'Desconocido') NOT IN ('valor de relleno', 'Desconocido')
+      SUM(agg.mention_count) AS total_refs,
+      COUNT(agg.dictamen_id) AS total_dictamenes,
+      MAX(agg.last_date) AS last_source_date
+    FROM (
+      SELECT
+        d.anio AS year,
+        f.dictamen_id,
+        f.fuente_id,
+        COUNT(*) AS mention_count,
+        MAX(COALESCE(d.fecha_documento, d.created_at)) AS last_date
+      FROM dictamen_fuentes f
+      INNER JOIN dictamenes d ON d.id = f.dictamen_id
+      WHERE (? IS NULL OR d.anio >= ?)
+        AND (? IS NULL OR d.anio <= ?)
+      GROUP BY d.anio, f.dictamen_id, f.fuente_id
+    ) agg
+    INNER JOIN fuentes_legales_catalogo c ON c.id = agg.fuente_id
+    WHERE COALESCE(NULLIF(TRIM(c.tipo_norma), ''), 'Desconocido') NOT IN ('valor de relleno', 'Desconocido')
       AND (c.numero IS NOT NULL AND c.numero NOT IN ('valor de relleno', 'n/a', ''))
-    GROUP BY d.anio, COALESCE(NULLIF(TRIM(c.tipo_norma), ''), 'Desconocido'), COALESCE(NULLIF(TRIM(c.numero), ''), '-')
+    GROUP BY agg.year, COALESCE(NULLIF(TRIM(c.tipo_norma), ''), 'Desconocido'), COALESCE(NULLIF(TRIM(c.numero), ''), '-')
     ORDER BY total_refs DESC, total_dictamenes DESC
     LIMIT ?
   `).bind(yearFrom, yearFrom, yearTo, yearTo, limit).all<AnalyticsHeatmapRow>();
@@ -218,20 +227,29 @@ async function refreshAnalyticsSnapshots(
       (snapshot_date, year, tipo_norma, numero, total_refs, total_dictamenes, last_source_date)
     SELECT
       ? AS snapshot_date,
-      d.anio AS year,
+      agg.year,
       COALESCE(NULLIF(TRIM(c.tipo_norma), ''), 'Desconocido') AS tipo_norma,
       COALESCE(NULLIF(TRIM(c.numero), ''), '-') AS numero,
-      COUNT(*) AS total_refs,
-      COUNT(DISTINCT d.id) AS total_dictamenes,
-      MAX(COALESCE(d.fecha_documento, d.created_at)) AS last_source_date
-    FROM dictamen_fuentes f
-    INNER JOIN fuentes_legales_catalogo c ON c.id = f.fuente_id
-    INNER JOIN dictamenes d ON d.id = f.dictamen_id
-    WHERE (? IS NULL OR d.anio >= ?)
-      AND (? IS NULL OR d.anio <= ?)
-      AND COALESCE(NULLIF(TRIM(c.tipo_norma), ''), 'Desconocido') NOT IN ('valor de relleno', 'Desconocido')
+      SUM(agg.mention_count) AS total_refs,
+      COUNT(agg.dictamen_id) AS total_dictamenes,
+      MAX(agg.last_date) AS last_source_date
+    FROM (
+      SELECT
+        d.anio AS year,
+        f.dictamen_id,
+        f.fuente_id,
+        COUNT(*) AS mention_count,
+        MAX(COALESCE(d.fecha_documento, d.created_at)) AS last_date
+      FROM dictamen_fuentes f
+      INNER JOIN dictamenes d ON d.id = f.dictamen_id
+      WHERE (? IS NULL OR d.anio >= ?)
+        AND (? IS NULL OR d.anio <= ?)
+      GROUP BY d.anio, f.dictamen_id, f.fuente_id
+    ) agg
+    INNER JOIN fuentes_legales_catalogo c ON c.id = agg.fuente_id
+    WHERE COALESCE(NULLIF(TRIM(c.tipo_norma), ''), 'Desconocido') NOT IN ('valor de relleno', 'Desconocido')
       AND (c.numero IS NOT NULL AND c.numero NOT IN ('valor de relleno', 'n/a', ''))
-    GROUP BY d.anio, COALESCE(NULLIF(TRIM(c.tipo_norma), ''), 'Desconocido'), COALESCE(NULLIF(TRIM(c.numero), ''), '-')
+    GROUP BY agg.year, COALESCE(NULLIF(TRIM(c.tipo_norma), ''), 'Desconocido'), COALESCE(NULLIF(TRIM(c.numero), ''), '-')
     ORDER BY total_refs DESC, total_dictamenes DESC
     LIMIT ?
   `).bind(snapshotDate, yearFrom, yearFrom, yearTo, yearTo, limit).run();
