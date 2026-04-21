@@ -277,6 +277,22 @@ async function readJsonBody(c: Context<{ Bindings: Env }>): Promise<Record<strin
   return (body && typeof body === 'object') ? body : {};
 }
 
+function hasValidAdminToken(c: Context<{ Bindings: Env }>): boolean {
+  const token = c.req.header('x-admin-token');
+  return Boolean(token && c.env.INGEST_TRIGGER_TOKEN && token === c.env.INGEST_TRIGGER_TOKEN);
+}
+
+function isLocalRequest(c: Context<{ Bindings: Env }>): boolean {
+  const url = new URL(c.req.url);
+  return url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '0.0.0.0';
+}
+
+function requireAdminToken(c: Context<{ Bindings: Env }>): Response | null {
+  if (hasValidAdminToken(c)) return null;
+  if (c.env.ENVIRONMENT === 'local' && isLocalRequest(c)) return null;
+  return c.json({ error: 'Unauthorized' }, 403);
+}
+
 async function getSourceJsonWithFallback(env: Env, rawKey: string): Promise<unknown | null> {
   const candidates = rawKey.startsWith('dictamen:') ? [rawKey, rawKey.replace(/^dictamen:/, '')] : [rawKey, `dictamen:${rawKey}`];
   for (const candidate of candidates) {
@@ -333,19 +349,19 @@ app.get('/', (c) => c.text('CGR Platform API'));
 app.get('/api/v1/boletines/stats', async (c) => {
   try {
     const candidates = await c.env.DB.prepare(`
-      SELECT COUNT(*) as count 
+      SELECT COUNT(*) as count
       FROM dictamenes d
       INNER JOIN atributos_juridicos a ON a.dictamen_id = d.id
       WHERE a.en_boletin = 1 OR a.es_relevante = 1 OR a.recurso_proteccion = 1
     `).first<{ count: number }>();
-    
+
     const lastBoletin = await c.env.DB.prepare("SELECT created_at FROM tabla_boletines ORDER BY created_at DESC LIMIT 1").first<{ created_at: string }>();
-    
-    return c.json({ 
-      data: { 
+
+    return c.json({
+      data: {
         candidates: candidates?.count ?? 0,
         last_generated: lastBoletin?.created_at ?? null
-      } 
+      }
     });
   } catch (e: any) {
     return c.json({ error: errorMessage(e) }, 500);
@@ -367,7 +383,7 @@ app.get('/api/v1/boletines/:id', async (c) => {
   try {
     const boletin = await getBoletin(c.env.DB, id);
     if (!boletin) return c.json({ error: 'No encontrado' }, 404);
-    
+
     const entregables = await getBoletinEntregables(c.env.DB, id);
     return c.json({ data: { ...boletin, entregables } });
   } catch (e: any) {
@@ -380,7 +396,7 @@ app.post('/api/v1/boletines', async (c) => {
   const id = (body.id as string) || crypto.randomUUID();
   const fechaInicio = (body.fecha_inicio as string) || new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().split('T')[0];
   const fechaFin = (body.fecha_fin as string) || new Date().toISOString().split('T')[0];
-  
+
   try {
     await createBoletin(c.env.DB, {
       id,
@@ -406,16 +422,16 @@ app.get('/api/v1/tools/elevenlabs/latest-script', async (c) => {
   if (!validateElevenLabsAuth(c, c.env)) {
     return c.json({ error: 'Unauthorized' }, 401);
   }
-  
+
   try {
     // Retornamos el script del último boletín generado como ejemplo
     const latest = await c.env.DB.prepare(
       "SELECT content_text FROM tabla_boletines_entregables WHERE canal = 'YOUTUBE_SHORTS' ORDER BY id DESC LIMIT 1"
     ).first<{ content_text: string }>();
-    
-    return c.json({ 
+
+    return c.json({
       text: latest?.content_text || "Bienvenidos a Indubia. Aún no hay boletines procesados.",
-      voice_id: 'pNInz6obpgnuMvYJdGRp' 
+      voice_id: 'pNInz6obpgnuMvYJdGRp'
     });
   } catch (e: any) {
     return c.json({ error: errorMessage(e) }, 500);
@@ -427,11 +443,11 @@ app.get('/api/v1/assets/image/:key', async (c) => {
   try {
     const key = c.req.param('key');
     const imageBytes = await c.env.DICTAMENES_PASO.get(key, 'arrayBuffer');
-    
+
     if (!imageBytes) {
       return c.json({ error: 'Asset no encontrado' }, 404);
     }
-    
+
     return c.body(imageBytes, 200, {
       'Content-Type': 'image/png',
       'Cache-Control': 'public, max-age=86400'
@@ -457,7 +473,7 @@ app.get('/api/v1/admin/audit-sync', async (c) => {
 
     const kvKeys = new Set<string>();
     const garbageKeys: string[] = [];
-    
+
     let cursor: string | undefined = undefined;
     do {
       const listRes: any = await kv.list({ cursor });
@@ -736,19 +752,15 @@ app.get('/api/v1/analytics/topics/trends', async (c) => {
 });
 
 app.post('/api/v1/analytics/refresh', async (c) => {
+  const unauthorized = requireAdminToken(c);
+  if (unauthorized) return unauthorized;
+
   const db = c.env.DB;
   const body = await readJsonBody(c);
   const limit = parsePositiveInt(body.limit, 1000, 10, 10000);
   const yearFrom = parseOptionalInt(body.yearFrom);
   const yearTo = parseOptionalInt(body.yearTo);
   const snapshotDate = isIsoDateYmd(body.snapshotDate) ? body.snapshotDate : todayYmd();
-
-  if (c.env.ENVIRONMENT === 'prod') {
-    const token = c.req.header('x-admin-token');
-    if (!token || token !== c.env.INGEST_TRIGGER_TOKEN) {
-      return c.json({ error: 'Unauthorized' }, 403);
-    }
-  }
 
   try {
     const counts = await refreshAnalyticsSnapshots(db, snapshotDate, yearFrom, yearTo, limit);
@@ -859,7 +871,7 @@ app.get('/api/v1/insights/doctrine-search', async (c) => {
     return c.json({ error: 'Missing q parameter' }, 400);
   }
 
-  const cacheKey = `insights:doctrine-search:v31:q:${q}:l:${limit}`;
+  const cacheKey = `insights:doctrine-search:v36:q:${q}:l:${limit}`;
 
   try {
     const cached = await c.env.DICTAMENES_PASO.get(cacheKey, 'json').catch(() => null);
@@ -958,10 +970,10 @@ app.get('/api/v1/divisions', async (c) => {
   const db = c.env.DB;
   try {
     const list = await db.prepare(`
-      SELECT DISTINCT codigo, nombre_completo 
-      FROM cat_divisiones 
-      WHERE nombre_completo NOT LIKE 'División No Identificada%' 
-      AND nombre_completo NOT LIKE 'Sin División Asignada%' 
+      SELECT DISTINCT codigo, nombre_completo
+      FROM cat_divisiones
+      WHERE nombre_completo NOT LIKE 'División No Identificada%'
+      AND nombre_completo NOT LIKE 'Sin División Asignada%'
       ORDER BY nombre_completo
     `).all();
     return c.json({ data: list.results || [] });
@@ -1012,12 +1024,12 @@ app.get('/api/v1/dictamenes', async (c) => {
         const queryTrimmed = normalizedQuery.trim();
         // Detección de patrones de ID (Ej: E85862N25, 71381, N25)
         const isLikelyId = /^[A-Z0-9]*[0-9]+N[0-9]+$/i.test(queryTrimmed) || (/^[0-9]+$/.test(queryTrimmed) && queryTrimmed.length > 3);
-        
+
         if (isLikelyId) {
           // Búsqueda SQL directa primero (Prioridad ID)
           const sqlRes = await db.prepare(`SELECT d.id FROM dictamenes d WHERE d.id LIKE ? OR d.numero LIKE ? LIMIT 5`)
             .bind(`%${queryTrimmed}%`, `%${queryTrimmed}%`).all();
-          
+
           if (sqlRes.results && sqlRes.results.length > 0) {
              console.log("ID Match detected, skipping vector search priority.");
              // Si hay match exacto/parcial de ID, dejamos que el fallback SQL maneje todo con filtros.
@@ -1061,13 +1073,13 @@ app.get('/api/v1/dictamenes', async (c) => {
             const resultIds = data.map((d: any) => d.id);
             const placeholders = resultIds.map(() => '?').join(',');
             const rels = await db.prepare(`
-              SELECT dictamen_destino_id as destino_id, 
+              SELECT dictamen_destino_id as destino_id,
                      '[' || GROUP_CONCAT('{"origen_id":"' || dictamen_origen_id || '","tipo_accion":"' || r.tipo_accion || '"}') || ']' as relaciones_json
               FROM dictamen_relaciones_juridicas r
               WHERE dictamen_destino_id IN (${placeholders})
               GROUP BY dictamen_destino_id
             `).bind(...resultIds).all<any>();
-            
+
             const relMap = new Map<string, any[]>();
             (rels.results || []).forEach(r => {
               relMap.set(r.destino_id, JSON.parse(r.relaciones_json));
@@ -1080,8 +1092,8 @@ app.get('/api/v1/dictamenes', async (c) => {
             totalToReturn = data.length;
           }
         }
-      } catch (err) {
-        console.error("Excepción en búsqueda vectorial, recurriendo a SQL (Fallback).", err);
+      } catch (err: any) {
+        console.error("Excepción en búsqueda vectorial, recurriendo a SQL (Fallback).", err.message, err.stack);
       }
     }
 
@@ -1160,10 +1172,10 @@ app.get('/api/v1/dictamenes', async (c) => {
 
     const listQuery = `SELECT d.id, d.numero, d.anio, d.fecha_documento, d.materia, d.estado, d.criterio, e.genera_jurisprudencia,
                        (SELECT '[' || GROUP_CONCAT('{"origen_id":"' || r.dictamen_origen_id || '","tipo_accion":"' || r.tipo_accion || '"}') || ']'
-                        FROM dictamen_relaciones_juridicas r 
+                        FROM dictamen_relaciones_juridicas r
                         WHERE r.dictamen_destino_id = d.id) as relaciones_json
-                       FROM dictamenes d 
-                       LEFT JOIN enriquecimiento e ON d.id = e.dictamen_id 
+                       FROM dictamenes d
+                       LEFT JOIN enriquecimiento e ON d.id = e.dictamen_id
                        ${condition} ORDER BY d.fecha_documento DESC LIMIT ? OFFSET ?`;
     const list = await db.prepare(listQuery).bind(...binds, limit, offset).all<any>();
 
@@ -1179,6 +1191,46 @@ app.get('/api/v1/dictamenes', async (c) => {
       genera_jurisprudencia: r.criterio === 'Genera Jurisprudencia',
       relaciones_causa: r.relaciones_json ? JSON.parse(r.relaciones_json) : []
     }));
+    }
+
+    // --- ENRIQUECIMIENTO CON REGÍMENES JURISPRUDENCIALES ---
+    if (dataToReturn && dataToReturn.length > 0) {
+      const resultIds = dataToReturn.map((d: any) => d.id);
+      const placeholders = resultIds.map(() => '?').join(',');
+
+      try {
+        const regimenRows = await db.prepare(`
+          SELECT rd.dictamen_id, r.id as regimen_id, r.nombre as regimen_nombre,
+                 r.estado as regimen_estado, p.pregunta as pjo_pregunta, p.respuesta_sintetica as pjo_respuesta
+          FROM regimen_dictamenes rd
+          JOIN regimenes_jurisprudenciales r ON r.id = rd.regimen_id
+          LEFT JOIN problemas_juridicos_operativos p ON p.regimen_id = r.id
+          WHERE rd.dictamen_id IN (${placeholders})
+          ORDER BY r.confianza DESC
+        `).bind(...resultIds).all<any>();
+
+        const regimenPorDictamen = new Map();
+        for (const row of regimenRows.results ?? []) {
+          // Si un dictamen pertenece a varios regímenes, nos quedamos con el de mayor confianza (ya ordenado)
+          if (!regimenPorDictamen.has(row.dictamen_id)) {
+            regimenPorDictamen.set(row.dictamen_id, {
+              id: row.regimen_id,
+              nombre: row.regimen_nombre,
+              estado: row.regimen_estado,
+              pjo_pregunta: row.pjo_pregunta,
+              pjo_respuesta: row.pjo_respuesta
+            });
+          }
+        }
+
+        dataToReturn = dataToReturn.map((d: any) => ({
+          ...d,
+          regimen: regimenPorDictamen.get(d.id) || null
+        }));
+      } catch (regimenErr) {
+        logError('SEARCH_REGIMEN_ENRICHMENT_ERROR', regimenErr);
+        // No fallamos la búsqueda completa si falla el enriquecimiento de regímenes
+      }
     }
 
     return c.json({
@@ -1199,8 +1251,8 @@ app.get('/api/v1/analytics/suggest/materia', async (c) => {
   try {
     const res = await db.prepare(
       `SELECT DISTINCT termino
-       FROM cat_descriptores 
-       WHERE LOWER(termino) LIKE LOWER(?) 
+       FROM cat_descriptores
+       WHERE LOWER(termino) LIKE LOWER(?)
        ORDER BY 1 ASC
        LIMIT 10`
     ).bind(`%${query}%`).all<any>();
@@ -1220,36 +1272,21 @@ app.get('/api/v1/analytics/suggest/tags', async (c) => {
 
   const db = c.env.DB;
   try {
-    const results = await db.prepare(`
-      SELECT etiquetas_json 
-      FROM enriquecimiento 
-      WHERE etiquetas_json LIKE ? 
-      LIMIT 100
-    `).bind(`%${query}%`).all<any>();
+    // 1. Intento Canónico (Optimizado)
+    const canonicalResults = await db.prepare(`
+      SELECT DISTINCT etiqueta_display
+      FROM etiquetas_catalogo
+      WHERE etiqueta_display LIKE ?
+      ORDER BY etiqueta_display ASC
+      LIMIT 10
+    `).bind(`%${query}%`).all<{ etiqueta_display: string }>();
 
-    const allTags = new Set<string>();
-    (results.results || []).forEach((r: any) => {
-      try {
-        const tagsArr = JSON.parse(r.etiquetas_json || '[]');
-        if (Array.isArray(tagsArr)) {
-          tagsArr.forEach((t: string) => {
-            if (t.toLowerCase().includes(query.toLowerCase())) {
-              allTags.add(t);
-            }
-          });
-        }
-      } catch (e) {
-        if (r.etiquetas_json && r.etiquetas_json.toLowerCase().includes(query.toLowerCase())) {
-          allTags.add(r.etiquetas_json);
-        }
-      }
+    const suggestions = (canonicalResults.results || []).map(r => r.etiqueta_display);
+
+    return c.json({
+      suggestions,
+      _audit: { source: 'canonical' }
     });
-
-    const finalSuggestions = Array.from(allTags)
-      .sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }))
-      .slice(0, 10);
-
-    return c.json({ suggestions: finalSuggestions });
   } catch (e: any) {
     return c.json({ error: errorMessage(e) }, 500);
   }
@@ -1298,26 +1335,75 @@ app.get('/api/v1/dictamenes/:id', async (c) => {
        ORDER BY COALESCE(d.fecha_documento, d.created_at) DESC, r.rowid DESC
        LIMIT 100`
     ).bind(id).all<DictamenRelationDetailRow>();
-    const fuentes = await db.prepare(
+    // --- CANONICAL SOURCES READ WITH LEGACY FALLBACK ---
+    let sourcesOrigin = 'canonical';
+    const canonicalSources = await db.prepare(
       `SELECT
-         NULLIF(TRIM(tipo_norma), '') AS tipo_norma,
-         NULLIF(TRIM(numero), '') AS numero,
-         NULLIF(TRIM(articulo), '') AS articulo,
-         NULLIF(TRIM(extra), '') AS extra,
-         NULLIF(TRIM(year), '') AS year,
-         NULLIF(TRIM(sector), '') AS sector,
+         c.tipo_norma,
+         c.numero,
+         c.articulo,
+         f.raw_extra AS extra,
+         c.year,
+         c.sector,
          COUNT(*) AS mentions
-       FROM dictamen_fuentes_legales
-       WHERE dictamen_id = ?
-       GROUP BY
-         NULLIF(TRIM(tipo_norma), ''),
-         NULLIF(TRIM(numero), ''),
-         NULLIF(TRIM(articulo), ''),
-         NULLIF(TRIM(extra), ''),
-         NULLIF(TRIM(year), ''),
-         NULLIF(TRIM(sector), '')
-       ORDER BY mentions DESC, tipo_norma ASC, numero ASC, articulo ASC`
+       FROM dictamen_fuentes f
+       JOIN fuentes_legales_catalogo c ON c.id = f.fuente_id
+       WHERE f.dictamen_id = ?
+       GROUP BY f.fuente_id, f.mention_key
+       ORDER BY mentions DESC, c.tipo_norma ASC, c.numero ASC`
     ).bind(id).all<DictamenFuenteLegalRow>();
+
+    let fuentesResult = canonicalSources.results || [];
+
+    if (fuentesResult.length === 0) {
+      sourcesOrigin = 'legacy_fallback';
+      const legacyFuentes = await db.prepare(
+        `SELECT
+           NULLIF(TRIM(tipo_norma), '') AS tipo_norma,
+           NULLIF(TRIM(numero), '') AS numero,
+           NULLIF(TRIM(articulo), '') AS articulo,
+           NULLIF(TRIM(extra), '') AS extra,
+           NULLIF(TRIM(year), '') AS year,
+           NULLIF(TRIM(sector), '') AS sector,
+           COUNT(*) AS mentions
+         FROM dictamen_fuentes_legales
+         WHERE dictamen_id = ?
+         GROUP BY
+           NULLIF(TRIM(tipo_norma), ''),
+           NULLIF(TRIM(numero), ''),
+           NULLIF(TRIM(articulo), ''),
+           NULLIF(TRIM(extra), ''),
+           NULLIF(TRIM(year), ''),
+           NULLIF(TRIM(sector), '')
+         ORDER BY mentions DESC, tipo_norma ASC, numero ASC, articulo ASC`
+      ).bind(id).all<DictamenFuenteLegalRow>();
+      fuentesResult = legacyFuentes.results || [];
+    }
+
+    // --- CANONICAL TAGS READ WITH LEGACY FALLBACK ---
+    let tagsOrigin = 'canonical';
+    const canonicalTags = await db.prepare(
+      `SELECT c.etiqueta_display
+       FROM dictamen_etiquetas d
+       JOIN etiquetas_catalogo c ON c.id = d.etiqueta_id
+       WHERE d.dictamen_id = ?
+       ORDER BY c.etiqueta_display ASC`
+    ).bind(id).all<{ etiqueta_display: string }>();
+
+    let tagsResult = (canonicalTags.results || []).map(r => r.etiqueta_display);
+
+    if (tagsResult.length === 0 && enrichment?.etiquetas_json) {
+      tagsOrigin = 'legacy_fallback';
+      try {
+        const legacyTags = JSON.parse(enrichment.etiquetas_json);
+        if (Array.isArray(legacyTags)) {
+          tagsResult = legacyTags;
+        }
+      } catch (e) {
+        // Fallback robusto en caso de JSON malformado
+        tagsResult = [];
+      }
+    }
 
     return c.json({
       meta: {
@@ -1342,14 +1428,18 @@ app.get('/api/v1/dictamenes/:id', async (c) => {
           titulo: relation.titulo,
           bucket: relationBucket(relation.tipo_accion)
         })),
-        fuentes_legales: (fuentes.results || []).map((source) => normalizeLegalSourceForPresentation(source))
+        fuentes_legales: fuentesResult.map((source) => normalizeLegalSourceForPresentation(source)),
+        _audit: {
+          sources_source: sourcesOrigin,
+          tags_source: tagsOrigin
+        }
       },
       raw: raw,
       extrae_jurisprudencia: enrichment ? {
         titulo: enrichment.titulo,
         resumen: enrichment.resumen,
         analisis: enrichment.analisis,
-        etiquetas: enrichment.etiquetas_json ? JSON.parse(enrichment.etiquetas_json) : [],
+        etiquetas: tagsResult,
         genera_jurisprudencia: enrichment.genera_jurisprudencia ?? false
       } : null
     });
@@ -1444,7 +1534,46 @@ app.get('/search', async (c) => {
   if (!query) return c.json({ error: 'Missing q parameter' }, 400);
   const limit = Number(c.req.query('limit')) || 10;
   try {
-    const results = await queryRecords(c.env, query, limit);
+    const pcRes = await queryRecords(c.env, query, limit);
+    let results = pcRes.matches || [];
+
+    // --- ENRIQUECIMIENTO CON REGÍMENES JURISPRUDENCIALES ---
+    if (results && results.length > 0) {
+      const resultIds = results.map((d: any) => d.id);
+      const placeholders = resultIds.map(() => '?').join(',');
+      const db = c.env.DB;
+
+      try {
+        const regimenRows = await db.prepare(`
+          SELECT rd.dictamen_id, r.id as regimen_id, r.nombre as regimen_nombre,
+                 r.estado as regimen_estado, p.pregunta as pjo_pregunta
+          FROM regimen_dictamenes rd
+          JOIN regimenes_jurisprudenciales r ON r.id = rd.regimen_id
+          LEFT JOIN problemas_juridicos_operativos p ON p.regimen_id = r.id
+          WHERE rd.dictamen_id IN (${placeholders})
+          ORDER BY r.confianza DESC
+        `).bind(...resultIds).all<any>();
+
+        const regimenPorDictamen = new Map();
+        for (const row of regimenRows.results ?? []) {
+          if (!regimenPorDictamen.has(row.dictamen_id)) {
+            regimenPorDictamen.set(row.dictamen_id, {
+              id: row.regimen_id,
+              nombre: row.regimen_nombre,
+              estado: row.regimen_estado,
+              pjo_pregunta: row.pjo_pregunta
+            });
+          }
+        }
+
+        results = results.map((d: any) => ({
+          ...d,
+          regimen: regimenPorDictamen.get(d.id) || null
+        }));
+      } catch (regimenErr) {
+        logError('LEGACY_SEARCH_REGIMEN_ENRICHMENT_ERROR', regimenErr);
+      }
+    }
     return c.json(results);
   } catch (e: any) {
     return c.json({ error: errorMessage(e) }, 500);
@@ -1458,11 +1587,25 @@ app.get('/api/v1/admin/migration/info', async (c) => {
     const stats = await getMigrationStats(db);
     const evolution = await getMigrationEvolution(db);
     const events = await getRecentMigrationEvents(db);
+    const models = await db.prepare(`
+      SELECT
+        CASE
+          WHEN e.modelo_llm IS NULL OR TRIM(e.modelo_llm) = '' THEN 'sin_modelo'
+          WHEN e.modelo_llm IN ('mistralLarge2411', 'mistral-large-2411') THEN 'mistral-large-2411'
+          ELSE e.modelo_llm
+        END as modelo,
+        COUNT(*) as count
+      FROM dictamenes d
+      LEFT JOIN enriquecimiento e ON d.id = e.dictamen_id
+      GROUP BY modelo
+      ORDER BY count DESC
+    `).all<any>();
 
     return c.json({
       stats,
       evolution,
       events,
+      models: models.results || [],
       modelTarget: c.env.MISTRAL_MODEL
     });
   } catch (e: any) {
@@ -1530,12 +1673,9 @@ app.post('/api/v1/dictamenes/crawl/range', async (c) => {
 });
 
 app.post('/api/v1/dictamenes/batch-enrich', async (c) => {
-  if (c.env.ENVIRONMENT === 'prod') {
-    const token = c.req.header('x-admin-token');
-    if (!token || token !== c.env.INGEST_TRIGGER_TOKEN) {
-      return c.json({ error: 'Unauthorized' }, 403);
-    }
-  }
+  const unauthorized = requireAdminToken(c);
+  if (unauthorized) return unauthorized;
+
   const body = await readJsonBody(c);
   const defaultBatch = parsePositiveInt(c.env.BACKFILL_BATCH_SIZE, 100, 1, 500);
   const defaultDelay = parsePositiveInt(c.env.BACKFILL_DELAY_MS, 500, 0, 60000);
@@ -1556,12 +1696,9 @@ app.post('/api/v1/dictamenes/batch-enrich', async (c) => {
 });
 
 app.post('/api/v1/dictamenes/batch-vectorize', async (c) => {
-  if (c.env.ENVIRONMENT === 'prod') {
-    const token = c.req.header('x-admin-token');
-    if (!token || token !== c.env.INGEST_TRIGGER_TOKEN) {
-      return c.json({ error: 'Unauthorized' }, 403);
-    }
-  }
+  const unauthorized = requireAdminToken(c);
+  if (unauthorized) return unauthorized;
+
   const body = await readJsonBody(c);
   const defaultBatch = parsePositiveInt(c.env.BACKFILL_BATCH_SIZE, 18, 1, 18);
   const defaultDelay = parsePositiveInt(c.env.BACKFILL_DELAY_MS, 3500, 3500, 60000);
@@ -1616,8 +1753,8 @@ app.post('/api/v1/dictamenes/:id/sync-vector', async (c) => {
     await db.prepare(
       `INSERT INTO pinecone_sync_status (dictamen_id, metadata_version, last_synced_at)
        VALUES (?, 2, CURRENT_TIMESTAMP)
-       ON CONFLICT(dictamen_id) DO UPDATE SET 
-          metadata_version = 2, 
+       ON CONFLICT(dictamen_id) DO UPDATE SET
+          metadata_version = 2,
           last_synced_at = CURRENT_TIMESTAMP,
           sync_error = NULL`
     ).bind(id).run();
@@ -1706,8 +1843,8 @@ app.post('/api/v1/dictamenes/:id/re-process', async (c) => {
     await db.prepare(
       `INSERT INTO pinecone_sync_status (dictamen_id, metadata_version, last_synced_at)
        VALUES (?, 2, CURRENT_TIMESTAMP)
-       ON CONFLICT(dictamen_id) DO UPDATE SET 
-          metadata_version = 2, 
+       ON CONFLICT(dictamen_id) DO UPDATE SET
+          metadata_version = 2,
           last_synced_at = CURRENT_TIMESTAMP,
           sync_error = NULL`
     ).bind(id).run();
@@ -1786,33 +1923,78 @@ app.get('/api/v1/analytics/multidimensional', async (c) => {
 
     // 1. Volumetría y Jurisprudencia por año
     const volRes = await db.prepare(`
-      SELECT 
-        anio, 
+      SELECT
+        anio,
         COUNT(*) as count,
         SUM(CASE WHEN criterio = 'Genera Jurisprudencia' THEN 1 ELSE 0 END) as jurisprudencia,
-        SUM(CASE WHEN estado = 'vectorized' THEN 1 ELSE 0 END) as vectorized
-      FROM dictamenes 
-      ${baseWhere} 
-      AND anio IS NOT NULL 
-      GROUP BY anio 
+        SUM(CASE WHEN estado IN ('ingested', 'ingested_importante', 'ingested_trivial') THEN 1 ELSE 0 END) as pending_enrichment,
+        SUM(CASE WHEN estado IN ('enriching_ingested', 'enriching_importante', 'enriching_trivial', 'processing') THEN 1 ELSE 0 END) as enriching,
+        SUM(CASE WHEN estado IN ('enriched', 'enriched_pending_vectorization') THEN 1 ELSE 0 END) as pending_vectorization,
+        SUM(CASE WHEN estado = 'vectorizing' THEN 1 ELSE 0 END) as vectorizing,
+        SUM(CASE WHEN estado = 'vectorized' THEN 1 ELSE 0 END) as vectorized,
+        SUM(CASE WHEN estado LIKE 'error%' THEN 1 ELSE 0 END) as errors
+      FROM dictamenes
+      ${baseWhere}
+      AND anio IS NOT NULL
+      GROUP BY anio
       ORDER BY anio ASC
     `).bind(...binds).all<any>();
 
     // 2. Transaccionalidad
-    const statusRes = await db.prepare(`SELECT estado, COUNT(*) as count FROM dictamenes ${baseWhere} GROUP BY estado`).bind(...binds).all<any>();
+    const statusRes = await db.prepare(`
+      SELECT
+        d.estado,
+        COALESCE(ep.nombre, CASE WHEN d.estado IS NULL THEN 'Sin estado' ELSE d.estado END) as nombre,
+        COALESCE(ep.descripcion, 'Estado presente en dictamenes sin entrada vigente en cat_estado_pipeline.') as descripcion,
+        COALESCE(ep.orden, 999) as orden,
+        CASE
+          WHEN d.estado IS NULL THEN 'sin_estado'
+          WHEN d.estado IN ('ingested', 'ingested_importante', 'ingested_trivial') THEN 'pendiente_enrichment'
+          WHEN d.estado IN ('enriching_ingested', 'enriching_importante', 'enriching_trivial', 'processing') THEN 'enrichment'
+          WHEN d.estado IN ('enriched', 'enriched_pending_vectorization') THEN 'pendiente_vectorizacion'
+          WHEN d.estado = 'vectorizing' THEN 'vectorizacion'
+          WHEN d.estado = 'vectorized' THEN 'publicable'
+          WHEN d.estado LIKE 'error%' THEN 'incidente'
+          WHEN ep.codigo IS NULL THEN 'sin_catalogo'
+          ELSE 'otro'
+        END as etapa,
+        CASE WHEN ep.codigo IS NULL THEN 0 ELSE 1 END as catalogado,
+        COUNT(*) as count
+      FROM dictamenes d
+      LEFT JOIN cat_estado_pipeline ep ON ep.codigo = d.estado
+      ${baseWhere}
+      GROUP BY d.estado, ep.nombre, ep.descripcion, ep.orden, ep.codigo
+      ORDER BY COALESCE(ep.orden, 999), count DESC
+    `).bind(...binds).all<any>();
 
     // 3. Operacional
     const opsRes = await db.prepare(`SELECT en_paso, en_source, COUNT(*) as count FROM kv_sync_status GROUP BY en_paso, en_source`).all<any>();
 
-    // 4. Semántica
+    // 4. Modelos LLM
+    const modelsRes = await db.prepare(`
+      SELECT
+        CASE
+          WHEN e.modelo_llm IS NULL OR TRIM(e.modelo_llm) = '' THEN 'sin_modelo'
+          WHEN e.modelo_llm IN ('mistralLarge2411', 'mistral-large-2411') THEN 'mistral-large-2411'
+          ELSE e.modelo_llm
+        END as modelo,
+        COUNT(*) as count
+      FROM dictamenes d
+      LEFT JOIN enriquecimiento e ON d.id = e.dictamen_id
+      ${baseWhere}
+      GROUP BY modelo
+      ORDER BY count DESC
+    `).bind(...binds).all<any>();
+
+    // 5. Semántica
     const semRes = await db.prepare(`SELECT materia, COUNT(*) as count FROM dictamenes ${baseWhere} AND materia IS NOT NULL AND TRIM(materia) != '' GROUP BY materia ORDER BY count DESC LIMIT 15`).bind(...binds).all<any>();
 
     const relRes = await db.prepare(`
-      SELECT 
-        SUM(COALESCE(a.es_relevante, 0)) as relevantes, 
-        SUM(COALESCE(a.recurso_proteccion, 0)) as recursos, 
+      SELECT
+        SUM(COALESCE(a.es_relevante, 0)) as relevantes,
+        SUM(COALESCE(a.recurso_proteccion, 0)) as recursos,
         SUM(CASE WHEN d.criterio = 'Genera Jurisprudencia' THEN 1 ELSE 0 END) as jurisprudencia
-      FROM atributos_juridicos a 
+      FROM atributos_juridicos a
       LEFT JOIN enriquecimiento e ON a.dictamen_id = e.dictamen_id
       INNER JOIN dictamenes d ON a.dictamen_id = d.id
       ${baseWhere}
@@ -1822,6 +2004,7 @@ app.get('/api/v1/analytics/multidimensional', async (c) => {
       volumetria: volRes.results || [],
       transaccional: statusRes.results || [],
       operacional: opsRes.results || [],
+      modelos: modelsRes.results || [],
       semantica: {
         topMaterias: semRes.results || [],
         impacto: relRes || {}
@@ -1841,10 +2024,10 @@ app.post('/api/v1/dictamenes/sync-vector-mass', async (c) => {
   try {
     // 1. Buscar dictámenes que NO estén en metadata_version 2 (Gold)
     const pending = await db.prepare(`
-      SELECT d.id 
+      SELECT d.id
       FROM dictamenes d
       LEFT JOIN pinecone_sync_status s ON d.id = s.dictamen_id
-      WHERE d.estado = 'vectorized' 
+      WHERE d.estado = 'vectorized'
       AND (s.metadata_version IS NULL OR s.metadata_version < 2)
       LIMIT ?
     `).bind(limit).all<{ id: string }>();
@@ -1886,8 +2069,8 @@ app.post('/api/v1/dictamenes/sync-vector-mass', async (c) => {
       await db.prepare(`
             INSERT INTO pinecone_sync_status (dictamen_id, metadata_version, last_synced_at)
             VALUES (?, 2, CURRENT_TIMESTAMP)
-            ON CONFLICT(dictamen_id) DO UPDATE SET 
-               metadata_version = 2, 
+            ON CONFLICT(dictamen_id) DO UPDATE SET
+               metadata_version = 2,
                last_synced_at = CURRENT_TIMESTAMP,
                sync_error = NULL
         `).bind(id).run();
@@ -1902,12 +2085,9 @@ app.post('/api/v1/dictamenes/sync-vector-mass', async (c) => {
 
 // --- TRIGGER MANUAL ---
 app.post('/ingest/trigger', async (c) => {
-  if (c.env.ENVIRONMENT === 'prod') {
-    const token = c.req.header('x-admin-token');
-    if (!token || token !== c.env.INGEST_TRIGGER_TOKEN) {
-      return c.json({ error: 'Unauthorized' }, 403);
-    }
-  }
+  const unauthorized = requireAdminToken(c);
+  if (unauthorized) return unauthorized;
+
   try {
     const body = await readJsonBody(c);
     const limit = parsePositiveInt(body.limit, 10, 1, 100000);
@@ -1938,12 +2118,9 @@ app.post('/api/v1/trigger/kv-sync', async (c) => {
 });
 
 app.post('/api/v1/trigger/canonical-relations', async (c) => {
-  if (c.env.ENVIRONMENT === 'prod') {
-    const token = c.req.header('x-admin-token');
-    if (!token || token !== c.env.INGEST_TRIGGER_TOKEN) {
-      return c.json({ error: 'Unauthorized' }, 403);
-    }
-  }
+  const unauthorized = requireAdminToken(c);
+  if (unauthorized) return unauthorized;
+
   const params = await readJsonBody(c);
   if (c.env.CANONICAL_RELATIONS_WORKFLOW) {
     const requestedIds = Array.isArray(params.dictamenIds)
@@ -1968,12 +2145,8 @@ app.post('/api/v1/trigger/canonical-relations', async (c) => {
 });
 
 app.post('/api/v1/trigger/doctrinal-metadata-reprocess', async (c) => {
-  if (c.env.ENVIRONMENT === 'prod') {
-    const token = c.req.header('x-admin-token');
-    if (!token || token !== c.env.INGEST_TRIGGER_TOKEN) {
-      return c.json({ error: 'Unauthorized' }, 403);
-    }
-  }
+  const unauthorized = requireAdminToken(c);
+  if (unauthorized) return unauthorized;
 
   const params = await readJsonBody(c);
   if (!c.env.DOCTRINAL_METADATA_WORKFLOW) {
@@ -2016,12 +2189,8 @@ app.post('/api/v1/trigger/doctrinal-metadata-reprocess', async (c) => {
 });
 
 app.post('/api/v1/admin/relations-gap/analyze', async (c) => {
-  if (c.env.ENVIRONMENT === 'prod') {
-    const token = c.req.header('x-admin-token');
-    if (!token || token !== c.env.INGEST_TRIGGER_TOKEN) {
-      return c.json({ error: 'Unauthorized' }, 403);
-    }
-  }
+  const unauthorized = requireAdminToken(c);
+  if (unauthorized) return unauthorized;
 
   const body = await readJsonBody(c);
   const dictamenIds = Array.isArray(body.dictamenIds)
@@ -2079,12 +2248,8 @@ app.post('/api/v1/admin/relations-gap/analyze', async (c) => {
 });
 
 app.post('/api/v1/admin/doctrinal-metadata/reprocess', async (c) => {
-  if (c.env.ENVIRONMENT === 'prod') {
-    const token = c.req.header('x-admin-token');
-    if (!token || token !== c.env.INGEST_TRIGGER_TOKEN) {
-      return c.json({ error: 'Unauthorized' }, 403);
-    }
-  }
+  const unauthorized = requireAdminToken(c);
+  if (unauthorized) return unauthorized;
 
   try {
     const body = await readJsonBody(c);
@@ -2235,13 +2400,15 @@ app.get('/api/v1/public/regimenes', async (c) => {
              r.estabilidad, r.confianza,
              r.fecha_criterio_fundante, r.fecha_ultimo_pronunciamiento,
              r.dictamen_rector_id,
+             p.pregunta as pjo_pregunta, p.respuesta_sintetica as pjo_respuesta,
              COUNT(DISTINCT nr.norma_key) as normas_count
       FROM regimenes_jurisprudenciales r
       LEFT JOIN norma_regimen nr ON nr.regimen_id = r.id
+      LEFT JOIN problemas_juridicos_operativos p ON p.regimen_id = r.id
     `;
     const bindings: (string | number)[] = [];
     if (estadoFiltro) { query += ` WHERE r.estado = ?`; bindings.push(estadoFiltro); }
-    query += ` GROUP BY r.id ORDER BY r.confianza DESC, r.estabilidad DESC LIMIT ? OFFSET ?`;
+    query += ` GROUP BY r.id, p.id ORDER BY r.confianza DESC, r.estabilidad DESC LIMIT ? OFFSET ?`;
     bindings.push(limit, offset);
 
     const rows = await c.env.DB.prepare(query).bind(...bindings).all<Record<string, unknown>>();
@@ -2270,6 +2437,12 @@ app.get('/api/v1/public/regimenes/:id', async (c) => {
     ).bind(id).first<Record<string, unknown>>();
     if (!regimen) return c.json({ error: `Régimen no encontrado` }, 404);
 
+    // FASE B: Enriquecer con PJO si existe
+    const pjo = await c.env.DB.prepare(
+      `SELECT id, pregunta, respuesta_sintetica, estado, keywords_json
+       FROM problemas_juridicos_operativos WHERE regimen_id = ?`
+    ).bind(id).first<Record<string, unknown>>();
+
     const normas = await c.env.DB.prepare(
       `SELECT norma_key, tipo_norma, numero, articulo, centralidad, dictamenes_count
        FROM norma_regimen WHERE regimen_id = ?
@@ -2286,7 +2459,10 @@ app.get('/api/v1/public/regimenes/:id', async (c) => {
     ).bind(id).all<Record<string, unknown>>();
 
     return c.json({
-      regimen,
+      regimen: {
+        ...regimen,
+        pjo: pjo || null
+      },
       normas: normas.results ?? [],
       timeline: timeline.results ?? []
     });
@@ -2309,12 +2485,10 @@ app.get('/api/v1/public/regimenes/:id/dictamenes', async (c) => {
 
     let q = `
       SELECT rd.dictamen_id, rd.rol, rd.estado_vigencia,
-             e.titulo, d.fecha_documento,
-             at.accion_cgr
+             e.titulo, d.fecha_documento
       FROM regimen_dictamenes rd
       JOIN dictamenes d ON d.id = rd.dictamen_id
       LEFT JOIN enriquecimiento e ON e.dictamen_id = rd.dictamen_id
-      LEFT JOIN atributos_juridicos at ON at.dictamen_id = rd.dictamen_id
       WHERE rd.regimen_id = ?
     `;
     const binds: (string | number)[] = [id];
@@ -2330,7 +2504,7 @@ app.get('/api/v1/public/regimenes/:id/dictamenes', async (c) => {
     });
   } catch (e: unknown) {
     logError('PUBLIC_REGIMEN_MEMBERS_ERROR', e);
-    return c.json({ error: 'Error interno' }, 500);
+    return c.json({ error: errorMessage(e) }, 500);
   }
 });
 
