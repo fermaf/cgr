@@ -155,18 +155,19 @@ async function queryHeatmapLive(
   const res = await db.prepare(`
     SELECT
       d.anio AS year,
-      COALESCE(NULLIF(TRIM(f.tipo_norma), ''), 'Desconocido') AS tipo_norma,
-      COALESCE(NULLIF(TRIM(f.numero), ''), '-') AS numero,
+      COALESCE(NULLIF(TRIM(c.tipo_norma), ''), 'Desconocido') AS tipo_norma,
+      COALESCE(NULLIF(TRIM(c.numero), ''), '-') AS numero,
       COUNT(*) AS total_refs,
       COUNT(DISTINCT d.id) AS total_dictamenes,
       MAX(COALESCE(d.fecha_documento, d.created_at)) AS last_source_date
     FROM dictamen_fuentes f
+    INNER JOIN fuentes_legales_catalogo c ON c.id = f.fuente_id
     INNER JOIN dictamenes d ON d.id = f.dictamen_id
     WHERE (? IS NULL OR d.anio >= ?)
       AND (? IS NULL OR d.anio <= ?)
-      AND LOWER(f.tipo_norma) NOT LIKE '%valor de relleno%'
-      AND LOWER(f.numero) NOT LIKE '%valor de relleno%'
-    GROUP BY d.anio, COALESCE(NULLIF(TRIM(f.tipo_norma), ''), 'Desconocido'), COALESCE(NULLIF(TRIM(f.numero), ''), '-')
+      AND LOWER(c.tipo_norma) NOT LIKE '%valor de relleno%'
+      AND LOWER(COALESCE(c.numero, '')) NOT LIKE '%valor de relleno%'
+    GROUP BY d.anio, COALESCE(NULLIF(TRIM(c.tipo_norma), ''), 'Desconocido'), COALESCE(NULLIF(TRIM(c.numero), ''), '-')
     ORDER BY total_refs DESC, total_dictamenes DESC
     LIMIT ?
   `).bind(yearFrom, yearFrom, yearTo, yearTo, limit).all<AnalyticsHeatmapRow>();
@@ -218,18 +219,19 @@ async function refreshAnalyticsSnapshots(
     SELECT
       ? AS snapshot_date,
       d.anio AS year,
-      COALESCE(NULLIF(TRIM(f.tipo_norma), ''), 'Desconocido') AS tipo_norma,
-      COALESCE(NULLIF(TRIM(f.numero), ''), '-') AS numero,
+      COALESCE(NULLIF(TRIM(c.tipo_norma), ''), 'Desconocido') AS tipo_norma,
+      COALESCE(NULLIF(TRIM(c.numero), ''), '-') AS numero,
       COUNT(*) AS total_refs,
       COUNT(DISTINCT d.id) AS total_dictamenes,
       MAX(COALESCE(d.fecha_documento, d.created_at)) AS last_source_date
     FROM dictamen_fuentes f
+    INNER JOIN fuentes_legales_catalogo c ON c.id = f.fuente_id
     INNER JOIN dictamenes d ON d.id = f.dictamen_id
     WHERE (? IS NULL OR d.anio >= ?)
       AND (? IS NULL OR d.anio <= ?)
-      AND LOWER(f.tipo_norma) NOT LIKE '%valor de relleno%'
-      AND LOWER(f.numero) NOT LIKE '%valor de relleno%'
-    GROUP BY d.anio, COALESCE(NULLIF(TRIM(f.tipo_norma), ''), 'Desconocido'), COALESCE(NULLIF(TRIM(f.numero), ''), '-')
+      AND LOWER(c.tipo_norma) NOT LIKE '%valor de relleno%'
+      AND LOWER(COALESCE(c.numero, '')) NOT LIKE '%valor de relleno%'
+    GROUP BY d.anio, COALESCE(NULLIF(TRIM(c.tipo_norma), ''), 'Desconocido'), COALESCE(NULLIF(TRIM(c.numero), ''), '-')
     ORDER BY total_refs DESC, total_dictamenes DESC
     LIMIT ?
   `).bind(snapshotDate, yearFrom, yearFrom, yearTo, yearTo, limit).run();

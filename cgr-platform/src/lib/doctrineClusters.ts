@@ -501,10 +501,11 @@ async function aggregateClusterSignals(env: Env, ids: string[]) {
 
   const fuentesRows = await env.DB.prepare(
     `SELECT
-       dictamen_id,
-       COALESCE(NULLIF(TRIM(tipo_norma), ''), 'Desconocido') AS tipo_norma,
-       NULLIF(TRIM(numero), '') AS numero
-     FROM dictamen_fuentes
+       f.dictamen_id,
+       COALESCE(NULLIF(TRIM(c.tipo_norma), ''), 'Desconocido') AS tipo_norma,
+       NULLIF(TRIM(c.numero), '') AS numero
+     FROM dictamen_fuentes f
+     INNER JOIN fuentes_legales_catalogo c ON c.id = f.fuente_id
      WHERE dictamen_id IN (${placeholders})
     `
   ).bind(...ids).all<{ dictamen_id: string; tipo_norma: string; numero: string | null }>();

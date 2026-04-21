@@ -716,13 +716,14 @@ async function fetchRelationAggregateRows(env: Env, dictamenId: string) {
 async function fetchPrimaryLegalSource(env: Env, dictamenId: string) {
   const result = await env.DB.prepare(
     `SELECT
-       tipo_norma,
-       numero,
+       c.tipo_norma,
+       c.numero,
        COUNT(*) AS total
-     FROM dictamen_fuentes
-     WHERE dictamen_id = ?
-     GROUP BY tipo_norma, numero
-     ORDER BY total DESC, tipo_norma ASC, numero ASC
+     FROM dictamen_fuentes f
+     INNER JOIN fuentes_legales_catalogo c ON c.id = f.fuente_id
+     WHERE f.dictamen_id = ?
+     GROUP BY c.tipo_norma, c.numero
+     ORDER BY total DESC, c.tipo_norma ASC, c.numero ASC
      LIMIT 1`
   ).bind(dictamenId).first<LegalSourceRow>();
   return result ?? null;

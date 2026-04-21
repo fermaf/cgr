@@ -371,20 +371,21 @@ export async function findSharedNorms(
   const placeholders = memberIds.map(() => '?').join(',');
   const res = await db.prepare(`
     SELECT 
-      f.tipo_norma,
-      f.numero,
-      f.articulo,
-      f.year,
-      f.sector,
+      c.tipo_norma,
+      c.numero,
+      c.articulo,
+      c.year,
+      c.sector,
       COUNT(DISTINCT f.dictamen_id) as dictamenes_count,
       GROUP_CONCAT(DISTINCT f.dictamen_id) as dictamen_ids_csv
     FROM dictamen_fuentes f
+    INNER JOIN fuentes_legales_catalogo c ON c.id = f.fuente_id
     WHERE f.dictamen_id IN (${placeholders})
-      AND f.numero IS NOT NULL
-      AND LENGTH(TRIM(f.numero)) > 0
-      AND f.tipo_norma != 'valor de relleno'
-      AND f.tipo_norma != 'Desconocido'
-    GROUP BY f.tipo_norma, f.numero, f.articulo, f.year, f.sector
+      AND c.numero IS NOT NULL
+      AND LENGTH(TRIM(c.numero)) > 0
+      AND c.tipo_norma != 'valor de relleno'
+      AND c.tipo_norma != 'Desconocido'
+    GROUP BY c.tipo_norma, c.numero, c.articulo, c.year, c.sector
     HAVING dictamenes_count >= 2
     ORDER BY dictamenes_count DESC
   `).bind(...memberIds).all<{
