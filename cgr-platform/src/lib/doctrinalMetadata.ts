@@ -640,9 +640,13 @@ async function getRawJsonForDictamen(env: Env, dictamenId: string): Promise<Dict
   }
   return null;
 }
+let doctrinalSchemaEnsurePromise: Promise<void> | null = null;
 
 async function ensureDoctrinalMetadataSchema(env: Env) {
-  const statements = [
+  if (doctrinalSchemaEnsurePromise) return doctrinalSchemaEnsurePromise;
+
+  doctrinalSchemaEnsurePromise = (async () => {
+    const statements = [
     `CREATE TABLE IF NOT EXISTS dictamen_metadata_doctrinal (
       dictamen_id TEXT NOT NULL REFERENCES dictamenes(id),
       pipeline_version TEXT NOT NULL,
@@ -699,9 +703,15 @@ async function ensureDoctrinalMetadataSchema(env: Env) {
     `CREATE INDEX IF NOT EXISTS idx_metadata_doctrinal_evidence_dictamen ON dictamen_metadata_doctrinal_evidence (dictamen_id, pipeline_version, created_at DESC)`
   ];
 
-  for (const sql of statements) {
-    await env.DB.prepare(sql).run();
-  }
+    for (const sql of statements) {
+      await env.DB.prepare(sql).run();
+    }
+  })().catch((err) => {
+    doctrinalSchemaEnsurePromise = null;
+    throw err;
+  });
+
+  return doctrinalSchemaEnsurePromise;
 }
 
 async function fetchBaseRow(env: Env, dictamenId: string) {
