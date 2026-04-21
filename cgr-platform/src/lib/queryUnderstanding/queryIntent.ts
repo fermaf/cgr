@@ -37,6 +37,13 @@ export type QueryIntentDetection = {
   matched_terms: string[];
 };
 
+export type QuerySubtopicDetection = {
+  subtopic_label: string;
+  confidence: number;
+  matched_terms: string[];
+  subtopic_terms: string[];
+};
+
 const CANONICAL_INTENTS: IntentDefinition[] = [
   { label: 'confianza legítima', phrases: ['confianza legitima', 'empleo a contrata', 'no renovacion', 'termino contrata', 'renovacion arbitraria'] },
   { label: 'empleo público', phrases: ['empleo publico', 'funcionario publico', 'contrata', 'estatuto administrativo'] },
@@ -147,4 +154,21 @@ export function buildIntentBoost(params: {
   const baseBoost = labelMatch ? 0.18 : 0.08;
   const detailBoost = Math.min(0.14, matchedTerms * 0.04);
   return Number(((baseBoost + detailBoost) * params.intent.confidence).toFixed(2));
+}
+
+export function detectQuerySubtopic(_params: {
+  query: string;
+  rewrittenQuery?: string | null;
+  intent?: QueryIntentDetection | null;
+  matches?: SearchLikeMatch[];
+  clusters?: ClusterLike[];
+}): QuerySubtopicDetection | null {
+  return null;
+}
+
+export function buildSubtopicBoost(_params: {
+  subtopic: QuerySubtopicDetection | null;
+  semanticText: string;
+}): number {
+  return 0;
 }

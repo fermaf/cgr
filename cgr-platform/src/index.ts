@@ -33,6 +33,7 @@ import { reprocessDoctrinalMetadata } from './lib/doctrinalMetadata';
 import { runRegimenPilot } from './lib/regimenDiscovery';
 import { buildAndPersistRegimen } from './lib/regimenBuilder';
 import { buildDoctrineLines, buildDoctrineSearch } from './lib/doctrineLines';
+import { buildGuidedDoctrineFlow, buildGuidedDoctrineFamily } from './lib/doctrineGuided';
 import { normalizeQueryLight } from './lib/queryUnderstanding/queryRewrite';
 import { normalizeLegalSourceForPresentation } from './lib/legalSourcesCanonical';
 import { logInfo, logError, setLogLevel } from './lib/log';
@@ -616,6 +617,76 @@ app.get('/api/v1/insights/doctrine-search', async (c) => {
     return c.json(response);
   } catch (e: unknown) {
     logError('INSIGHTS_DOCTRINE_SEARCH_ERROR', e, { q, limit });
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+app.get('/api/v1/insights/doctrine-guided', async (c) => {
+  const qRaw = c.req.query('q')?.trim() || '';
+  const q = normalizeQueryLight(qRaw);
+  const limit = parsePositiveInt(c.req.query('limit'), 4, 1, 8);
+
+  if (!q) {
+    return c.json({ error: 'Missing q parameter' }, 400);
+  }
+
+  const cacheKey = `insights:doctrine-guided:v11:q:${q}:l:${limit}`;
+
+  try {
+    const cached = await c.env.DICTAMENES_PASO.get(cacheKey, 'json').catch(() => null);
+    if (cached && typeof cached === 'object') {
+      logInfo('INSIGHTS_DOCTRINE_GUIDED_CACHE_HIT', { cacheKey, q, limit });
+      return c.json(cached);
+    }
+
+    const response = await buildGuidedDoctrineFlow(c.env, { q: qRaw, limit });
+    await putAnalyticsCache(c, cacheKey, response);
+    logInfo('INSIGHTS_DOCTRINE_GUIDED_DONE', {
+      q,
+      limit,
+      totalFamilies: response.overview.total_families,
+      focusId: response.focus_directo?.dictamen_id ?? null
+    });
+    return c.json(response);
+  } catch (e: unknown) {
+    logError('INSIGHTS_DOCTRINE_GUIDED_ERROR', e, { q, limit });
+    return c.json({ error: errorMessage(e) }, 500);
+  }
+});
+
+app.get('/api/v1/insights/doctrine-guided/family', async (c) => {
+  const qRaw = c.req.query('q')?.trim() || '';
+  const q = normalizeQueryLight(qRaw);
+  const familyId = c.req.query('family_id')?.trim() || '';
+  const limit = parsePositiveInt(c.req.query('limit'), 4, 1, 8);
+
+  if (!q) {
+    return c.json({ error: 'Missing q parameter' }, 400);
+  }
+  if (!familyId) {
+    return c.json({ error: 'Missing family_id parameter' }, 400);
+  }
+
+  const cacheKey = `insights:doctrine-guided:family:v11:q:${q}:f:${familyId}:l:${limit}`;
+
+  try {
+    const cached = await c.env.DICTAMENES_PASO.get(cacheKey, 'json').catch(() => null);
+    if (cached && typeof cached === 'object') {
+      logInfo('INSIGHTS_DOCTRINE_GUIDED_FAMILY_CACHE_HIT', { cacheKey, q, familyId, limit });
+      return c.json(cached);
+    }
+
+    const response = await buildGuidedDoctrineFamily(c.env, { q: qRaw, familyId, limit });
+    await putAnalyticsCache(c, cacheKey, response);
+    logInfo('INSIGHTS_DOCTRINE_GUIDED_FAMILY_DONE', {
+      q,
+      familyId,
+      limit,
+      found: response.overview.family_found
+    });
+    return c.json(response);
+  } catch (e: unknown) {
+    logError('INSIGHTS_DOCTRINE_GUIDED_FAMILY_ERROR', e, { q, familyId, limit });
     return c.json({ error: errorMessage(e) }, 500);
   }
 });

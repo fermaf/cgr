@@ -3,12 +3,8 @@ import { buildDoctrineClusters } from './doctrineClusters';
 import { loadDoctrinalMetadataByIds } from './doctrinalMetadata';
 import { applyDoctrineStructureRemediations } from './doctrineStructureRemediations';
 import { formatCanonicalLegalSourceLabel } from './legalSourcesCanonical';
-import { buildIntentBoost, detectQueryIntent } from './queryUnderstanding/queryIntent';
+import { buildIntentBoost, buildSubtopicBoost, detectQueryIntent, detectQuerySubtopic } from './queryUnderstanding/queryIntent';
 import { retrieveDoctrineMatchesWithQueryUnderstanding } from './queryUnderstanding/queryRewrite';
-
-// Stubs for canonical cleanup
-const detectQuerySubtopic = (env: any, query: string) => Promise.resolve(null);
-const buildSubtopicBoost = (params: any) => 0;
 import type { DictamenMetadataDoctrinalRow, Env } from '../types';
 
 type InsightLevel = 'low' | 'medium' | 'high';
@@ -215,6 +211,8 @@ function buildQueryMatchExplanation(params: {
   representativeMatched: boolean;
   coreOverlapCount: number;
   supportOverlapCount: number;
+  querySubtopicLabel?: string | null;
+  subtopicBoost?: number;
 }) {
   const queryTokens = tokenizeSearchText(params.query);
   const matchedDescriptors = params.topDescriptoresAI.filter((descriptor) => {
@@ -236,9 +234,14 @@ function buildQueryMatchExplanation(params: {
   if (topFuente) {
     signals.push(`referencias reiteradas a ${topFuente}`);
   }
+  if ((params.subtopicBoost ?? 0) >= 0.35 && params.querySubtopicLabel) {
+    signals.push(`subtema jurídico visible: ${params.querySubtopicLabel}`);
+  }
 
   let reason: string;
-  if (matchedDescriptors.length > 0) {
+  if ((params.subtopicBoost ?? 0) >= 0.45 && params.querySubtopicLabel) {
+    reason = `Esta línea aparece porque se acerca al subtema ${params.querySubtopicLabel} dentro de ${params.materia ?? 'la materia consultada'}.`;
+  } else if (matchedDescriptors.length > 0) {
     reason = `Esta línea aparece porque concentra dictámenes sobre ${matchedDescriptors.join(' y ')} dentro de ${params.materia ?? 'la materia consultada'}.`;
   } else if (params.representativeMatched || params.coreOverlapCount > 0) {
     reason = `Esta línea se prioriza porque la consulta coincide con el núcleo doctrinal del cluster en ${params.materia ?? 'la materia consultada'}.`;
@@ -545,6 +548,7 @@ function selectBestDirectSemanticHit(params: {
   matches: SearchMatch[];
   matchInfoById: Map<string, SearchMatchInfo>;
   query: string;
+  querySubtopic: ReturnType<typeof detectQuerySubtopic>;
 }) {
   const ranked = params.matches
     .map((match) => {
@@ -559,9 +563,14 @@ function selectBestDirectSemanticHit(params: {
         Array.isArray(metadata.descriptores_AI) ? metadata.descriptores_AI.map(String).join(' ') : ''
       ].join(' ');
       const queryCoverage = buildQueryCoverageProfile(params.query, semanticText);
+      const subtopicBoost = buildSubtopicBoost({
+        subtopic: params.querySubtopic,
+        semanticText
+      });
       const score = (
         (info.normalizedScore * 1.45)
         + (queryCoverage.coverage * 2.2)
+        + (subtopicBoost * 2.8)
       );
       return {
         id: match.id,
@@ -584,6 +593,7 @@ function buildSearchSemanticAnchor(params: {
   metadataById: Record<string, Record<string, unknown>>;
   doctrinalMetadataById: Record<string, DictamenMetadataDoctrinalRow>;
   matchInfoById: Map<string, SearchMatchInfo>;
+  querySubtopic: ReturnType<typeof detectQuerySubtopic>;
 }) {
   const candidateIds = [
     params.cluster.representative_dictamen.id,
@@ -600,7 +610,15 @@ function buildSearchSemanticAnchor(params: {
       const recentness = buildRecentnessSignal(fecha, 4);
       const pivotBoost = params.cluster.pivot_dictamen?.id === id ? 0.12 : 0;
       const activeWeight = (params.cluster.active_doctrinal_signal_score * 0.45) + (params.cluster.doctrinal_change_risk_score * 0.2);
-      const subtopicBoost = 0;
+      const subtopicBoost = buildSubtopicBoost({
+        subtopic: params.querySubtopic,
+        semanticText: [
+          pickText(metadata.titulo),
+          pickText(metadata.Resumen ?? metadata.resumen),
+          pickText(metadata.analisis),
+          Array.isArray(metadata.descriptores_AI) ? metadata.descriptores_AI.map(String).join(' ') : ''
+        ].join(' ')
+      }) * 0.45;
       const readingWeight = Number(doctrinalMetadata.reading_weight ?? 0);
       const currentnessScore = Number(doctrinalMetadata.currentness_score ?? 0);
       const stateBoost = doctrinalMetadata.reading_role === 'estado_actual' ? 0.18 : 0;
@@ -913,7 +931,7 @@ async function buildDoctrineSearchFromMatches(
     queryContext: rankingSignals ? {
       query: rankingSignals.query,
       intent: rankingSignals.queryIntent,
-      subtopic: null as any,
+      subtopic: rankingSignals.querySubtopic,
       candidateScores
     } : null
   });
@@ -952,7 +970,7 @@ async function buildDoctrineSearchFromMatches(
       queryContext: rankingSignals ? {
         query: rankingSignals.query,
         intent: rankingSignals.queryIntent,
-        subtopic: null as any,
+        subtopic: rankingSignals.querySubtopic,
         candidateScores
       } : null
     }))
@@ -1114,8 +1132,8 @@ async function buildDoctrineSearch(env: Env, options: BuildDoctrineSearchOptions
   let searchMode: "semantic" | "lexical_fallback" = "semantic";
   let rewrittenQuery: string | null = null;
   let rewriteAccepted = false;
-  let queryIntent = null as any;
-  let querySubtopic = null as any;
+  let queryIntent = null as ReturnType<typeof detectQueryIntent>;
+  let querySubtopic = null as ReturnType<typeof detectQuerySubtopic>;
 
   try {
     const search = await retrieveDoctrineMatchesWithQueryUnderstanding(env, q, searchLimit);
@@ -1168,7 +1186,12 @@ async function buildDoctrineSearch(env: Env, options: BuildDoctrineSearchOptions
     rewrittenQuery: rewriteAccepted ? rewrittenQuery : null,
     matches
   });
-  querySubtopic = null;
+  querySubtopic = detectQuerySubtopic({
+    query: q,
+    rewrittenQuery: rewriteAccepted ? rewrittenQuery : null,
+    intent: queryIntent,
+    matches
+  });
   const preferSemanticClustering = documentaryMatches.length > 0 && (querySubtopic?.confidence ?? 0) >= 0.72;
   const clusteringMatches = preferSemanticClustering ? documentaryMatches : matches;
   let { hitIds, selectedClusterResponse } = await buildDoctrineSearchFromMatches(env, clusteringMatches, limit, {
@@ -1191,7 +1214,12 @@ async function buildDoctrineSearch(env: Env, options: BuildDoctrineSearchOptions
       rewrittenQuery: rewriteAccepted ? rewrittenQuery : null,
       matches
     });
-    querySubtopic = null;
+    querySubtopic = detectQuerySubtopic({
+      query: q,
+      rewrittenQuery: rewriteAccepted ? rewrittenQuery : null,
+      intent: queryIntent,
+      matches
+    });
     ({ hitIds, selectedClusterResponse } = await buildDoctrineSearchFromMatches(env, matches, limit, {
       query: q,
       queryIntent,
@@ -1208,11 +1236,21 @@ async function buildDoctrineSearch(env: Env, options: BuildDoctrineSearchOptions
       top_descriptores_AI: cluster.top_descriptores_AI
     }))
   });
-  querySubtopic = null;
+  querySubtopic = detectQuerySubtopic({
+    query: q,
+    rewrittenQuery: rewriteAccepted ? rewrittenQuery : null,
+    intent: queryIntent,
+    matches,
+    clusters: selectedClusterResponse.clusters.map((cluster) => ({
+      cluster_label: cluster.cluster_label,
+      top_descriptores_AI: cluster.top_descriptores_AI
+    }))
+  });
   const documentaryDirectHitId = selectBestDirectSemanticHit({
     matches: documentaryMatches,
     matchInfoById: documentaryMatchInfoById,
-    query: q
+    query: q,
+    querySubtopic
   });
   const documentaryDirectHitIndex = documentaryMatches.findIndex((match) => match.id === documentaryDirectHitId);
   const documentarySecondHitId = documentaryDirectHitIndex >= 0
@@ -1224,7 +1262,10 @@ async function buildDoctrineSearch(env: Env, options: BuildDoctrineSearchOptions
     const cluster = selectedClusterResponse.clusters[index];
     const clusterProfileText = buildClusterLexicalProfileText({ cluster, metadataById });
     const queryCoverage = buildQueryCoverageProfile(q, clusterProfileText);
-    const subtopicBoost = 0;
+    const subtopicBoost = buildSubtopicBoost({
+      subtopic: querySubtopic,
+      semanticText: clusterProfileText
+    });
     const documentaryMatchedIds = [
       cluster.representative_dictamen.id,
       ...cluster.core_doctrine_candidates.map((candidate) => candidate.id),
@@ -1256,7 +1297,9 @@ async function buildDoctrineSearch(env: Env, options: BuildDoctrineSearchOptions
       topFuentesLegales: cluster.top_fuentes_legales,
       representativeMatched,
       coreOverlapCount,
-      supportOverlapCount
+      supportOverlapCount,
+      querySubtopicLabel: querySubtopic?.subtopic_label ?? null,
+      subtopicBoost
     });
     const withQueryMatch = {
       ...line,
@@ -1271,7 +1314,8 @@ async function buildDoctrineSearch(env: Env, options: BuildDoctrineSearchOptions
       cluster,
       metadataById,
       doctrinalMetadataById,
-      matchInfoById
+      matchInfoById,
+      querySubtopic
     });
 
     const promoted = semanticAnchor
@@ -1438,7 +1482,7 @@ async function buildDoctrineSearch(env: Env, options: BuildDoctrineSearchOptions
       query: q,
       query_interpreted: rewriteAccepted && rewrittenQuery ? rewrittenQuery : null,
       query_intent: queryIntent,
-      query_subtopic: null,
+      query_subtopic: querySubtopic,
       searchMode
     },
     lines: directSemanticLine
