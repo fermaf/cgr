@@ -825,9 +825,7 @@ async function searchDoctrineLexically(env: Env, q: string, limit: number) {
        COALESCE(NULLIF(TRIM(d.materia), ''), 'Sin materia') AS materia,
        COALESCE(d.fecha_documento, d.created_at) AS fecha_documento,
        d.criterio,
-       e.titulo,
-       e.resumen,
-       e.analisis
+       e.titulo
      FROM dictamenes d
      LEFT JOIN enriquecimiento e ON e.dictamen_id = d.id
      WHERE d.estado IN ('enriched_pending_vectorization', 'vectorized')
@@ -835,21 +833,54 @@ async function searchDoctrineLexically(env: Env, q: string, limit: number) {
      LIMIT ?`
   ).bind(Math.min(limit * 20, 120)).all<LexicalDoctrineSearchRow>();
 
-  const shortlisted = (rows.results ?? [])
+  const candidates = (rows.results ?? [])
     .map((row) => {
       const haystack = normalizeSearchText([
         row.materia,
         row.criterio ?? '',
-        row.titulo ?? '',
-        row.resumen ?? '',
-        row.analisis ?? ''
+        row.titulo ?? ''
       ].join(' '));
       const tokenMatches = tokens.reduce((acc, token) => acc + (haystack.includes(token) ? 1 : 0), 0);
       const recencyBoost = buildRecentnessSignal(row.fecha_documento, 4) * 0.35;
       const score = roundMatchScore(tokenMatches + recencyBoost);
       return {
-        id: row.id,
-        materia: row.materia,
+        ...row,
+        preliminaryScore: score
+      };
+    })
+    .filter((entry) => entry.preliminaryScore > 0)
+    .sort((a, b) => b.preliminaryScore - a.preliminaryScore)
+    .slice(0, Math.min(limit * 10, 40));
+
+  if (candidates.length === 0) return [];
+
+  // Etapa 2: Re-scoring con hidratación de resúmenes y análisis
+  const candidateIds = candidates.map((c) => c.id);
+  const placeholders = candidateIds.map(() => '?').join(',');
+  const enrichedRows = await env.DB.prepare(
+    `SELECT dictamen_id, resumen, analisis FROM enriquecimiento WHERE dictamen_id IN (${placeholders})`
+  ).bind(...candidateIds).all<{ dictamen_id: string; resumen: string | null; analisis: string | null }>();
+
+  const enrichedMap = new Map(
+    (enrichedRows.results ?? []).map((row) => [row.dictamen_id, row])
+  );
+
+  const shortlisted = candidates
+    .map((candidate) => {
+      const enrichment = enrichedMap.get(candidate.id);
+      const haystack = normalizeSearchText([
+        candidate.materia,
+        candidate.criterio ?? '',
+        candidate.titulo ?? '',
+        enrichment?.resumen ?? '',
+        enrichment?.analisis ?? ''
+      ].join(' '));
+      const tokenMatches = tokens.reduce((acc, token) => acc + (haystack.includes(token) ? 1 : 0), 0);
+      const recencyBoost = buildRecentnessSignal(candidate.fecha_documento, 4) * 0.35;
+      const score = roundMatchScore(tokenMatches + recencyBoost);
+      return {
+        id: candidate.id,
+        materia: candidate.materia,
         score
       };
     })
@@ -1136,6 +1167,7 @@ async function buildDoctrineSearch(env: Env, options: BuildDoctrineSearchOptions
   let rewriteAccepted = false;
   let queryIntent = null as ReturnType<typeof detectQueryIntent>;
   let querySubtopic = null as ReturnType<typeof detectQuerySubtopic>;
+  let cachedLexicalMatches: LexicalDoctrineSearchMatch[] | null = null;
 
   try {
     const search = await retrieveDoctrineMatchesWithQueryUnderstanding(env, q, searchLimit);
@@ -1145,6 +1177,7 @@ async function buildDoctrineSearch(env: Env, options: BuildDoctrineSearchOptions
     rewriteAccepted = search.rewrite.accepted;
 
     const lexicalMatches = await searchDoctrineLexically(env, q, limit);
+    cachedLexicalMatches = lexicalMatches;
     matches = mergeSearchMatches({
       semanticMatches: matches,
       lexicalMatches
@@ -1152,7 +1185,7 @@ async function buildDoctrineSearch(env: Env, options: BuildDoctrineSearchOptions
   } catch (error) {
     if (!isPineconeQuotaError(error)) throw error;
 
-    const lexicalMatches = await searchDoctrineLexically(env, q, limit);
+    const lexicalMatches = cachedLexicalMatches ?? await searchDoctrineLexically(env, q, limit);
     matches = lexicalMatches.map((row) => ({
       id: row.id,
       score: row.score,
@@ -1202,7 +1235,7 @@ async function buildDoctrineSearch(env: Env, options: BuildDoctrineSearchOptions
     querySubtopic
   });
   if (selectedClusterResponse.clusters.length === 0 && searchMode === "semantic") {
-    const lexicalMatches = await searchDoctrineLexically(env, q, limit);
+    const lexicalMatches = cachedLexicalMatches ?? await searchDoctrineLexically(env, q, limit);
     matches = lexicalMatches.map((row) => ({
       id: row.id,
       score: row.score,
