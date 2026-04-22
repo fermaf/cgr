@@ -49,23 +49,75 @@ export interface ProblemaJuridicoOperativo {
     estado: 'pendiente' | 'resuelto' | 'error';
 }
 
+export type DoctrinalRole =
+  | 'nucleo_doctrinal'
+  | 'aplicacion'
+  | 'aclaracion'
+  | 'complemento'
+  | 'ajuste'
+  | 'limitacion'
+  | 'desplazamiento'
+  | 'reactivacion'
+  | 'cierre_competencial'
+  | 'materia_litigiosa'
+  | 'abstencion'
+  | 'criterio_operativo_actual'
+  | 'hito_historico'
+  | 'contexto_no_central';
+
+export type DoctrinalValidityState =
+  | 'vigente_visible'
+  | 'vigente_tensionado'
+  | 'vigente_en_revision'
+  | 'desplazado_parcialmente'
+  | 'desplazado'
+  | 'valor_historico'
+  | 'indeterminado';
+
+export type CgrInterventionState =
+  | 'intervencion_normal'
+  | 'intervencion_condicionada'
+  | 'intervencion_residual'
+  | 'abstencion_visible'
+  | 'materia_litigiosa'
+  | 'sin_senal_clara';
+
+export type ReadingRole =
+  | 'entrada_semantica'
+  | 'entrada_doctrinal'
+  | 'estado_actual'
+  | 'ancla_historica'
+  | 'pivote_de_cambio'
+  | 'soporte_contextual';
+
+export interface DoctrinalMetadata {
+  rol_principal: DoctrinalRole;
+  estado_vigencia: DoctrinalValidityState;
+  estado_intervencion_cgr: CgrInterventionState;
+  reading_role: ReadingRole;
+  reading_weight: number;
+  currentness_score: number;
+  confidence_global: number;
+}
+
 export interface DictamenMeta {
-    id: string;
-    numero: string | null;
-    anio: number;
-    fecha_documento: string;
-    materia: string;
-    resumen: string;
-    division_id: number;
-    division_nombre?: string;
-    criterio?: string;
-    estado?: 'ingested' | 'ingested_importante' | 'ingested_trivial' | 'enriching_ingested' | 'enriching_importante' | 'enriching_trivial' | 'processing' | 'enriched' | 'enriched_pending_vectorization' | 'vectorizing' | 'vectorized' | 'error' | 'error_longitud' | 'error_sin_KV_source' | 'error_quota' | 'error_quota_pinecone' | null;
-    origen_busqueda?: 'vectorial' | 'literal';
-    genera_jurisprudencia?: boolean;
-    relaciones_causa?: RelacionCausa[];
-    relaciones_efecto?: RelacionEfecto[];
-    fuentes_legales?: FuenteLegalDetail[];
-    regimen?: RegimenSimulado | null;
+  id: string;
+  numero: string | null;
+  anio: number;
+  fecha_documento: string;
+  materia: string;
+  resumen: string;
+  division_id: number;
+  division_nombre?: string;
+  criterio?: string;
+  estado?: 'ingested' | 'ingested_importante' | 'ingested_trivial' | 'enriching_ingested' | 'enriching_importante' | 'enriching_trivial' | 'processing' | 'enriched' | 'enriched_pending_vectorization' | 'vectorizing' | 'vectorized' | 'error' | 'error_longitud' | 'error_sin_KV_source' | 'error_quota' | 'error_quota_pinecone' | null;
+  origen_busqueda?: 'vectorial' | 'literal';
+  genera_jurisprudencia?: boolean;
+  relaciones_causa?: RelacionCausa[];
+  relaciones_efecto?: RelacionEfecto[];
+  fuentes_legales?: FuenteLegalDetail[];
+  regimen?: RegimenSimulado | null;
+  doctrinal_metadata?: DoctrinalMetadata;
 }
 
 export interface FuenteLegalDetail {
@@ -273,29 +325,30 @@ export interface DoctrineStructureAdjustment {
 }
 
 export interface DoctrineLine {
-    entry_kind?: "matter_status" | "direct_hit" | "doctrinal_line";
-    title: string;
-    importance_level: 'low' | 'medium' | 'high';
-    change_risk_level: 'low' | 'medium' | 'high';
-    summary: string;
-    query_match_reason?: string;
-    doctrinal_state: 'consolidado' | 'en_evolucion' | 'bajo_tension';
-    doctrinal_state_reason: string;
-    graph_doctrinal_status?: DoctrineGraphDoctrinalStatus | null;
-    reading_priority_reason?: string;
-    pivot_dictamen?: DoctrinePivotDictamen | null;
-    semantic_anchor_dictamen?: DoctrineSemanticAnchorDictamen | null;
-    relation_dynamics: DoctrineRelationDynamics;
-    coherence_signals: DoctrineCoherenceSignals;
-    representative_dictamen_id: string;
-    core_dictamen_ids: string[];
-    key_dictamenes: DoctrineKeyDictamen[];
-    top_fuentes_legales: DoctrineFuenteLegal[];
-    top_descriptores_AI: string[];
-    time_span: DoctrineTimeSpan;
-    technical?: DoctrineLineTechnical;
-    structure_adjustments?: DoctrineStructureAdjustment;
-    regimen?: RegimenSimulado | null;
+  entry_kind?: "matter_status" | "direct_hit" | "doctrinal_line";
+  title: string;
+  importance_level: 'low' | 'medium' | 'high';
+  change_risk_level: 'low' | 'medium' | 'high';
+  summary: string;
+  query_match_reason?: string;
+  doctrinal_state: 'consolidado' | 'en_evolucion' | 'bajo_tension';
+  doctrinal_state_reason: string;
+  graph_doctrinal_status?: DoctrineGraphDoctrinalStatus | null;
+  reading_priority_reason?: string;
+  pivot_dictamen?: DoctrinePivotDictamen | null;
+  semantic_anchor_dictamen?: DoctrineSemanticAnchorDictamen | null;
+  relation_dynamics: DoctrineRelationDynamics;
+  coherence_signals: DoctrineCoherenceSignals;
+  representative_dictamen_id: string;
+  core_dictamen_ids: string[];
+  key_dictamenes: DoctrineKeyDictamen[];
+  top_fuentes_legales: DoctrineFuenteLegal[];
+  top_descriptores_AI: string[];
+  time_span: DoctrineTimeSpan;
+  technical?: DoctrineLineTechnical;
+  structure_adjustments?: DoctrineStructureAdjustment;
+  regimen?: RegimenSimulado | null;
+  doctrinal_metadata?: DoctrinalMetadata;
 }
 
 export interface DoctrineInsightsOverview {

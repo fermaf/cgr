@@ -743,6 +743,13 @@ app.get('/api/v1/dictamenes', async (c) => {
   const tags = c.req.query('tags');
   const juris = c.req.query('juris') === 'true';
 
+  const estadoVigencia = c.req.query('estado_vigencia');
+  const readingRole = c.req.query('reading_role');
+  const rolPrincipal = c.req.query('rol_principal');
+  const minConfidence = parseFloat(c.req.query('min_confidence') || '0');
+  const minCurrentness = parseFloat(c.req.query('min_currentness') || '0');
+  const supportsStateCurrent = c.req.query('supports_state_current') === 'true';
+
   const limit = 10;
   const offset = (page - 1) * limit;
   const db = c.env.DB;
@@ -983,13 +990,83 @@ app.get('/api/v1/dictamenes', async (c) => {
           ...d,
           regimen: regimenPorDictamen.get(d.id) || null
         }));
-      } catch (regimenErr) {
-        logError('SEARCH_REGIMEN_ENRICHMENT_ERROR', regimenErr);
-        // No fallamos la búsqueda completa si falla el enriquecimiento de regímenes
-      }
+} catch (regimenErr) {
+    logError('SEARCH_REGIMEN_ENRICHMENT_ERROR', regimenErr);
+    // No fallamos la búsqueda completa si falla el enriquecimiento de regímenes
+  }
+}
+
+const hasDoctrinalFilters = estadoVigencia || readingRole || rolPrincipal || minConfidence > 0 || minCurrentness > 0 || supportsStateCurrent;
+if (hasDoctrinalFilters && dataToReturn && dataToReturn.length > 0) {
+  const resultIds = dataToReturn.map((d: any) => d.id);
+  const placeholders = resultIds.map(() => '?').join(',');
+
+  try {
+    let mdCondition = 'm.dictamen_id IN (' + placeholders + ')';
+    const mdBinds: any[] = [...resultIds];
+
+    if (estadoVigencia) {
+      const estados = estadoVigencia.split(',').map(e => e.trim());
+      const estadoPlaceholders = estados.map(() => '?').join(',');
+      mdCondition += ` AND m.estado_vigencia IN (${estadoPlaceholders})`;
+      mdBinds.push(...estados);
+    }
+    if (readingRole) {
+      const roles = readingRole.split(',').map(r => r.trim());
+      const rolePlaceholders = roles.map(() => '?').join(',');
+      mdCondition += ` AND m.reading_role IN (${rolePlaceholders})`;
+      mdBinds.push(...roles);
+    }
+    if (rolPrincipal) {
+      const principals = rolPrincipal.split(',').map(r => r.trim());
+      const principalPlaceholders = principals.map(() => '?').join(',');
+      mdCondition += ` AND m.rol_principal IN (${principalPlaceholders})`;
+      mdBinds.push(...principals);
+    }
+    if (minConfidence > 0) {
+      mdCondition += ' AND m.confidence_global >= ?';
+      mdBinds.push(minConfidence);
+    }
+    if (minCurrentness > 0) {
+      mdCondition += ' AND m.currentness_score >= ?';
+      mdBinds.push(minCurrentness);
+    }
+    if (supportsStateCurrent) {
+      mdCondition += ' AND m.supports_state_current = 1';
     }
 
-    return c.json({
+    const mdQuery = `SELECT m.dictamen_id, m.estado_vigencia, m.estado_intervencion_cgr, m.rol_principal,
+      m.reading_role, m.reading_weight, m.currentness_score, m.confidence_global
+      FROM dictamen_metadata_doctrinal m WHERE ${mdCondition}`;
+    const mdRows = await db.prepare(mdQuery).bind(...mdBinds).all<any>();
+
+    const metadataMap = new Map<string, any>();
+    for (const row of mdRows.results ?? []) {
+      metadataMap.set(row.dictamen_id, {
+        rol_principal: row.rol_principal,
+        estado_vigencia: row.estado_vigencia,
+        estado_intervencion_cgr: row.estado_intervencion_cgr,
+        reading_role: row.reading_role,
+        reading_weight: row.reading_weight,
+        currentness_score: row.currentness_score,
+        confidence_global: row.confidence_global
+      });
+    }
+
+    dataToReturn = dataToReturn
+      .map((d: any) => ({
+        ...d,
+        doctrinal_metadata: metadataMap.get(d.id) || null
+      }))
+      .filter((d: any) => d.doctrinal_metadata !== null);
+
+    totalToReturn = dataToReturn.length;
+  } catch (mdErr) {
+    logError('SEARCH_DOCTRINAL_METADATA_FILTER_ERROR', mdErr);
+  }
+}
+
+return c.json({
       data: dataToReturn,
       meta: { page, limit, total: totalToReturn, totalPages: Math.ceil(totalToReturn / limit) }
     });

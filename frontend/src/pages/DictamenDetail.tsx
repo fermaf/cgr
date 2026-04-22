@@ -1,23 +1,25 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
-    AlertCircle,
-    ArrowLeft,
-    BookOpen,
-    Building2,
-    Calendar,
-    Download,
-    FileCheck,
-    Landmark,
-    Share2,
-    ShieldAlert,
-    Sparkles,
-    Tag
+  AlertCircle,
+  ArrowLeft,
+  BookOpen,
+  Building2,
+  Calendar,
+  Download,
+  FileCheck,
+  Landmark,
+  Share2,
+  ShieldAlert,
+  Sparkles,
+  Tag
 } from "lucide-react";
 import type { DictamenResponse, RelacionCausa, RelacionEfecto } from "../types";
 import { cn } from "../lib/utils";
 import { formatSimpleDate } from "../lib/date";
 import { buildLegalSourceCards } from "../lib/legalSources";
+import { DoctrineVigilanceBadge } from "../components/doctrine/DoctrineVigilanceBadge";
+import { ReadingRoleIndicator } from "../components/doctrine/ReadingRoleIndicator";
 
 function relationBucket(tipoAccion: string): "consolida" | "desarrolla" | "ajusta" {
     if (["confirmado", "aplicado"].includes(tipoAccion)) return "consolida";
@@ -335,11 +337,48 @@ export function DictamenDetail() {
                             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-100">Posición jurisprudencial visible</p>
                             <p className="mt-3 text-sm font-semibold uppercase tracking-[0.12em] text-cgr-gold">{doctrinalPositionSummary}</p>
                         </div>
-                    </div>
-                </div>
-            </header>
+</div>
+</div>
+</header>
 
-            <div className="grid gap-6 xl:grid-cols-[250px_minmax(0,1fr)_340px]">
+{meta.doctrinal_metadata && (
+<section className="rounded-[1.6rem] border border-slate-200 bg-white p-5 shadow-sm">
+  <div className="flex items-center justify-between gap-4 flex-wrap">
+    <div className="flex items-center gap-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Estado doctrinal</p>
+      <DoctrineVigilanceBadge
+        estado={meta.doctrinal_metadata.estado_vigencia}
+        confidence={meta.doctrinal_metadata.confidence_global}
+        size="sm"
+      />
+    </div>
+    <ReadingRoleIndicator
+      role={meta.doctrinal_metadata.reading_role}
+      weight={meta.doctrinal_metadata.reading_weight}
+    />
+  </div>
+  <div className="mt-4 flex flex-wrap gap-6 text-xs text-slate-500">
+    <div>
+      <span className="font-medium text-slate-700">Rol principal:</span>{" "}
+      {meta.doctrinal_metadata.rol_principal}
+    </div>
+    <div>
+      <span className="font-medium text-slate-700">Intervención CGR:</span>{" "}
+      {meta.doctrinal_metadata.estado_intervencion_cgr}
+    </div>
+    <div>
+      <span className="font-medium text-slate-700">Actualidad:</span>{" "}
+      {(meta.doctrinal_metadata.currentness_score * 100).toFixed(0)}%
+    </div>
+    <div>
+      <span className="font-medium text-slate-700">Prioridad lectura:</span>{" "}
+      {(meta.doctrinal_metadata.reading_weight * 100).toFixed(0)}%
+    </div>
+  </div>
+</section>
+)}
+
+<div className="grid gap-6 xl:grid-cols-[250px_minmax(0,1fr)_340px]">
                 <aside className="space-y-5">
                     <section className="rounded-[1.6rem] border border-slate-200 bg-white p-5 shadow-sm">
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Expediente</p>
