@@ -736,65 +736,96 @@ async function fetchMatterStatusSnapshot(params: {
        d.numero,
        e.titulo,
        e.resumen,
-       e.analisis,
-       a.en_boletin,
-      a.reactivado,
-      a.aplicado,
-      a.complementado,
-      a.confirmado,
-      md.rol_principal,
-      md.estado_intervencion_cgr,
-      md.estado_vigencia,
-      md.reading_role,
-      md.reading_weight,
-      md.currentness_score,
-      md.doctrinal_centrality_score,
-      md.confidence_global,
-      md.supports_state_current,
-      md.signals_litigious_matter,
-      md.signals_abstention,
-      md.signals_competence_closure
+       e.analisis
      FROM dictamenes d
      LEFT JOIN enriquecimiento e ON e.dictamen_id = d.id
-     LEFT JOIN atributos_juridicos a ON a.dictamen_id = d.id
-     LEFT JOIN dictamen_metadata_doctrinal md
-       ON md.dictamen_id = d.id
-      AND md.pipeline_version = 'doctrinal_metadata_v1'
      WHERE ${likeClauses}
      ORDER BY (${statusSql}) DESC, COALESCE(d.fecha_documento, d.created_at) DESC
      LIMIT 200`
   ).bind(...bindings, ...statusBindings).all<MatterStatusRow>();
 
-  const nowTs = Date.now();
+  if (!rows.results || rows.results.length === 0) return null;
+
+  // Etapa 2: Recuperación de candidatos con ranking inicial
   const candidates = (rows.results ?? [])
     .map((row) => {
       const semanticText = buildMatterStatusText(row);
-      const segments = buildMatterStatusSegments(row);
       const matchedTerms = queryTokens.filter((token) => semanticText.includes(token));
+      const coverage = queryTokens.length > 0 ? matchedTerms.length / queryTokens.length : 0;
+      return { row, coverage, matchedTerms };
+    })
+    .filter((entry) => entry.coverage >= 0.45)
+    .slice(0, 40);
+
+  if (candidates.length === 0) return null;
+
+  // Etapa 3: Hidratación de Atributos y Metadatos para finalistas
+  const candidateIds = candidates.map((c) => c.row.id);
+  const placeholders = candidateIds.map(() => '?').join(',');
+
+  const [attrsRows, mdRows] = await Promise.all([
+    params.env.DB.prepare(
+      `SELECT * FROM atributos_juridicos WHERE dictamen_id IN (${placeholders})`
+    ).bind(...candidateIds).all<DictamenAttrRow & { dictamen_id: string }>(),
+    params.env.DB.prepare(
+      `SELECT * FROM dictamen_metadata_doctrinal
+       WHERE dictamen_id IN (${placeholders}) AND pipeline_version = 'doctrinal_metadata_v1'`
+    ).bind(...candidateIds).all<DictamenDoctrinalMetadataRow & { dictamen_id: string }>()
+  ]);
+
+  const attrsMap = new Map((attrsRows.results ?? []).map(r => [r.dictamen_id, r]));
+  const mdMap = new Map((mdRows.results ?? []).map(r => [r.dictamen_id, r]));
+
+  const completeCandidates = candidates
+    .map(({ row, coverage, matchedTerms }) => {
+      const attrs = attrsMap.get(row.id);
+      const md = mdMap.get(row.id);
+      const fullRow: MatterStatusRow = {
+        ...row,
+        en_boletin: attrs?.en_boletin ?? null,
+        reactivado: attrs?.reactivado ?? null,
+        aplicado: attrs?.aplicado ?? null,
+        complementado: attrs?.complementado ?? null,
+        confirmado: attrs?.confirmado ?? null,
+        rol_principal: md?.rol_principal ?? null,
+        estado_intervencion_cgr: md?.estado_intervencion_cgr ?? null,
+        estado_vigencia: md?.estado_vigencia ?? null,
+        reading_role: md?.reading_role ?? null,
+        reading_weight: md?.reading_weight ?? null,
+        currentness_score: md?.currentness_score ?? null,
+        doctrinal_centrality_score: md?.doctrinal_centrality_score ?? null,
+        confidence_global: md?.confidence_global ?? null,
+        supports_state_current: md?.supports_state_current ?? null,
+        signals_litigious_matter: md?.signals_litigious_matter ?? null,
+        signals_abstention: md?.signals_abstention ?? null,
+        signals_competence_closure: md?.signals_competence_closure ?? null,
+      };
+
+      const semanticText = buildMatterStatusText(fullRow);
+      const segments = buildMatterStatusSegments(fullRow);
       const phraseMatches = queryPhrases.filter((phrase) => semanticText.includes(phrase));
       const cohesiveSegments = segments.filter((segment) => (
         queryTokens.filter((token) => segment.includes(token)).length >= 2
       )).length;
-      const coverage = queryTokens.length > 0 ? matchedTerms.length / queryTokens.length : 0;
       const statusSignal = detectMatterStatusSignals(semanticText);
-      const dateTs = parseDateToTs(row.fecha_documento);
-      const yearsOld = dateTs ? Math.max(0, (nowTs - dateTs) / (365.25 * 24 * 3600 * 1000)) : 8;
+      const dateTs = parseDateToTs(fullRow.fecha_documento);
+      const yearsOld = dateTs ? Math.max(0, (Date.now() - dateTs) / (365.25 * 24 * 3600 * 1000)) : 8;
       const recencyBoost = Math.max(0, 1.2 - Math.min(1.2, yearsOld * 0.18));
       const supportBoost = (
-        (row.en_boletin ? 0.18 : 0)
-        + (row.reactivado ? 0.14 : 0)
-        + (row.aplicado ? 0.08 : 0)
-        + (row.complementado ? 0.05 : 0)
-        + (row.confirmado ? 0.06 : 0)
+        (fullRow.en_boletin ? 0.18 : 0)
+        + (fullRow.reactivado ? 0.14 : 0)
+        + (fullRow.aplicado ? 0.08 : 0)
+        + (fullRow.complementado ? 0.05 : 0)
+        + (fullRow.confirmado ? 0.06 : 0)
       );
       const doctrinalBoost = (
-        (Number(row.currentness_score ?? 0) * 1.4)
-        + (Number(row.reading_weight ?? 0) * 0.95)
-        + (Number(row.doctrinal_centrality_score ?? 0) * 0.45)
-        + (Number(row.supports_state_current ?? 0) > 0 ? 0.24 : 0)
+        (Number(fullRow.currentness_score ?? 0) * 1.4)
+        + (Number(fullRow.reading_weight ?? 0) * 0.95)
+        + (Number(fullRow.doctrinal_centrality_score ?? 0) * 0.45)
+        + (Number(fullRow.supports_state_current ?? 0) > 0 ? 0.24 : 0)
       );
       const doctrinalPenalty = (
-        (Number(row.signals_abstention ?? 0) > 0 && !statusSignal ? 0.2 : 0)
+        (Number(fullRow.signals_abstention ?? 0) > 0 && !statusSignal ? 0.2 : 0)
       );
       const score = Number((
         (coverage * 1.75)
@@ -805,11 +836,11 @@ async function fetchMatterStatusSnapshot(params: {
         + supportBoost
         + doctrinalBoost
         - doctrinalPenalty
-        + (row.id === params.focusId ? -0.2 : 0)
+        + (fullRow.id === params.focusId ? -0.2 : 0)
       ).toFixed(3));
 
       return {
-        row,
+        row: fullRow,
         matchedTerms,
         phraseMatches,
         cohesiveSegments,
@@ -834,7 +865,7 @@ async function fetchMatterStatusSnapshot(params: {
       || left.row.id.localeCompare(right.row.id)
     ));
 
-  const best = candidates[0];
+  const best = completeCandidates[0];
   if (!best || best.score < 2.45) return null;
 
   const summary = pickText(best.row.resumen) || pickText(best.row.analisis) || pickText(best.row.materia);
