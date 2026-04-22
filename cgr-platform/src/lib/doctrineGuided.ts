@@ -999,24 +999,46 @@ async function buildGuidedDoctrineFlow(env: Env, options: GuidedFlowOptions) {
 async function fetchFamilyRelationEdges(env: Env, dictamenIds: string[]) {
   if (dictamenIds.length === 0) return [];
   const placeholders = dictamenIds.map(() => '?').join(',');
+
+  // Etapa 1: Recuperación de relaciones de forma LEAN
   const result = await env.DB.prepare(
     `SELECT
        r.dictamen_origen_id AS source_id,
        r.dictamen_destino_id AS target_id,
        r.tipo_accion,
-       COALESCE(d.fecha_documento, d.created_at) AS source_date,
-       eo.titulo AS source_title,
-       ed.titulo AS target_title
+       COALESCE(d.fecha_documento, d.created_at) AS source_date
      FROM dictamen_relaciones_juridicas r
      LEFT JOIN dictamenes d ON d.id = r.dictamen_origen_id
-     LEFT JOIN enriquecimiento eo ON eo.dictamen_id = r.dictamen_origen_id
-     LEFT JOIN enriquecimiento ed ON ed.dictamen_id = r.dictamen_destino_id
      WHERE r.dictamen_origen_id IN (${placeholders})
         OR r.dictamen_destino_id IN (${placeholders})
      ORDER BY COALESCE(d.fecha_documento, d.created_at) ASC, r.rowid ASC
      LIMIT 120`
-  ).bind(...dictamenIds, ...dictamenIds).all<FamilyRelationEdgeRow>();
-  return result.results ?? [];
+  ).bind(...dictamenIds, ...dictamenIds).all<Omit<FamilyRelationEdgeRow, 'source_title' | 'target_title'>>();
+
+  const edges = result.results ?? [];
+  if (edges.length === 0) return [];
+
+  // Etapa 2: Hidratación de Títulos (Batch)
+  const uniqueIds = Array.from(new Set([
+    ...edges.map(e => e.source_id),
+    ...edges.map(e => e.target_id)
+  ]));
+
+  const titlePlaceholders = uniqueIds.map(() => '?').join(',');
+  const titlesResult = await env.DB.prepare(
+    `SELECT dictamen_id, titulo
+     FROM enriquecimiento
+     WHERE dictamen_id IN (${titlePlaceholders})`
+  ).bind(...uniqueIds).all<{ dictamen_id: string, titulo: string }>();
+
+  const titleMap = new Map((titlesResult.results ?? []).map((r) => [r.dictamen_id, r.titulo]));
+
+  // Reconstrucción final con semántica preservada
+  return edges.map((e) => ({
+    ...e,
+    source_title: titleMap.get(e.source_id) ?? null,
+    target_title: titleMap.get(e.target_id) ?? null
+  })) as FamilyRelationEdgeRow[];
 }
 
 async function buildGuidedDoctrineFamily(env: Env, options: GuidedFamilyExploreOptions) {
