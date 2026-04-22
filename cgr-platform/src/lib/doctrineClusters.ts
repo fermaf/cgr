@@ -474,7 +474,48 @@ async function listCandidateRows(
   return result.results ?? [];
 }
 
-async function aggregateClusterSignals(env: Env, ids: string[]) {
+async function fetchGlobalClusterSignals(env: Env, allIds: string[]) {
+  if (allIds.length === 0) return null;
+  const placeholders = allIds.map(() => '?').join(',');
+
+  const [fuentesResult, accionesResult, incomingResult] = await Promise.all([
+    env.DB.prepare(
+      `SELECT
+         f.dictamen_id,
+         COALESCE(NULLIF(TRIM(c.tipo_norma), ''), 'Desconocido') AS tipo_norma,
+         NULLIF(TRIM(c.numero), '') AS numero
+       FROM dictamen_fuentes f
+       INNER JOIN fuentes_legales_catalogo c ON c.id = f.fuente_id
+       WHERE f.dictamen_id IN (${placeholders})`
+    ).bind(...allIds).all<{ dictamen_id: string; tipo_norma: string; numero: string | null }>(),
+
+    env.DB.prepare(
+      `SELECT dictamen_origen_id AS dictamen_id, tipo_accion
+       FROM dictamen_relaciones_juridicas
+       WHERE dictamen_origen_id IN (${placeholders})`
+    ).bind(...allIds).all<{ dictamen_id: string; tipo_accion: string }>(),
+
+    env.DB.prepare(
+      `SELECT
+         r.dictamen_destino_id AS dictamen_id,
+         r.tipo_accion,
+         COALESCE(d.fecha_documento, d.created_at) AS latest_date
+       FROM dictamen_relaciones_juridicas r
+       LEFT JOIN dictamenes d ON d.id = r.dictamen_origen_id
+       WHERE r.dictamen_destino_id IN (${placeholders})`
+    ).bind(...allIds).all<{ dictamen_id: string; tipo_accion: string; latest_date: string | null }>()
+  ]);
+
+  return {
+    fuentes: fuentesResult.results ?? [],
+    acciones: accionesResult.results ?? [],
+    incoming: incomingResult.results ?? []
+  };
+}
+
+type GlobalSignals = Awaited<ReturnType<typeof fetchGlobalClusterSignals>>;
+
+async function aggregateClusterSignals(env: Env, ids: string[], globalSignals?: GlobalSignals) {
   if (ids.length === 0) {
     return {
       topFuentes: [] as Array<{ tipo_norma: string; numero: string | null; count: number }>,
@@ -497,44 +538,35 @@ async function aggregateClusterSignals(env: Env, ids: string[]) {
     };
   }
 
-  const placeholders = ids.map(() => '?').join(',');
+  const idSet = new Set(ids);
 
-  const fuentesRows = await env.DB.prepare(
-    `SELECT
-       f.dictamen_id,
-       COALESCE(NULLIF(TRIM(c.tipo_norma), ''), 'Desconocido') AS tipo_norma,
-       NULLIF(TRIM(c.numero), '') AS numero,
-       COUNT(*) as count
-     FROM dictamen_fuentes f
-     INNER JOIN fuentes_legales_catalogo c ON c.id = f.fuente_id
-     WHERE f.dictamen_id IN (${placeholders})
-     GROUP BY f.dictamen_id, tipo_norma, numero
-    `
-  ).bind(...ids).all<{ dictamen_id: string; tipo_norma: string; numero: string | null; count: number }>();
+  // Si no hay señales globales, las cargamos solo para este subconjunto (fallback legacy)
+  const sources = globalSignals?.fuentes?.filter(r => idSet.has(r.dictamen_id))
+    ?? (await env.DB.prepare(
+        `SELECT f.dictamen_id, c.tipo_norma, c.numero
+         FROM dictamen_fuentes f
+         INNER JOIN fuentes_legales_catalogo c ON c.id = f.fuente_id
+         WHERE f.dictamen_id IN (${ids.map(() => '?').join(',')})`
+      ).bind(...ids).all<{ dictamen_id: string; tipo_norma: string; numero: string | null }>()).results ?? [];
 
-  const accionesRows = await env.DB.prepare(
-    `SELECT dictamen_origen_id AS dictamen_id, tipo_accion, COUNT(*) as count
-     FROM dictamen_relaciones_juridicas
-     WHERE dictamen_origen_id IN (${placeholders})
-     GROUP BY dictamen_origen_id, tipo_accion
-    `
-  ).bind(...ids).all<{ dictamen_id: string; tipo_accion: string; count: number }>();
+  const actions = globalSignals?.acciones?.filter(r => idSet.has(r.dictamen_id))
+    ?? (await env.DB.prepare(
+        `SELECT dictamen_origen_id AS dictamen_id, tipo_accion
+         FROM dictamen_relaciones_juridicas
+         WHERE dictamen_origen_id IN (${ids.map(() => '?').join(',')})`
+      ).bind(...ids).all<{ dictamen_id: string; tipo_accion: string }>()).results ?? [];
 
-  const incomingRows = await env.DB.prepare(
-    `SELECT
-       r.dictamen_destino_id AS dictamen_id,
-       r.tipo_accion,
-       COUNT(*) as count,
-       MAX(COALESCE(d.fecha_documento, d.created_at)) AS latest_date
-     FROM dictamen_relaciones_juridicas r
-     LEFT JOIN dictamenes d ON d.id = r.dictamen_origen_id
-     WHERE r.dictamen_destino_id IN (${placeholders})
-     GROUP BY r.dictamen_destino_id, r.tipo_accion`
-  ).bind(...ids).all<{ dictamen_id: string; tipo_accion: string; count: number; latest_date: string | null }>();
+  const incomingRaw = globalSignals?.incoming?.filter(r => idSet.has(r.dictamen_id))
+    ?? (await env.DB.prepare(
+        `SELECT r.dictamen_destino_id AS dictamen_id, r.tipo_accion, COALESCE(d.fecha_documento, d.created_at) AS latest_date
+         FROM dictamen_relaciones_juridicas r
+         LEFT JOIN dictamenes d ON d.id = r.dictamen_origen_id
+         WHERE r.dictamen_destino_id IN (${ids.map(() => '?').join(',')})`
+      ).bind(...ids).all<{ dictamen_id: string; tipo_accion: string; latest_date: string | null }>()).results ?? [];
 
   const fuenteCounts = new Map<string, { tipo_norma: string; numero: string | null; count: number }>();
   const fuentesByDictamen: Record<string, string[]> = {};
-  for (const row of fuentesRows.results ?? []) {
+  for (const row of sources) {
     const normalizedFuente = normalizeLegalSourceForStorage({
       tipo_norma: row.tipo_norma,
       numero: row.numero
@@ -544,7 +576,7 @@ async function aggregateClusterSignals(env: Env, ids: string[]) {
     fuenteCounts.set(key, {
       tipo_norma: normalizedFuente.tipo_norma ?? row.tipo_norma,
       numero: normalizedFuente.numero ?? row.numero,
-      count: (existing?.count ?? 0) + row.count
+      count: (existing?.count ?? 0) + 1
     });
     if (!fuentesByDictamen[row.dictamen_id]) fuentesByDictamen[row.dictamen_id] = [];
     fuentesByDictamen[row.dictamen_id].push(key);
@@ -565,33 +597,33 @@ async function aggregateClusterSignals(env: Env, ids: string[]) {
     desarrolla: 0,
     ajusta: 0
   };
-  for (const row of accionesRows.results ?? []) {
-    actionCounts.set(row.tipo_accion, (actionCounts.get(row.tipo_accion) ?? 0) + row.count);
-    relationCountByDictamen[row.dictamen_id] = (relationCountByDictamen[row.dictamen_id] ?? 0) + row.count;
+  for (const row of actions) {
+    actionCounts.set(row.tipo_accion, (actionCounts.get(row.tipo_accion) ?? 0) + 1);
+    relationCountByDictamen[row.dictamen_id] = (relationCountByDictamen[row.dictamen_id] ?? 0) + 1;
     const effect = classifyRelationEffect(row.tipo_accion);
-    relationCategoryCounts[effect] += row.count;
+    relationCategoryCounts[effect] += 1;
     if (effect === 'fortalece') {
-      stabilizingActionCountByDictamen[row.dictamen_id] = (stabilizingActionCountByDictamen[row.dictamen_id] ?? 0) + row.count;
-      relationBucketCounts.consolida += row.count;
+      stabilizingActionCountByDictamen[row.dictamen_id] = (stabilizingActionCountByDictamen[row.dictamen_id] ?? 0) + 1;
+      relationBucketCounts.consolida += 1;
     } else if (effect === 'desarrolla') {
-      relationBucketCounts.desarrolla += row.count;
-      modifyingActionCountByDictamen[row.dictamen_id] = (modifyingActionCountByDictamen[row.dictamen_id] ?? 0) + row.count;
+      relationBucketCounts.desarrolla += 1;
+      modifyingActionCountByDictamen[row.dictamen_id] = (modifyingActionCountByDictamen[row.dictamen_id] ?? 0) + 1;
     } else {
-      modifyingActionCountByDictamen[row.dictamen_id] = (modifyingActionCountByDictamen[row.dictamen_id] ?? 0) + row.count;
-      relationBucketCounts.ajusta += row.count;
+      modifyingActionCountByDictamen[row.dictamen_id] = (modifyingActionCountByDictamen[row.dictamen_id] ?? 0) + 1;
+      relationBucketCounts.ajusta += 1;
     }
   }
-  for (const row of incomingRows.results ?? []) {
-    incomingRelationCountByDictamen[row.dictamen_id] = (incomingRelationCountByDictamen[row.dictamen_id] ?? 0) + row.count;
-    relationCountByDictamen[row.dictamen_id] = (relationCountByDictamen[row.dictamen_id] ?? 0) + row.count;
+  for (const row of incomingRaw) {
+    incomingRelationCountByDictamen[row.dictamen_id] = (incomingRelationCountByDictamen[row.dictamen_id] ?? 0) + 1;
+    relationCountByDictamen[row.dictamen_id] = (relationCountByDictamen[row.dictamen_id] ?? 0) + 1;
     const effect = classifyRelationEffect(row.tipo_accion);
     const incomingInventory = incomingCategoryCountByDictamen[row.dictamen_id] ?? emptyGraphRelationInventory();
-    incomingInventory[effect] += row.count;
+    incomingInventory[effect] += 1;
     incomingCategoryCountByDictamen[row.dictamen_id] = incomingInventory;
     if (effect === 'fortalece' || effect === 'desarrolla') {
-      incomingStabilizingActionCountByDictamen[row.dictamen_id] = (incomingStabilizingActionCountByDictamen[row.dictamen_id] ?? 0) + row.count;
+      incomingStabilizingActionCountByDictamen[row.dictamen_id] = (incomingStabilizingActionCountByDictamen[row.dictamen_id] ?? 0) + 1;
     } else {
-      incomingModifyingActionCountByDictamen[row.dictamen_id] = (incomingModifyingActionCountByDictamen[row.dictamen_id] ?? 0) + row.count;
+      incomingModifyingActionCountByDictamen[row.dictamen_id] = (incomingModifyingActionCountByDictamen[row.dictamen_id] ?? 0) + 1;
     }
     const parsedTs = parseDateToTs(row.latest_date ?? '');
     if (parsedTs !== null) {
@@ -1304,14 +1336,18 @@ async function buildDoctrineClusters(env: Env, options: BuildDoctrineClustersOpt
     };
   }
 
+  // Precarga global de señales (fuentes y relaciones) para TODOS los candidatos
+  // Esto evita el patrón N+1 SQL en el bucle de clusters posterior
+  const globalSignals = await fetchGlobalClusterSignals(env, candidateRows.map(r => r.id));
+
   const pineconeRecords = await fetchRecords(env, candidateRows.map((row) => row.id));
   const candidates = candidateRows
-    .map((row) => parseCandidateMetadata(row.id, pineconeRecords.vectors?.[row.id]?.metadata ?? {}))
-    .filter((row): row is CandidateMetadata => row !== null);
+    .map((row: CandidateRow) => parseCandidateMetadata(row.id, pineconeRecords.vectors?.[row.id]?.metadata ?? {}))
+    .filter((row: CandidateMetadata | null): row is CandidateMetadata => row !== null);
   const queryAlignmentProfiles = Object.fromEntries(
-    candidates.map((candidate) => [candidate.id, buildQueryAlignmentProfile(candidate, options.queryContext)])
+    candidates.map((candidate: CandidateMetadata) => [candidate.id, buildQueryAlignmentProfile(candidate, options.queryContext)])
   );
-  const orderedCandidates = [...candidates].sort((left, right) => {
+  const orderedCandidates = [...candidates].sort((left: CandidateMetadata, right: CandidateMetadata) => {
     const leftRetrieval = queryAlignmentProfiles[left.id]?.retrievalScore ?? 0;
     const rightRetrieval = queryAlignmentProfiles[right.id]?.retrievalScore ?? 0;
     const leftAlignment = queryAlignmentProfiles[left.id]?.score ?? 0;
@@ -1323,7 +1359,7 @@ async function buildDoctrineClusters(env: Env, options: BuildDoctrineClustersOpt
       || left.id.localeCompare(right.id)
     );
   });
-  const dominantCandidateMateria = countTopStrings(candidates.map((candidate) => candidate.materia).filter(Boolean), 1)[0] ?? null;
+  const dominantCandidateMateria = countTopStrings(candidates.map((candidate: CandidateMetadata) => candidate.materia).filter(Boolean), 1)[0] ?? null;
   const clusterMateria = targetMateria ?? dominantCandidateMateria ?? 'Materia relacionada';
 
   const remaining = new Set(candidates.map((candidate) => candidate.id));
@@ -1354,7 +1390,7 @@ async function buildDoctrineClusters(env: Env, options: BuildDoctrineClustersOpt
     const neighbors = requestedCandidateIds.length > 0
       ? { matches: requestedCandidateIds.map((id) => ({ id })) }
       : seedQuery
-        ? await queryRecords(env, seedQuery, Math.min(topK * 3, 30), pineconeFilter).catch((error) => {
+        ? await queryRecords(env, seedQuery, Math.min(topK * 3, 30), pineconeFilter).catch((error: unknown) => {
             if (isPineconeQuotaError(error)) {
               console.warn('[DOCTRINE_CLUSTERS] Pinecone quota exhausted; continuing with metadata-only clustering.');
               return { matches: [] as Array<{ id: string }> };
@@ -1364,7 +1400,7 @@ async function buildDoctrineClusters(env: Env, options: BuildDoctrineClustersOpt
         : { matches: [] as Array<{ id: string }> };
     const neighborIds = new Set<string>((neighbors.matches ?? []).map((match: { id: string }) => match.id));
 
-    const candidateMembers = candidates.filter((candidate) => {
+    const candidateMembers = candidates.filter((candidate: CandidateMetadata) => {
       if (!remaining.has(candidate.id)) return false;
       if (candidate.id === seed.id) return true;
 
@@ -1407,7 +1443,8 @@ async function buildDoctrineClusters(env: Env, options: BuildDoctrineClustersOpt
     const topDescriptors = countTopStrings(members.flatMap((member) => member.descriptoresAI), 5);
     const minDate = members.map((member) => member.fecha).filter(Boolean).sort()[0] ?? null;
     const maxDate = members.map((member) => member.fecha).filter(Boolean).sort().slice(-1)[0] ?? null;
-    const aggregates = await aggregateClusterSignals(env, supportingIds);
+
+    const aggregates = await aggregateClusterSignals(env, supportingIds, globalSignals ?? undefined);
     const influence = buildInfluenceScores(
       members,
       neighborIds,
