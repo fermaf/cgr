@@ -930,6 +930,53 @@ app.get('/api/v1/dictamenes', async (c) => {
         condition += " AND d.criterio = 'Genera Jurisprudencia'";
       }
 
+      // --- DOCTRINAL METADATA FILTER (aplicado ANTES de paginación) ---
+      const hasDoctrinalFilters = estadoVigencia || readingRole || rolPrincipal || minConfidence > 0 || minCurrentness > 0 || supportsStateCurrent;
+      if (hasDoctrinalFilters) {
+        let mdCondition = '';
+        const mdBinds: any[] = [];
+
+        if (estadoVigencia) {
+          const estados = estadoVigencia.split(',').map(e => e.trim());
+          const estadoPlaceholders = estados.map(() => '?').join(',');
+          mdCondition += `m2.estado_vigencia IN (${estadoPlaceholders})`;
+          mdBinds.push(...estados);
+        }
+        if (readingRole) {
+          if (mdCondition) mdCondition += ' AND ';
+          const roles = readingRole.split(',').map(r => r.trim());
+          const rolePlaceholders = roles.map(() => '?').join(',');
+          mdCondition += `m2.reading_role IN (${rolePlaceholders})`;
+          mdBinds.push(...roles);
+        }
+        if (rolPrincipal) {
+          if (mdCondition) mdCondition += ' AND ';
+          const principals = rolPrincipal.split(',').map(r => r.trim());
+          const principalPlaceholders = principals.map(() => '?').join(',');
+          mdCondition += `m2.rol_principal IN (${principalPlaceholders})`;
+          mdBinds.push(...principals);
+        }
+        if (minConfidence > 0) {
+          if (mdCondition) mdCondition += ' AND ';
+          mdCondition += 'm2.confidence_global >= ?';
+          mdBinds.push(minConfidence);
+        }
+        if (minCurrentness > 0) {
+          if (mdCondition) mdCondition += ' AND ';
+          mdCondition += 'm2.currentness_score >= ?';
+          mdBinds.push(minCurrentness);
+        }
+        if (supportsStateCurrent) {
+          if (mdCondition) mdCondition += ' AND ';
+          mdCondition += 'm2.supports_state_current = 1';
+        }
+
+        if (mdCondition) {
+          condition += ` AND d.id IN (SELECT m2.dictamen_id FROM dictamen_metadata_doctrinal m2 WHERE ${mdCondition})`;
+          binds.push(...mdBinds);
+        }
+      }
+
     const totalRes = await db.prepare(`SELECT COUNT(*) as count FROM dictamenes d ${condition}`).bind(...binds).first<{ count: number }>();
     totalToReturn = totalRes?.count ?? 0;
 
@@ -996,8 +1043,15 @@ app.get('/api/v1/dictamenes', async (c) => {
   }
 }
 
-const hasDoctrinalFilters = estadoVigencia || readingRole || rolPrincipal || minConfidence > 0 || minCurrentness > 0 || supportsStateCurrent;
-if (hasDoctrinalFilters && dataToReturn && dataToReturn.length > 0) {
+// --- DOCTRINAL METADATA FILTER POST-PAGINACIÓN (vectorial) ---
+// NOTA: Para búsqueda vectorial, el filtro se aplica post-paginación porque
+// Pinecone no soporta filtering por campos de metadata doctrinal (no existen en el vector store).
+// Esto es una limitación conocida: si el universo filtrado excede limit, algunos resultados
+// válidos en otras páginas quedan fuera. La solución completa requiere incluir
+// estado_vigencia/reading_role en el schema de Pinecone (FASE 7 del RFC).
+// Para el fallback SQL, el filtro se aplica correctamente ANTES de paginación (líneas 933-978).
+const hasDoctrinalFiltersPost = estadoVigencia || readingRole || rolPrincipal || minConfidence > 0 || minCurrentness > 0 || supportsStateCurrent;
+if (hasDoctrinalFiltersPost && dataToReturn && dataToReturn.length > 0) {
   const resultIds = dataToReturn.map((d: any) => d.id);
   const placeholders = resultIds.map(() => '?').join(',');
 
@@ -1195,6 +1249,23 @@ app.get('/api/v1/dictamenes/:id', async (c) => {
 
     const tagsResult = (canonicalTags.results || []).map(r => r.etiqueta_display);
 
+    // --- DOCTRINAL METADATA ---
+    const doctrinalMetaRow = await db.prepare(
+      `SELECT estado_vigencia, estado_intervencion_cgr, rol_principal,
+              reading_role, reading_weight, currentness_score, confidence_global
+       FROM dictamen_metadata_doctrinal WHERE dictamen_id = ?`
+    ).bind(id).first<any>();
+
+    const doctrinalMetadata = doctrinalMetaRow ? {
+      rol_principal: doctrinalMetaRow.rol_principal,
+      estado_vigencia: doctrinalMetaRow.estado_vigencia,
+      estado_intervencion_cgr: doctrinalMetaRow.estado_intervencion_cgr,
+      reading_role: doctrinalMetaRow.reading_role,
+      reading_weight: doctrinalMetaRow.reading_weight,
+      currentness_score: doctrinalMetaRow.currentness_score,
+      confidence_global: doctrinalMetaRow.confidence_global
+    } : null;
+
     return c.json({
       meta: {
         id: doc.id,
@@ -1218,7 +1289,8 @@ app.get('/api/v1/dictamenes/:id', async (c) => {
           titulo: relation.titulo,
           bucket: relationBucket(relation.tipo_accion)
         })),
-        fuentes_legales: fuentesResult.map((source) => normalizeLegalSourceForPresentation(source))
+        fuentes_legales: fuentesResult.map((source) => normalizeLegalSourceForPresentation(source)),
+        doctrinal_metadata: doctrinalMetadata
       },
       raw: raw,
       extrae_jurisprudencia: enrichment ? {
