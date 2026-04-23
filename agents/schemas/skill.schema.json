@@ -5,24 +5,131 @@
   "type": "object",
   "required": [
     "name",
-    "description",
-    "input_schema",
-    "output_schema"
+    "description"
   ],
   "properties": {
+    "id": {
+      "type": "string",
+      "description": "Identificador único de la skill"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Versión del contrato de la skill"
+    },
     "name": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "Nombre de la skill"
     },
     "description": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "Descripción de qué hace la skill"
+    },
+    "owner": {
+      "type": "string",
+      "description": "Equipo o persona responsable"
+    },
+    "category": {
+      "type": "string",
+      "enum": ["diagnostics", "execution", "orchestration", "wrapper"],
+      "description": "Categoría funcional de la skill"
+    },
+    "diagnostic_only": {
+      "type": "boolean",
+      "description": "Si true, la skill solo diagnostica sin hacer cambios"
+    },
+    "inputs": {
+      "type": "object",
+      "description": "Schema de entrada (JSON Schema completo)",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "object"
+        },
+        "additionalProperties": {
+          "type": "boolean"
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
     },
     "input_schema": {
-      "type": "object"
+      "type": "object",
+      "description": "Schema de entrada (legacy)"
+    },
+    "outputs": {
+      "type": "object",
+      "description": "Schema de salida (JSON Schema completo)",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "object"
+        },
+        "required": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
     },
     "output_schema": {
-      "type": "object"
+      "type": "object",
+      "description": "Schema de salida (legacy)"
+    },
+    "dependencies": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Archivos de código requeridos"
+        },
+        "config": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Archivos de configuración requeridos"
+        },
+        "providers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Servicios externos requeridos"
+        }
+      }
+    },
+    "side_effects": {
+      "type": "object",
+      "properties": {
+        "writes_d1": { "type": "boolean" },
+        "writes_kv": { "type": "boolean" },
+        "writes_vector": { "type": "boolean" },
+        "triggers_workflow": { "type": "boolean" }
+      }
+    },
+    "preconditions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Condiciones que deben cumplirse antes de ejecutar"
+    },
+    "failure_modes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Modos de fallo conocidos"
+    },
+    "evidence_policy": {
+      "type": "string",
+      "description": "Política de cómo se colecta y almacena evidencia"
+    },
+    "notes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Notas adicionales sobre la skill"
     }
   },
   "additionalProperties": true

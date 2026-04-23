@@ -55,3 +55,16 @@ El backfill canónico de derivativas quedó cerrado el `2026-04-21` con:
 - duplicados técnicos finales en `0`.
 
 Ese frente ya no requiere nuevas campañas. El siguiente trabajo relacionado, si se abre, debe enfocarse en **cutover de lectura legacy -> canónico**, no en migración histórica.
+
+## Auto-consolidación OpenCode (2026-04-23)
+
+Ver `context/opencode-consolidation-fase2a.md` para el detalle completo.
+
+**Estado:** Fase 2a completada.
+- Custom Tools creados: `ping`, `repo-context-scan`, `workflow-healthcheck`
+- Runtime legacy mantenido como fallback
+- SKILL.md actualizados para referenciar tools
+
+**Pendiente:**
+- Decisión sobre migración completa o deprecación del runtime legacy
+- Migración de `metadata-quality-audit` (requiere acceso D1)
