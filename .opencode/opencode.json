@@ -1,0 +1,93 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "minimax/MiniMax-M2.7",
+  "small_model": "google/gemini-3.1-flash-lite-preview",
+  "agent": {
+    "build": {
+      "description": "Agente principal de construcción - razonador senior del proyecto CGR (MiniMax-M2.7)",
+      "mode": "primary",
+      "model": "minimax/MiniMax-M2.7",
+      "permission": {
+        "edit": "ask",
+        "bash": "ask"
+      }
+    },
+    "plan": {
+      "description": "Agente de análisis y planificación - solo lee y propone, no modifica (GPT-5.5)",
+      "mode": "primary",
+      "model": "openai/gpt-5.5",
+      "permission": {
+        "edit": "deny",
+        "bash": "deny"
+      }
+    },
+    "code-executor": {
+      "description": "Ejecutor de código - implementación de cambios acotados (GPT-5.4-mini)",
+      "mode": "subagent",
+      "model": "openai/gpt-5.4-mini",
+      "permission": {
+        "edit": "allow",
+        "bash": "allow"
+      }
+    },
+    "technical-auditor": {
+      "description": "Auditor técnico - inspecciona código y detecta riesgos sin modificar (GPT-5.4)",
+      "mode": "subagent",
+      "model": "openai/gpt-5.4",
+      "permission": {
+        "edit": "deny",
+        "bash": "allow",
+        "grep": "allow",
+        "read": "allow",
+        "glob": "allow"
+      }
+    },
+    "functional-verifier": {
+      "description": "Verificador funcional - corre builds, smoke tests y validaciones operativas (Gemini fallback)",
+      "mode": "subagent",
+      "model": "google/gemini-3.1-flash-lite-preview",
+      "permission": {
+        "edit": "deny",
+        "bash": "allow",
+        "grep": "allow",
+        "read": "allow"
+      }
+    },
+    "release-manager": {
+      "description": "Gestor de release - decide commit/deploy y audita trazabilidad (GPT-5.4)",
+      "mode": "subagent",
+      "model": "openai/gpt-5.4",
+      "permission": {
+        "edit": "deny",
+        "bash": {
+          "git status*": "allow",
+          "git log*": "allow",
+          "git diff*": "allow",
+          "npm run agents:*": "allow",
+          "npm run agents:workflow:check": "allow",
+          "npm run agents:check": "allow",
+          "*": "deny"
+        }
+      }
+    },
+    "deploy-verifier": {
+      "description": "Verificador de deploy - valida pre-condiciones sin desplegar (Gemini fallback)",
+      "mode": "subagent",
+      "model": "google/gemini-3.1-flash-lite-preview",
+      "permission": {
+        "edit": "deny",
+        "bash": {
+          "npm run agents:*": "allow",
+          "npm run d1:*": "allow",
+          "git status*": "allow",
+          "*": "deny"
+        }
+      }
+    }
+  },
+  "permission": {
+    "skill": {
+      "*": "allow"
+    }
+  }
+}
