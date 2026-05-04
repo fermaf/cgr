@@ -1,0 +1,107 @@
+# NOTICE — Terceros y Licencias de Componentes
+
+**Repositorio:** cgr (https://github.com/fermaf/cgr)  
+**Generado:** 2026-05-04 por CLO — Agente de Cumplimiento Legal  
+**Ref:** FURAA-18
+
+---
+
+## 1. SOFTWARE DE CODIGO ABIERTO UTILIZADO
+
+| Componente | Licencia | Notas |
+|---|---|---|
+| Cloudflare Workers | Cloudflare Workers Terms of Service | Uso comercial permitido |
+| Cloudflare D1 | Cloudflare D1 Terms of Service | Uso comercial permitido |
+| Cloudflare Vectorize | Cloudflare Vectorize Terms of Service | Uso comercial permitido |
+| Cloudflare Workers AI | Cloudflare Workers AI Terms of Service | Uso comercial permitido |
+| Hono (Node.js framework) | Apache 2.0 | Uso comercial permitido |
+| Vite (build tool) | MIT | Uso comercial permitido |
+| React | MIT | Uso comercial permitido |
+| Pythia / Mistral AI (historico) | Mistral AI Terms of Service | Proveedorhistorico; migracion en curso |
+| Pinecone (historico) | Pinecone Terms of Service | Proveedor historico; migracion en curso |
+| Wrangler CLI | Apache 2.0 | CLI de Cloudflare |
+| OpenCode | MIT | Framework deIA agéntica |
+| TypeScript | Apache 2.0 | Lenguaje base |
+
+---
+
+## 2. PROVEEDORES DE IA Y TERMINOS DE SERVICIO
+
+### 2.1 Mistral AI (historico — en evaluacion de migracion)
+- **Uso:** Generacion de metadata doctrinal (resumenes, descriptores, regimenes)
+- **Terms of Service:** https://mistral.ai/legal/terms-of-service/
+- **Evaluacion de cumplimiento comercial:** Pendiente verificacion interna
+
+### 2.2 Cloudflare Workers AI (en evaluacion como reemplazo)
+- **Uso:** Generacion y validacion de metadata doctrinal
+- **Terms of Service:** https://www.cloudflare.com/terms-of-service/
+- **Ventaja:** Cobertura bajo el mismo acuerdo comercial de Cloudflare
+
+### 2.3 OpenAI (OpenCode agent runner)
+- **Uso:** Modelo de razonamiento para agentes de desarrollo
+- **Terms of Service:** https://openai.com/policies/terms-of-use
+- **Alcance:** Uso interno de desarrollo, no expuesto a usuarios finales
+
+### 2.4 MiniMax (modelo de inferencia)
+- **Uso:** Modelo de razonamiento para agente CLO
+- **Terms of Service:** Segun proveedor MiniMax
+- **Alcance:** Orquestacion interna de agentes
+
+---
+
+## 3. PROVENIENCIA DE DATOS JURISPRUDENCIALES
+
+### 3.1 Fuente primaria
+- **Sitio web:** https://www.cgr.cl
+- **Organismo:** Contraloria General de la Republica de Chile
+- **Tipo de contenido:** Dictamenes, resoluciones y criterios administrativos
+- **Volumen:** Aproximadamente 86.000 dictamenes registrados en base de datos
+
+### 3.2 Metodo de adquisicion
+- **Tecnica:** Scraping/web crawling automatizado
+- **Pipeline:** `worker_cron_crawl` (Cloudflare Workers)
+- **Datos historicos:** Importacion desde MongoDB (dataset previo)
+- **Estado de actualizacion:** Snapshot estatico — sin pipeline incremental vigente
+
+### 3.3 Licitud de la adquisicion
+- **Estado:** ⚠️ **NO VERIFICADO** — Los Terminos de Servicio de CGR.cl no fueron revisados
+- **Riesgo asociado:** RL-06 (vease MATRIZ_DERECHOS_FURAA18.md)
+- **Accion requerida:** Verificacion legal independiente de los ToS de CGR.cl
+
+---
+
+## 4. TERCEROS Y CONTRIBUYENTES
+
+| Tercero | Relación | Estado |
+|---|---|---|
+| fermaf (GitHub) | Propietario y unico contributor verificado | Activo |
+| INDUBIA SpA | Uso previsto bajo evaluacion | Pendiente de autorizacion expresa |
+| Comunidad open-source (dependencias) | Dependencias listadas en package.json | Licencias compatibles |
+
+---
+
+## 5. RESTRICCIONES Y LIMITACIONES
+
+Este repositorio y sus datos asociados estan sujetos a las siguientes restricciones:
+
+1. **Verificacion de scraping pendiente:** La legitimidad del metodo de adquisicion de datos de CGR.cl no ha sido verificada
+2. **Datos personales no analizados:** No se ha realizado un analisis de presencia de datos personales (RUT, nombres) en el corpus jurisprudencial
+3. **Metadata LLM no curada:** La calidad de la metadata generada por modelos de IA no ha sido validada por curacion humana
+4. **Licencia de codigo en evaluacion:** Este archivo LICENSE propone MIT como licencia base, sujeto a confirmacion del titular
+
+---
+
+## 6. OBTENCION DE DOCUMENTOS OFICIALES
+
+Los textos legales chilenos referenciados en este repositorio (leyes, reglamentos, dictamenes) deben obtenerse de fuentes oficiales:
+
+- **BCN (Biblioteca del Congreso Nacional de Chile):** https://www.bcn.cl
+- **Diario Oficial:** https://www.diariooficial.interior.gob.cl
+- **CGR (sitio oficial):** https://www.cgr.cl
+
+No utilizar este repositorio como unica fuente para cites legales oficiales.
+
+---
+
+*Generado automaticamente como parte del proceso de regularizacion legal del repositorio cgr (FURAA-18)*  
+*Para preguntas sobre licencias y terceros, contactar al agente CLO de la empresa.*
