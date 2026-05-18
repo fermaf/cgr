@@ -1,377 +1,418 @@
-# CGR.ai: Plataforma de Gobernanza Documental Inteligente
+# Indubia / CGR Jurisprudencia
 
-CGR.ai es un ecosistema *serverless* diseñado para la ingesta, análisis jurídico y búsqueda semántica de la jurisprudencia administrativa de la **Contraloría General de la República de Chile**. 
+Indubia es una plataforma doctrinal para buscar, leer y organizar jurisprudencia administrativa de la Contraloria General de la Republica de Chile.
 
-Ejecutada integralmente sobre el borde (edge) de Cloudflare, la plataforma transforma documentos complejos en un **Activo de Datos Monetizable** mediante el uso de Inteligencia Artificial (Mistral), Bases de Datos Vectoriales (Pinecone) y Orquestación Durable (Workflows).
+No es un chatbot juridico generico. El core del sistema es un backend de retrieval semantico-doctrinal sobre Cloudflare Workers, D1, KV y Pinecone, con una aplicacion React en Cloudflare Pages y una capa agental local para diagnostico, auditoria y remediacion controlada.
 
----
+## Estado real al 2026-05-18
 
-## 🏛 Estructura del Monorepo (Higiene Documental)
+- Repositorio GitHub: `git@github.com:fermaf/cgr.git`
+- Acceso web al codigo: `https://github.com/fermaf/cgr`
+- Rama principal local: `main`
+- Backend canonico: `https://cgr-platform.abogado.workers.dev`
+- Frontend canonico: `https://cgr-jurisprudencia-frontend.pages.dev`
+- Worker productivo: `cgr-platform`
+- Pages productivo: `cgr-jurisprudencia-frontend`
+- Base D1 productiva: `cgr-dictamenes`
+- D1 database id: `c391c767-2c72-450c-8758-bee9e20c8a35`
+- KV `DICTAMENES_SOURCE`: `ac84374936a84e578928929243687a0b`
+- KV `DICTAMENES_PASO`: `4673b680cd704508a4fbc87789acb153`
+- Pinecone namespace: `mistralLarge2512`
+- Modelo LLM principal de enrichment: `mistral-large-2512`
+- Modelo LLM auxiliar para metadata/rewrite: `mistral-large-2411`
 
-El repositorio está organizado como un sistema modular optimizado para el despliegue escalable:
+Disponibilidad verificada desde internet el `2026-05-18`:
 
-- **[`cgr-platform/`](cgr-platform/)**: Backend productivo. Un Cloudflare Worker (Hono) que orquesta el ciclo de vida del dato (Crawl -> Enrich -> Vectorize).
-- **[`frontend/`](frontend/)**: Aplicación de usuario final construida en React + Vite, desplegada en Cloudflare Pages con soporte para búsqueda semántica y literal.
-- **[`docs/`](docs/)**: El cerebro del proyecto. Contribuye al estándar **"El Librero v2"**: exhaustivo, experto y auditable.
-- **[`skillgen/`](skillgen/)**: Módulo de gobernanza determinista y diseño de "Skills" para el manejo de incidentes y lógica de negocio compleja.
-- **[`scripts/`](scripts/)**: Utilidades de mantenimiento para D1 y disparadores de procesos batch.
+- `GET /` en backend: `200`, responde `CGR Platform API`.
+- `GET /api/v1/stats`: `200`, D1 responde con `86.694` dictamenes y ultima actualizacion `2026-05-18T16:13:05.581Z`.
+- `GET /api/v1/public/pjos?limit=1`: `200`, capa PJO publica disponible.
+- `GET /api/v1/dictamenes?q=020445N19&page=1`: `200`, busqueda literal/ID disponible.
+- Frontend Pages raiz: `200`.
+- `doctrine-search`, `doctrine-lines` y rutas que requieren embedding semantico estan fallando con `500` porque el modelo configurado `nvidia/llama-3.2-nv-embedqa-1b-v2` llego a fin de vida el `2026-05-18T00:00:00Z` y NVIDIA devuelve `410 Gone`.
 
----
+La incidencia de embeddings afecta el retrieval semantico y la construccion dinamica de lineas doctrinales. No afecta la lectura directa desde D1 ni los endpoints publicos que no calculan embeddings.
 
-## 🚀 Inicio Rápido para Desarrolladores
+## Mapa del repositorio
 
-### 1. Requisitos
-- Node.js & npm.
-- [Cloudflare Wrangler](https://developers.cloudflare.com/workers/wrangler/install-upgrading/) instalado globalmente.
+- `cgr-platform/`: backend productivo en Cloudflare Workers + Hono. Contiene endpoints HTTP, workflows, ingestion, enrichment, vectorizacion, D1, KV, Pinecone y capa doctrinal.
+- `frontend/`: aplicacion React + Vite desplegada en Cloudflare Pages. Consume `/api` via proxy hacia el Worker canonico.
+- `agents/`: runtime agental propio en TypeScript para diagnostico, auditoria, wrappers heredados y control plane de ingestion.
+- `.opencode/`: agentes y skills nativas de OpenCode.
+- `.agents/skills/`: skills externas, incluyendo Cloudflare.
+- `context/`: contexto obligatorio para agentes nuevos.
+- `docs/`: documentacion canonica y bitacoras tecnicas.
+- `cgr-platform/migrations/`: migraciones D1.
+- `cgr-platform/scripts/`: scripts de auditoria, backfill y operaciones puntuales.
 
-### 2. Levantar el Backend
+## Arquitectura operativa
+
+Flujo principal:
+
+1. Ingestion desde `https://www.contraloria.cl`.
+2. Persistencia raw en KV `DICTAMENES_SOURCE`.
+3. Normalizacion estructural en D1.
+4. Enrichment juridico con Mistral.
+5. Metadata doctrinal post-enrichment.
+6. Vectorizacion hacia Pinecone.
+7. Busqueda semantica y fallback SQL.
+8. Agrupacion doctrinal, PJO/regimenes y lectura sugerida.
+9. Render en frontend.
+
+Bindings productivos relevantes del Worker:
+
+- `DB`: D1 `cgr-dictamenes`.
+- `DICTAMENES_SOURCE`: KV de fuente/raw.
+- `DICTAMENES_PASO`: KV derivado/cache operacional.
+- `WORKFLOW`: `ingest-workflow`.
+- `ENRICHMENT_WORKFLOW`: `enrichment-workflow`.
+- `VECTORIZATION_WORKFLOW`: `vectorization-workflow`.
+- `KV_SYNC_WORKFLOW`: `kv-sync-workflow`.
+- `CANONICAL_RELATIONS_WORKFLOW`: `canonical-relations-workflow`.
+- `DOCTRINAL_METADATA_WORKFLOW`: `doctrinal-metadata-workflow`.
+- `REGIMEN_BACKFILL_WORKFLOW`: `regimen-backfill-workflow`.
+- `REPAIR_QUEUE`: queue `repair-nulls-queue`.
+
+Secrets productivos esperados:
+
+- `INGEST_TRIGGER_TOKEN`
+- `MISTRAL_API_KEY`
+- `MISTRAL_API_KEYS`
+- `MISTRAL_API_KEY_CRAWLER_ALE`
+- `MISTRAL_API_KEY_IMPORTANTES_OLGA`
+- `CF_AIG_AUTHORIZATION`
+- `PINECONE_API_KEY`
+- `NVIDIA_API_KEY`
+- `GEMINI_API_KEYS`
+- `GEMINI_BLOCKED_API_KEYS`
+
+No imprimir valores de secrets en logs, README ni commits.
+
+## Endpoints que debe dominar un agente
+
+Base backend:
+
+```text
+https://cgr-platform.abogado.workers.dev
+```
+
+Salud y estadisticas:
+
+```http
+GET /
+GET /api/v1/stats
+GET /api/v1/analytics/multidimensional
+GET /api/v1/admin/migration/info
+```
+
+Busqueda y lectura:
+
+```http
+GET /api/v1/dictamenes?q=<consulta>&page=1
+GET /api/v1/dictamenes/:id
+GET /api/v1/dictamenes/:id/lineage
+GET /api/v1/dictamenes/:id/history
+GET /search?q=<consulta>&limit=10
+```
+
+Doctrina e insights:
+
+```http
+GET /api/v1/insights/doctrine-search?q=<consulta>&limit=5
+GET /api/v1/insights/doctrine-lines?materia=<materia>&limit=5
+GET /api/v1/insights/doctrine-guided?q=<consulta>&limit=4
+GET /api/v1/insights/doctrine-guided/family?q=<consulta>&family_id=<id>&limit=4
+GET /api/v1/analytics/doctrine-clusters?materia=<materia>&limit=5
+```
+
+Atencion: las rutas anteriores que generan embeddings dependen hoy de `NVIDIA_EMBEDDING_MODEL`. Al `2026-05-18`, ese modelo esta discontinuado y produce `410 Gone`.
+
+Autocomplete y catalogos:
+
+```http
+GET /api/v1/divisions
+GET /api/v1/analytics/suggest/materia?q=<texto>
+GET /api/v1/analytics/suggest/tags?q=<texto>
+GET /api/v1/analytics/statutes/heatmap
+GET /api/v1/analytics/topics/trends
+```
+
+Regimenes y problemas juridicos operativos publicos:
+
+```http
+GET /api/v1/public/regimenes?limit=20&offset=0
+GET /api/v1/public/regimenes/:id
+GET /api/v1/public/regimenes/:id/dictamenes
+GET /api/v1/public/dictamenes/:id/regimen
+GET /api/v1/public/pjos?limit=20&offset=0
+GET /api/v1/public/pjos/:id/freshness
+```
+
+Operaciones administrativas con `x-admin-token: $INGEST_TRIGGER_TOKEN`:
+
+```http
+POST /ingest/trigger
+POST /api/v1/dictamenes/crawl/range
+POST /api/v1/dictamenes/batch-enrich
+POST /api/v1/dictamenes/batch-vectorize
+POST /api/v1/dictamenes/:id/sync-vector
+POST /api/v1/dictamenes/:id/re-process
+POST /api/v1/dictamenes/sync-vector-mass
+POST /api/v1/jobs/repair-nulls
+POST /api/v1/analytics/refresh
+POST /api/v1/trigger/kv-sync
+POST /api/v1/trigger/canonical-relations
+POST /api/v1/trigger/doctrinal-metadata-reprocess
+POST /api/v1/admin/relations-gap/analyze
+POST /api/v1/admin/doctrinal-metadata/reprocess
+POST /api/v1/pilot/regimenes/backfill
+GET  /api/v1/regimenes
+GET  /api/v1/regimenes/:id
+POST /api/v1/admin/regimenes/:id/pjo
+GET  /api/v1/admin/pjos
+GET  /api/v1/pilot/regimenes/seeds
+GET  /api/v1/pilot/regimenes
+```
+
+Debug y pruebas externas:
+
+```http
+POST /api/v1/debug/cgr
+POST /api/v1/test/pinecone
+```
+
+Usar estos endpoints con cuidado: pueden tocar servicios externos, costos, estados de pipeline o Pinecone.
+
+## Acceso a datos via Wrangler
+
+Ejecutar desde `cgr-platform/`.
+
+Listar tablas remotas:
+
+```bash
+./node_modules/.bin/wrangler d1 execute cgr-dictamenes --remote --command "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
+```
+
+Conteo general:
+
+```bash
+./node_modules/.bin/wrangler d1 execute cgr-dictamenes --remote --command "SELECT COUNT(*) AS dictamenes FROM dictamenes;"
+```
+
+Estado del pipeline:
+
+```bash
+./node_modules/.bin/wrangler d1 execute cgr-dictamenes --remote --command "SELECT estado, COUNT(*) AS n FROM dictamenes GROUP BY estado ORDER BY n DESC;"
+```
+
+Dictamen puntual:
+
+```bash
+./node_modules/.bin/wrangler d1 execute cgr-dictamenes --remote --command "SELECT id, numero, anio, fecha_documento, estado, materia FROM dictamenes WHERE id = '020445N19';"
+```
+
+Metadata doctrinal:
+
+```bash
+./node_modules/.bin/wrangler d1 execute cgr-dictamenes --remote --command "SELECT dictamen_id, rol_principal, estado_vigencia, reading_role, currentness_score, confidence_global FROM dictamen_metadata_doctrinal LIMIT 20;"
+```
+
+Regimenes y PJOs:
+
+```bash
+./node_modules/.bin/wrangler d1 execute cgr-dictamenes --remote --command "SELECT COUNT(*) AS regimenes FROM regimenes_jurisprudenciales; SELECT COUNT(*) AS pjos FROM problemas_juridicos_operativos; SELECT COUNT(*) AS pjo_dictamenes FROM pjo_dictamenes;"
+```
+
+Base local de desarrollo:
+
+```bash
+npm run d1:sanity
+```
+
+Regla operacional: usar `--remote` solo cuando se necesite evidencia productiva. Para pruebas destructivas o exploracion, preferir local o queries `SELECT`.
+
+## Tablas D1 principales
+
+Corpus y pipeline:
+
+- `dictamenes`
+- `enriquecimiento`
+- `dictamen_events`
+- `kv_sync_status`
+- `pinecone_sync_status`
+- `cat_estado_pipeline`
+
+Doctrina y relaciones:
+
+- `dictamen_relaciones_juridicas`
+- `dictamen_relaciones_huerfanas`
+- `dictamen_metadata_doctrinal`
+- `dictamen_metadata_doctrinal_evidence`
+- `doctrine_structure_remediations`
+
+Derivativas canonicas:
+
+- `etiquetas_catalogo`
+- `dictamen_etiquetas`
+- `fuentes_legales_catalogo`
+- `dictamen_fuentes`
+- `dictamen_fuentes_legales`
+
+Regimenes y PJO:
+
+- `regimenes_jurisprudenciales`
+- `regimen_dictamenes`
+- `norma_regimen`
+- `regimen_timeline`
+- `problemas_juridicos_operativos`
+- `pjo_dictamenes`
+- `pjo_review_queue`
+- `pjo_curation_log`
+
+Agentes y auditoria:
+
+- `skill_events`
+- `skill_runs`
+- `doctrine_events`
+
+## Desarrollo local
+
+Instalar dependencias por modulo:
+
+```bash
+npm install
+cd cgr-platform && npm install
+cd ../frontend && npm install
+```
+
+Backend:
+
 ```bash
 cd cgr-platform
-npm install
 npm run dev
 ```
 
-### 3. Levantar el Frontend
+Frontend:
+
 ```bash
 cd frontend
-npm install
 npm run dev
 ```
 
-### 4. Runtime mínimo de agentes
-El runtime incremental vive en `agents/` y converge con `cgr-platform/` sin modificarlo internamente.
+El frontend usa `VITE_API_BASE_URL` si existe. Si no existe, apunta por defecto a:
 
-Comandos:
+```text
+https://cgr-platform.abogado.workers.dev
+```
+
+Build frontend:
+
+```bash
+cd frontend
+npm run build
+```
+
+Deploy backend:
+
+```bash
+cd cgr-platform
+npm run deploy
+```
+
+Deploy frontend Pages:
+
+```bash
+cd frontend
+npm run build
+../cgr-platform/node_modules/.bin/wrangler pages deploy dist --project-name cgr-jurisprudencia-frontend
+```
+
+## Runtime agental
+
+El runtime local vive en `agents/` y se compila desde la raiz.
+
+Comandos principales:
 
 ```bash
 npm run agents:check
 npm run agents:test
 npm run agents:scan
-```
-
-Qué hace cada uno:
-
-- `agents:check`: compila el runtime mínimo y valida estructura + registry.
-- `agents:test`: ejecuta el loop verificable `input -> routeSkill -> skillRunner -> execute -> agentMemory -> output` usando `skill_ping`.
-- `agents:scan`: ejecuta `skill_repo_context_scan` para detectar `cgr-platform`, skills heredadas, workflows y riesgos de convergencia.
-
-Manejo de skills heredadas:
-
-- las skills nativas viven en `agents/skills/`;
-- las skills heredadas no se duplican;
-- la adaptación futura debe hacerse en `agents/skills/wrappers/`;
-- cualquier wrapper debe importar la lógica heredada desde afuera y mantener nombres sin colisión con el registry nativo.
-
-Primer puente operativo implementado:
-
-- skill heredada envuelta: `check_env_sanity`;
-- wrapper expuesto: `legacy_check_env_sanity`;
-- motivo de elección: es diagnóstica, no escribe estado y sólo valida bindings/vars mínimos;
-- prueba del wrapper:
-
-```bash
-npm run agents:wrap:test
-```
-
-- healthcheck estructural de workflows:
-
-```bash
 npm run agents:workflow:check
-```
-
-Limitaciones del wrapper inicial:
-
-- ejecuta la lógica heredada real, pero sobre un `Env` adaptado desde `wrangler.jsonc`;
-- por eso valida configuración declarada, no bindings vivos ni conectividad real del Worker;
-- el prefijo `legacy_` se usa para evitar colisiones con nombres del catálogo heredado.
-
-Segundo wrapper operativo implementado:
-
-- skill heredada envuelta: `cgr_network_baseurl_verify`;
-- wrapper expuesto: `legacy_cgr_network_baseurl_verify`;
-- motivo de elección: fue priorizada como `P0` por el convergence report y valida el borde de ingestión con bajo riesgo y sin tocar estado.
-
-Prueba del segundo wrapper:
-
-```bash
-npm run agents:wrap:baseurl
-```
-
-Convención de metadata:
-
-- `executionLayer`: indica dónde corre la capacidad dentro del runtime actual. Valor típico: `agents-runtime`.
-- `capabilitySource`: indica de dónde proviene la lógica de la capacidad. Ejemplos: `native-runtime`, `legacy-wrapper`, `repository-inspection`.
-- `isDeprecated`: marca capacidades que deberían retirarse cuando ya exista un reemplazo mejor y estable en `/agents`.
-- `source` se conserva por compatibilidad, pero la convención operativa nueva para gobernanza es `executionLayer + capabilitySource`.
-
-Escalamiento del patrón:
-
-- para cada skill heredada futura, crear un wrapper pequeño en `agents/skills/wrappers/`;
-- reutilizar la función exportada del core;
-- adaptar sólo contexto, input y forma de salida;
-- registrar el wrapper en el registry central y documentar cualquier normalización de nombres.
-
-Capacidades nuevas de gobierno:
-
-- `skill_legacy_capabilities_inventory`: inventario estructurado del legado para clasificar wrappeabilidad, riesgo y convergencia.
-- `skill_ingest_topology_scan`: mapa visible del flujo de ingestión, endpoints, workflows, storage y puntos de inserción futura.
-- `skill_capability_convergence_report`: backlog priorizado para decidir qué converger primero y qué no conviene tocar aún.
-- `skill_ingest_edge_observability`: diagnóstico compuesto del borde de ingestión reutilizando wrappers y scans ya existentes.
-- `skill_ingest_incident_triage`: troubleshooting preventivo que traduce observabilidad estructural en rutas diagnósticas y acciones para operador.
-- `skill_ingest_incident_decisioning`: decisioning operativo prudente que traduce el triage en una ruta de acción estable y reusable.
-- `skill_ingest_control_plane`: superficie principal y unificada de ingestión para operadores humanos y para futura convergencia con incident routing.
-- `skill_ingest_incident_bridge`: envelope de compatibilidad operativa entre el control plane y un sistema futuro de incident routing.
-
-Comandos:
-
-```bash
-npm run agents:legacy:inventory
-npm run agents:ingest:scan
-npm run agents:convergence:report
-npm run agents:ingest:edge
-npm run agents:ingest:triage
-npm run agents:ingest:decision
+npm run agents:metadata:audit
+npm run agents:embedding:check
+npm run agents:doctrine:coherence
 npm run agents:ingest:control-plane
-npm run agents:ingest:bridge
 ```
 
-Cómo acercan `/agents` al backend real de Indubia:
+Skills nativas relevantes:
 
-- convierten el core heredado en inventario gobernado, no en deuda opaca;
-- exponen la topología real de ingestión sin tocar workflows productivos;
-- preparan el uso explícito de `isDeprecated` para limpiar wrappers o diagnósticos heredados cuando exista mejor reemplazo nativo.
+- `skill_repo_context_scan`: estructura real del repo.
+- `skill_workflow_healthcheck`: wiring de workflows.
+- `skill_metadata_quality_audit`: auditoria de metadata doctrinal.
+- `skill_embedding_consistency_check`: consistencia de embeddings.
+- `skill_doctrine_coherence_audit`: coherencia doctrinal.
+- `skill_ingest_control_plane`: vista operacional compuesta de ingestion.
 
-Uso futuro de `isDeprecated`:
+Wrappers heredados:
 
-- `false` o ausente: la capacidad sigue siendo válida o aún no tiene reemplazo mejor;
-- `true`: mantener sólo por compatibilidad temporal y priorizar migración a la capacidad nueva;
-- la decisión debe basarse en evidencia de reemplazo funcional, no sólo en existencia de un wrapper.
+- `legacy_check_env_sanity`
+- `legacy_cgr_network_baseurl_verify`
 
-Cómo leer el convergence report:
+Para tareas Cloudflare, usar la skill `cloudflare` y preferir retrieval de docs/API sobre memoria del modelo.
 
-- `operationalValueForIndubia`: estima valor práctico según cercanía a ingestión, diagnóstico y reutilización futura.
-- `recommendation`:
-  - `wrap_now`: mejor siguiente wrapper por valor/riesgo.
-  - `wrap_later`: candidato útil, pero no es la siguiente mejor inversión.
-  - `replace_with_native`: conviene evolucionar una capacidad propia en `/agents` en vez de envolver más legado.
-  - `leave_as_is`: ya existe wrapper suficiente para la etapa actual.
-  - `avoid_for_now`: no aporta suficiente valor frente a su riesgo o naturaleza.
-- `suggestedPriority` ordena el backlog para escoger el siguiente wrapper o reemplazo.
+## Despliegues Cloudflare verificados
 
-Cómo usar el reporte para decidir el siguiente wrapper:
+Worker `cgr-platform`:
 
-- tomar primero capacidades `P0` o `P1` con `wrap_now`;
-- preferir las que estén más cerca de ingestión o de observabilidad del backend real;
-- postergar `replace_with_native` hasta que el runtime nuevo tenga alcance funcional suficiente para reemplazar el legado con claridad.
+- Ultimo deploy productivo registrado: `2026-04-25T21:40:56.164031Z`.
+- Version activa al 100%: `2cdd518e-fda6-4e43-b6c9-8b04544eb7d3`.
+- Observability: activada con sampling `1`.
+- Logs persistentes de Workers: activados.
 
-Qué significa “ingest edge observability”:
+Pages `cgr-jurisprudencia-frontend`:
 
-- es una vista compuesta del borde del pipeline de ingestión;
-- combina salud de configuración, validación estructural de `CGR_BASE_URL`, coherencia de workflows y topología visible del flujo;
-- por ahora es estructural y diagnóstica: no verifica reachability real ni ejecución viva de workflows en Cloudflare.
+- Ultimo deploy productivo registrado: `2026-04-24T20:11:16.885027Z`.
+- Deployment id: `b9a3ef5c-a7c7-4aaa-85db-1df5b216d46c`.
+- Commit asociado: `f977eb26f2dde256c205277c4db285871b139400`.
+- Usa Functions y comparte bindings D1/KV con el backend.
 
-Qué significa “ingest incident triage”:
+## Reglas para agentes
 
-- toma la observabilidad estructural ya disponible y la convierte en dominios de fallo plausibles, ruta diagnóstica y acciones recomendadas;
-- no afirma incidentes reales; organiza troubleshooting reusable para el backend de ingestión;
-- el nombre elegido es más preciso que `operational_readiness` porque el foco no es solo readiness, sino guiar investigación de fallas potenciales.
+1. Leer antes de tocar codigo:
+   - `context/project_constitution.md`
+   - `context/project_context.md`
+   - `context/architecture_map.md`
+   - `context/current_priorities.md`
+   - `context/glossary.md`
+2. Si contexto y codigo discrepan, prevalece el codigo.
+3. Documentacion y commits van en español.
+4. No tratar previews o aliases auxiliares como URLs canonicas.
+5. La busqueda semantica manda; la doctrina organiza.
+6. No ejecutar endpoints admin sin confirmar token, impacto y estado esperado.
+7. No imprimir ni commitear secrets.
+8. Antes de deploy, validar build/smoke test y dejar trazabilidad.
+9. Si cambia la realidad operacional, actualizar `context/` y este README.
 
-Qué significa “ingest incident decisioning”:
+## Smoke tests utiles
 
-- toma la salida del triage y produce una decisión operativa pequeña y estable;
-- su objetivo no es diagnosticar más, sino decidir la próxima ruta prudente de acción;
-- prepara compatibilidad futura con incident routing mediante una envoltura de salida estable.
+Backend vivo:
 
-Qué significa “ingest control plane”:
+```bash
+curl -i -sS --max-time 20 https://cgr-platform.abogado.workers.dev/
+curl -i -sS --max-time 30 https://cgr-platform.abogado.workers.dev/api/v1/stats
+```
 
-- es la superficie principal de ingestión en `/agents`;
-- consolida observability, triage y decisioning en una sola salida serializable;
-- reemplaza consultas fragmentadas para operador humano, manteniendo las skills previas como building blocks subyacentes.
+D1 publico sin embeddings:
 
-Qué problema resuelve el incident bridge:
+```bash
+curl -i -sS --max-time 30 "https://cgr-platform.abogado.workers.dev/api/v1/dictamenes?q=020445N19&page=1"
+curl -i -sS --max-time 30 "https://cgr-platform.abogado.workers.dev/api/v1/public/pjos?limit=1"
+```
 
-- toma la salida unificada del control plane y la transforma en un envelope estable para incident handling futuro;
-- separa la semántica de “panel operacional” de la semántica de “routing envelope”;
-- evita forzar una integración falsa con `routeIncident` mientras los contratos sigan siendo distintos.
+Semantica doctrinal:
 
-Diferencia entre readiness, observability y triage:
+```bash
+curl -i -sS --max-time 30 "https://cgr-platform.abogado.workers.dev/api/v1/insights/doctrine-search?q=confianza%20legitima&limit=1"
+curl -i -sS --max-time 30 "https://cgr-platform.abogado.workers.dev/api/v1/insights/doctrine-lines?limit=1"
+```
 
-- `observability`: reúne señales visibles y checks compuestos;
-- `readiness`: resume si la estructura visible parece suficiente para operar;
-- `triage`: traduce esas señales a dominios de fallo, pasos de diagnóstico y acciones de operador.
-- `decisioning`: selecciona una ruta operativa concreta a partir del triage, sin exagerar la certeza disponible.
-- `control plane`: entrega una interfaz única de más alto nivel, lista para consumo humano o por adapters futuros.
-
-Cómo interpretar `routeDecision`:
-
-- `observe_only`: no hay señal suficiente para mover la investigación local.
-- `run_local_diagnostics`: conviene profundizar primero dentro del runtime actual.
-- `inspect_config`: priorizar configuración visible y bindings declarados.
-- `inspect_workflow_wiring`: priorizar wiring estructural de workflows y exports.
-- `inspect_external_dependency`: tratar el caso como boundary externa aún no verificable localmente.
-- `escalate_to_human`: la evidencia no permite una decisión operativa prudente sin revisión humana.
-
-Cuándo `humanReviewNeeded = true`:
-
-- cuando la mejor decisión depende de evidencia no verificable aún;
-- cuando varias hipótesis siguen abiertas y ninguna domina con claridad;
-- cuando la salida apunta a boundary externa o a diagnóstico adicional antes de automatizar.
-
-Convención actual de memoria y trazabilidad:
-
-- las skills compuestas registran solo su evento padre en `agentMemory`;
-- las subskills quedan trazadas en `telemetry`, no como eventos separados de memoria;
-- se mantiene así para evitar ruido y conservar la memoria orientada a decisiones de alto nivel.
-
-Gobernanza de superficie:
-
-- `skill_ingest_control_plane` pasa a ser el punto de entrada principal para ingestión;
-- `skill_ingest_edge_observability`, `skill_ingest_incident_triage` y `skill_ingest_incident_decisioning` quedan recomendadas como building blocks internos y herramientas de depuración profunda;
-- para operador humano, la recomendación por defecto es usar primero `agents:ingest:control-plane`.
-
-Cómo esta capacidad acerca `/agents` a operación real sin tocar producción:
-
-- convierte checks estructurales en troubleshooting reutilizable;
-- permite que un operador o futuro agente siga una ruta diagnóstica sin depender todavía de MCPs ni de ejecución viva en Cloudflare;
-- prepara una integración futura más cercana con incident routing cuando exista evidencia operacional real.
-
-Compatibilidad futura con incident routing:
-
-- `skill_ingest_incident_decisioning` emite una envoltura `futureIncidentRoutingCompatibility`;
-- esa estructura desacopla la decisión operativa del runtime actual y deja lista la convergencia futura con `routeIncident` o adaptadores equivalentes;
-- no conecta producción todavía; sólo fija una interfaz prudente y estable.
-
-Adapter de control plane:
-
-- `agents/utils/ingestControlPlaneAdapter.ts` convierte la salida del control plane en una envoltura estable de snapshot operacional;
-- esa envoltura está pensada para integrarse después con un sistema más amplio de routing o incident handling;
-- sigue siendo local y no toca `cgr-platform` internamente.
-
-Incident bridge y routeIncident:
-
-- `agents/utils/ingestIncidentBridge.ts` define el envelope reusable del bridge y un `legacyRoutingPreview`;
-- hoy la compatibilidad es estructural, no ejecutiva: `routeIncident` heredado espera un `IncidentCode`, mientras el control plane emite una decisión operativa;
-- por eso el bridge expone tanto el envelope operativo como una vista conservadora de compatibilidad, dejando explícitas las diferencias semánticas.
-
-Compatibilidad semántica con routing heredado:
-
-- `routeIncident` espera un `Incident` con al menos `ts`, `env`, `service`, `kind`, `system`, `code` y `message`, y sólo enruta realmente por `incident.code`;
-- `agents/utils/ingestToLegacyIncidentAdapter.ts` intenta una traducción controlada desde `skill_ingest_incident_bridge` hacia un `Incident` candidato para el legado;
-- la capa no finge equivalencias: clasifica el resultado como `fully_compatible`, `partially_compatible`, `preview_only` o `incompatible`.
-
-Taxonomía nativa de incidentes de ingestión:
-
-- `INGEST_CONFIG_SUSPECTED`: se emite cuando la decisión operativa prioriza configuración visible.
-- `INGEST_WORKFLOW_WIRING_SUSPECTED`: se emite cuando la decisión operativa apunta a wiring estructural de workflows.
-- `INGEST_EXTERNAL_DEPENDENCY_SUSPECTED`: se emite cuando la estructura local luce sana y la sospecha prudente pasa al boundary externa.
-- `INGEST_LOCAL_DIAGNOSTICS_REQUIRED`: se emite cuando la evidencia no alcanza y conviene profundizar localmente.
-- `INGEST_HUMAN_REVIEW_REQUIRED`: se emite cuando la evidencia disponible no permite una decisión prudente sin revisión humana.
-
-Diferencia entre `routeDecision` e `IncidentCode` nativo:
-
-- `routeDecision` dice qué hacer ahora desde el punto de vista operativo;
-- `IncidentCode` nativo dice qué tipo de incidente de ingestión está siendo emitido por `/agents`;
-- el primero guía la acción; el segundo fija lenguaje estable, trazable y reusable para convergencia futura.
-
-Por qué hace falta un router nativo:
-
-- `routeIncident` heredado enruta por `Incident.code` legado y no puede ser la semántica dominante de `/agents`;
-- `skill_ingest_native_router` toma el `IncidentCode` nativo como input principal y completa el flujo `control_plane -> native incident -> native router`;
-- eso permite que Indubia tenga routing útil dentro de `/agents` incluso cuando la compatibilidad con el legado siga siendo parcial.
-
-Taxonomía de `routeTarget` nativo:
-
-- `observe_only`: no hay movimiento operativo adicional necesario.
-- `run_control_plane`: volver a la superficie principal para ordenar revisión local.
-- `run_local_ingest_diagnostics`: profundizar observabilidad y triage dentro del runtime.
-- `inspect_external_dependency`: desplazar el foco a la boundary externa.
-- `inspect_workflow_wiring`: revisar wiring estructural de workflows.
-- `escalate_to_operator`: mantener la decisión en operación humana cercana.
-- `escalate_to_human`: escalar sin automatización adicional.
-
-Diferencia entre router nativo y `routeIncident` heredado:
-
-- el router nativo decide destinos operativos para ingestión usando la taxonomía propia de `/agents`;
-- `routeIncident` heredado sigue siendo una compatibilidad secundaria y no se invoca como autoridad principal;
-- la salida del router nativo expone `legacyCompatibility`, `canDelegateToLegacy` y `legacyFallbackReason` para dejar esa relación explícita.
-
-Derivación de incidente nativo:
-
-- `skill_ingest_native_incident` reutiliza `skill_ingest_control_plane`, `skill_ingest_incident_triage` y `skill_ingest_incident_decisioning`;
-- no reemplaza esas skills: extrae de ellas un contrato más semántico y más cercano a incident routing;
-- si la salida fuera sólo `observe_only`, la capa devuelve preview y no emite incidente nativo.
-
-Cuándo se puede llamar de verdad a `routeIncident`:
-
-- cuando exista un `Incident` candidato semánticamente defendible;
-- hoy eso ocurre sólo en modo parcial, degradando honestamente a `code: "UNKNOWN"` cuando el incidente nativo permite inferir dominio (`network`, `workflow`, `config`) pero no un código legado verificable;
-- si la salida es sólo operativa (`observe_only`, `run_local_diagnostics`, `escalate_to_human`), el adapter devuelve preview o incompatibilidad y no debe presentarse como integración real.
-
-Qué resuelve `agents:ingest:route-adapter`:
-
-- demuestra el flujo `control_plane -> native incident derivation -> route adapter -> routeIncident/fallback`;
-- deja explícito qué campos del incidente nativo ya mejoran la convergencia con el contrato heredado y cuáles siguen abiertos;
-- convierte la convergencia con `routeIncident` en una prueba controlada y trazable, no en una promesa de integración.
-
-Cuándo se usa el legado y cuándo no:
-
-- el router nativo siempre decide primero dentro de `/agents`;
-- el legado sólo se consulta como preview de compatibilidad cuando el incidente nativo tiene una relación honesta con algún dominio heredado;
-- si no hay equivalencia real, el sistema permanece en `native_only` y no fuerza delegación.
-
-Qué significa delegación controlada:
-
-- `/agents` decide primero con `skill_ingest_native_router`;
-- después, `skill_ingest_legacy_delegation` consulta una matriz explícita para decidir si puede bajar al legado;
-- esa delegación nunca se infiere implícitamente desde `compatibilityLevel`: necesita regla positiva y justificada.
-
-Cuándo un caso se queda nativo:
-
-- cuando el incidente nativo sólo degrada honestamente a `UNKNOWN` en el legado;
-- cuando el route adapter queda en `preview_only` o `partially_compatible` sin equivalencia fuerte;
-- cuando la matriz marca `canDelegateToLegacy=false`.
-
-Cuándo un caso puede bajar al legado:
-
-- sólo cuando exista una relación semántica suficientemente específica entre `IncidentCode` nativo, `routeTarget` y contrato heredado;
-- hoy la matriz deja ese espacio preparado, pero no habilita delegación real para los códigos actuales.
-
-Cómo esto consolida la arquitectura:
-
-- mantiene a `/agents` como control plane y router nativo principal;
-- reduce el riesgo de volver a poner al legado como semántica dominante;
-- convierte la convergencia con `routeIncident` en una decisión gobernada y auditable, no en heurística oculta.
-
----
-
-## 📚 Documentación Maestra
-
-Toda la inteligencia técnica y estratégica vigente está consolidada en la estructura actual del repositorio.
-
-> [!IMPORTANT]
-> **Punto de Entrada Maestro**: [**AGENTS.md**](AGENTS.md) -> [**context/README.md**](context/README.md) -> [**docs/README.md**](docs/README.md)
-
-### Atajos Estratégicos
-- **[Visión Ejecutiva](docs/explicacion/02_vision_ejecutiva.md)**: Valor de negocio y enfoque del producto.
-- **[Arquitectura C4](docs/explicacion/01_arquitectura_c4_y_flujos.md)**: Flujos de datos e ingeniería doctrinal del sistema.
-- **[Referencia de API](docs/referencia/01_referencia_api_completa.md)**: Guía de endpoints productivos y ejemplos de validación.
-- **[Roadmap Estratégico](docs/explicacion/05_roadmap_estrategico.md)**: Prioridades y extensión conceptual del proyecto.
-
-> [!TIP]
-> **Roadmap en ejecución (2026-02-27)**:
-> - Fase 1 ejecutada: endpoints analytics + snapshots D1 + cache KV.
-> - Fase 2 bootstrap ejecutada: endpoint de linaje jurisprudencial.
-> - Fase 3 pendiente.
-
----
-
-## 🛡 Gobernanza y Operación
-
-La plataforma se auto-mantiene mediante procesos de **Higiene de Datos** y **Gobernanza Determinista**:
-- **Workflows**: Ingesta diaria resiliente ante fallos de red o API.
-- **Audit Ready**: Cada cambio en el dataset es trazable mediante la tabla `historial_cambios` en D1.
-- **Integrated Inference**: Pinecone maneja la vectorización atómica evitando discrepancias entre modelos.
-
----
-**Fecha de Actualización**: 2026-02-27  
-**Estado del Repositorio**: Producción / Expert Audit Ready
+Al `2026-05-18`, estos ultimos dos smoke tests fallan por el modelo NVIDIA discontinuado. Esa es la primera incidencia operacional a resolver antes de dar por sana la busqueda semantica.
