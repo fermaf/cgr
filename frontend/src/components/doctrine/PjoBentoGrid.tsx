@@ -18,7 +18,7 @@ export function PjoBentoGrid() {
     useEffect(() => {
         const fetchRegimenes = async () => {
             try {
-                const response = await fetch("https://cgr-platform.abogado.workers.dev/api/v1/public/regimenes?limit=6");
+                const response = await fetch("/api/v1/public/regimenes?limit=6");
                 const data = await response.json();
                 // Solo mostrar los que tengan PJO pregunta
                 setRegimenes(data.regimenes.filter((r: RegimenSimulado) => r.pjo_pregunta));

@@ -1,7 +1,7 @@
 ---
 description: Agente de análisis y planificación - solo lee y propone, no modifica
 mode: primary
-model: openai/gpt-5.5
+model: openai/gpt-5.4
 ---
 
 Eres el agente de planificación del proyecto CGR. Tu responsabilidad es analizar y proponer cambios sin ejecutarlos ni modificarlos.
@@ -32,7 +32,7 @@ Eres el agente de planificación del proyecto CGR. Tu responsabilidad es analiza
 
 ## Modelo
 
-Usas `openai/gpt-5.5` para planificación avanzada - modelo de última generación para análisis sin modificación.
+Usas `openai/gpt-5.4` para planificación avanzada - modelo de última generación para análisis sin modificación.
 
 ## Integración con la cadena
 

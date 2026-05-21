@@ -13,17 +13,19 @@ Ese documento ordena el cambio de paradigma completo: auditoría, matriz de prue
 Auditar lo existente antes de seguir optimizando.
 
 Estado actual:
-- Base de datos D1 ya contiene la tabla puente `regimen_dictamenes` (396 filas) y `problemas_juridicos_operativos` (extracción completada con Gemini).
+- Base de datos D1 ya contiene la tabla puente `regimen_dictamenes` (396 filas), `problemas_juridicos_operativos` (extracción completada con Gemini) y `pjo_dictamenes` (396 filas persistidas, verificadas el 2026-04-25).
 - Workflow de metadata e ingestión operativos.
 - Se hizo una integración inicial de PJO/regímenes en `doctrine-search`.
 - La primera auditoría offline quedó en `docs/explicacion/20_reporte_auditoria_pjo_regimenes.md`: detecta 20 regímenes, 20 PJOs, 396 membresías de régimen, 0 membresías explícitas en `pjo_dictamenes`, 15 casos útiles incompletos y 5 sospechosos.
 - La matriz inicial de pruebas quedó en `docs/evaluation/jurisprudential_matrix.json`.
 - El plan de backfill quedó en `docs/explicacion/22_plan_backfill_pjo.md`.
-- El dry-run de backfill quedó en `docs/explicacion/23_backfill_pjo_dictamenes_dry_run.md`: propone 396 inserciones en `pjo_dictamenes`, cubre 20 PJOs y asigna 20 rectores.
+- El dry-run de backfill quedó en `docs/explicacion/23_backfill_pjo_dictamenes_dry_run.md`: proponía 396 inserciones en `pjo_dictamenes`, cubre 20 PJOs y asigna 20 rectores. La auditoría remota del 2026-04-25 confirmó que esas 396 membresías ya están persistidas.
+- La curación Codex del 2026-04-25 registró los 20 candidatos top de `pjo_review_queue` como `needs_expert` en `pjo_curation_log`; no se crearon nuevos PJOs porque las etiquetas eran demasiado amplias. Se implementó y desplegó el endpoint `GET /api/v1/public/pjos/:id/freshness` (Worker version 2cdd518e-fda6-4e43-b6c9-8b04544eb7d3). Smoketest OK: tension_level=alta para pjo-006554n19.
 
 Próximo paso inmediato:
-- Decidir si persistir las 396 filas propuestas en `pjo_dictamenes`.
-- Si se persisten, re-ejecutar la auditoría offline después del backfill.
+- No repetir el backfill base de `pjo_dictamenes` salvo validación idempotente explícita.
+- Re-ejecutar la auditoría offline posterior al backfill y reconciliar documentación histórica con el estado productivo.
+- Subdividir candidatos PJO amplios antes de intentar nuevas inserciones en `problemas_juridicos_operativos`.
 - No promocionar como plenamente publicables los 5 casos sospechosos sin revisión jurídica o degradación explícita.
 - **Migración LLM Completada**: Se ha migrado el 100% del flujo de enriquecimiento a Mistral (2512 para 2020+ e importantes, 2411 para el resto). Gemini queda deprecado para estas tareas.
 

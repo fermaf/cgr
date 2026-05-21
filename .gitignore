@@ -32,3 +32,6 @@ agents/out/
 
 # SQL generado por dry-runs de auditoria/backfill. Debe regenerarse antes de ejecutar.
 /cgr-platform/scripts/*.generated.sql
+
+# OpenCode SDD artifacts
+.atl/

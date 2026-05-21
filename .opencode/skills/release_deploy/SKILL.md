@@ -11,13 +11,13 @@ Decidir si un cambio está listo para commit y deploy. Verifica que se cumplió 
 
 Después de que `validacion_funcional` dio LISTO. Es el último gate antes de commit/push/deploy.
 
-## Regla de push obligatorio
+## Regla de commit
 
-**TODO desarrollo con pruebas y validaciones exitosas DEBE hacer push a GitHub como paso automático.**
+**TODO desarrollo con pruebas y validaciones exitosas DEBE hacer commit en GitHub como paso final.**
 
 Esta es una regla del proyecto CGR3:
-- Si `validacion_funcional` dio LISTO y no hay bloqueantes → SE AUTORIZA COMMIT + PUSH AUTOMÁTICO
-- El deploy se hace después manualmente (`npm run deploy`)
+- Si `validacion_funcional` dio LISTO y no hay bloqueantes → SE AUTORIZA COMMIT
+- El push se hace manualmente después de aprobado
 - El mensaje de commit DEBE ser en español
 
 ## Entradas esperadas
@@ -61,7 +61,7 @@ Evaluar:
 1. ¿El cambio impacta producción (backend/workers)?
 2. ¿Hay workflow que valide el deploy?
 3. ¿Passó `npm run agents:workflow:check`?
-4. ¿El repo está limpo para push?
+4. ¿El repo está limpo para commit?
 
 ## Criterios de salida
 
@@ -70,7 +70,7 @@ Evaluar:
   "veredicto_commit": "APROBAR | RECHAZAR | SOLICITAR_COMPLETAR",
   "veredicto_deploy": "APROBAR | RECHAZAR | NO_APLICA",
   "razones": ["array - explicación de cada decisión"],
-  " proximo_paso": "qué hacer ahora",
+  "proximo_paso": "qué hacer ahora (push manual lo hace el orquestador)",
   "traza": "referencia a los outputs de cada etapa"
 }
 ```
@@ -89,11 +89,9 @@ Evaluar:
 - Ejecutar npm run agents:workflow:check
 - Ejecutar npm run agents:check
 - Decidir aprobar/rechazar commit/deploy
-- Ejecutar `git push` automáticamente después de commit exitoso
 
 **NO PUEDE:**
 - Modificar archivos
 - Forzar un deploy si hay bloqueantes
 - Cerrar el proceso sin dar proximo paso claro
-
-**NOTA:** Si el entorno del subagente no tiene permisos de red para `git push`, el orquestador DEBE hacer el push manualmente antes de cerrar el ciclo.
+- Ejecutar git push (se hace manualmente por el orquestador)

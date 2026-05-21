@@ -30,7 +30,7 @@ Antes de proponer cambios o tocar código:
 
 | Modelo | Provider | Rol | Strength |
 |---|---|---|---|
-| `minimax/MiniMax-M2.7` | NVIDIA | Orquestador (yo) | Razonador principal local |
+| `minimax/MiniMax-M2.7` | MiniMax| Orquestador (yo) | Razonador principal local |
 | `openai/gpt-5.4` | OpenAI | Auditor técnico, Gestor release | Razonamiento profundo |
 | `openai/gpt-5.4-mini` | OpenAI | Plan, Code-executor | Ejecución y propuesta rápida |
 | `google/gemini-3.1-flash-lite-preview` | Google | Verificador funcional, Verificador deploy | Validación operativa (fallback) |
@@ -44,7 +44,7 @@ Disponibles en `.opencode/agents/`:
 | Agent | Modo | Modelo | Descripción |
 |---|---|---|---|
 | `build` | primary | minimax-m2.7 | Orquestador - razona, decide alcance, secuencia, acepta/rechaza |
-| `plan` | primary | gpt-5.5 | Solo lee y propone, no modifica |
+| `plan` | primary | gpt-5.4 | Solo lee y propone, no modifica |
 | `code-executor` | subagent | gpt-5.4-mini | Implementación de cambios acotados |
 | `technical-auditor` | subagent | gpt-5.4 | Revisión de diffs, detecta riesgos |
 | `functional-verifier` | subagent | gemini | Builds, smoke tests, validaciones (fallback) |
