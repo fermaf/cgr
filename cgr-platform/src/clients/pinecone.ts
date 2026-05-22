@@ -1,5 +1,5 @@
 import type { Env } from '../types';
-import { embedPassage, embedQuery } from './nvidiaEmbeddings';
+import { embedPassageWithMetadata, embedQuery } from './embeddingProvider';
 
 type PineconeMetadata = {
   Resumen: string;
@@ -16,6 +16,11 @@ type PineconeMetadata = {
   fecha: string;
   materia: string;
   model: string;
+  embedding_provider?: string;
+  embedding_model?: string;
+  embedding_dimensions?: number;
+  embedding_vector_schema?: string;
+  embedding_created_at?: string;
   nuevo: boolean;
   reactivado: boolean;
   reconsiderado: boolean;
@@ -100,7 +105,12 @@ async function upsertRecord(env: Env, record: PineconeRecord) {
   const url = new URL('/vectors/upsert', baseUrl);
 
   const normalizedMetadata = normalizePineconeMetadata(env, record.metadata);
-  const values = await embedPassage(env, normalizedMetadata.analisis);
+  const embedding = await embedPassageWithMetadata(env, normalizedMetadata.analisis);
+  const values = embedding.values;
+  const metadataWithEmbeddingTrace: PineconeMetadata = {
+    ...normalizedMetadata,
+    ...embedding.metadata
+  };
 
   const payload = {
     namespace: env.PINECONE_NAMESPACE,
@@ -108,7 +118,7 @@ async function upsertRecord(env: Env, record: PineconeRecord) {
       {
         id: record.id,
         values,
-        metadata: normalizedMetadata
+        metadata: metadataWithEmbeddingTrace
       }
     ]
   };

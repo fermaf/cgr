@@ -8,6 +8,7 @@ import {
   recordProviderApiKeySuccess,
   selectProviderApiKey
 } from '../lib/providerKeyPool';
+import { embedQuery } from './embeddingProvider';
 
 const DOCTRINAL_METADATA_MODEL = 'mistral-large-2411';
 const DOCTRINAL_METADATA_TIMEOUT_MS = 45000;
@@ -565,21 +566,10 @@ async function rerankResults(env: Env, query: string, results: any[]): Promise<a
 }
 
 async function generateEmbedding(env: Env, input: string): Promise<number[]> {
-  const client = getMistralClient(env);
-
   try {
-    const response = await client.embeddings.create({
-      model: env.MISTRAL_MODEL,
-      input: [input]
-    });
-
-    if (response.data?.[0]?.embedding) {
-      console.log("Vector dimensions inside Mistral:", response.data[0].embedding.length);
-      return response.data[0].embedding;
-    }
-    throw new Error("Invalid embedding response");
+    return await embedQuery(env, input);
   } catch (error) {
-    logError('MISTRAL_EMBEDDING_ERROR', error, { model: env.MISTRAL_MODEL });
+    logError('EMBEDDING_ERROR', error, { provider: env.EMBEDDING_PROVIDER ?? 'nvidia' });
     throw error;
   }
 }

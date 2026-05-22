@@ -127,6 +127,8 @@ export type DictamenEventType =
   | 'RECOVERY_MISTRAL_KEY_SWAP'
   | 'RELATION_BACKFILL_SUCCESS'
   | 'PINECONE_QUOTA_EXCEEDED'
+  | 'EMBEDDING_RATE_LIMITED'
+  | 'EMBEDDING_ERROR'
   | 'NVIDIA_EMBEDDING_RATE_LIMITED'
   | 'NVIDIA_EMBEDDING_ERROR'
   | 'DOCTRINAL_METADATA_QUEUED'
@@ -240,6 +242,13 @@ export interface Env {
   MISTRAL_MODEL: string;
   PINECONE_INDEX_HOST: string;
   PINECONE_NAMESPACE: string;
+  EMBEDDING_PROVIDER?: string;
+  EMBEDDING_FALLBACK_PROVIDER?: string;
+  MISTRAL_EMBEDDING_API_URL?: string;
+  MISTRAL_EMBEDDING_MODEL?: string;
+  MISTRAL_EMBEDDING_DIMENSIONS?: string;
+  MISTRAL_EMBEDDING_RPM_LIMIT?: string;
+  EMBEDDING_VECTOR_SCHEMA?: string;
   NVIDIA_EMBEDDING_API_URL?: string;
   NVIDIA_EMBEDDING_MODEL?: string;
   NVIDIA_EMBEDDING_DIMENSIONS?: string;
@@ -277,4 +286,84 @@ export interface Env {
   INGEST_TRIGGER_TOKEN?: string;
   CF_AIG_AUTHORIZATION?: string;
   GEMINI_API_URL?: string;
+}
+
+// ─── Review Workflow Types ────────────────────────────────────────────
+
+export type MatterStatus =
+  | 'intake'          // Formulario de intake completado
+  | 'drafting'        // AI generando borrador
+  | 'draft_generated' // Borrador listo para revisión
+  | 'pending_review'  // En revisión humana
+  | 'revision_requested' // Revisor solicitó cambios
+  | 'approved'        // Aprobado → listo para enviar
+  | 'ready_to_send'   // Confirmado para envío
+  | 'sent'             // Respuesta enviada
+  | 'archived';
+
+export type DraftStatus = 'generating' | 'generated' | 'failed' | 'superseded';
+export type ReviewDecisionType = 'approve' | 'request_revision' | 'escalate';
+
+export interface MatterIntake {
+  id: string;
+  matter_id: string;
+  tipoSolicitud: 'interna' | 'externa';
+  organismoOrigen: string;
+  personaSolicitante: string;
+  correoSolicitante?: string;
+  materiaLegal: string;
+  urgencia: 'baja' | 'media' | 'alta' | 'urgente';
+  antecedentesJson?: string; // JSON con antecedentes libre
+  documentosRefJson?: string; // JSON array de referencias documentales
+  tipoProductoEsperado: 'informe_juridico' | 'oficio' | 'resolucion' | 'memorandum' | 'informe_tecnico' | 'respuesta_oficial' | 'bases_administrativas' | 'contrato';
+  observacionesIntake?: string;
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface MatterDraft {
+  id: string;
+  matter_id: string;
+  version: number;
+  contenido: string; // Contenido completo del borrador (markdown/html)
+  fuentesJson?: string; // Array de fuentes legales citadas
+  razonamientoJson?: string; // Pasos de razonamiento del agente
+  notasAgenteJson?: string; // Notas internas del agente
+  status: DraftStatus;
+  errorMensaje?: string;
+  tokensUsados?: number;
+  modeloUsado?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReviewDecision {
+  id: string;
+  matter_id: string;
+  draft_id: string;
+  tipo: ReviewDecisionType;
+  observacion?: string; // Observaciones del revisor
+  revisorNombre?: string; // Nombre de quien revisó
+  createdAt: string;
+}
+
+export interface AuditEvent {
+  id: string;
+  matter_id: string;
+  event_type:
+    | 'matter_created'
+    | 'intake_completed'
+    | 'draft_generation_started'
+    | 'draft_generated'
+    | 'draft_failed'
+    | 'review_submitted'
+    | 'revision_requested'
+    | 'matter_approved'
+    | 'matter_escalated'
+    | 'ready_to_send'
+    | 'matter_sent'
+    | 'matter_archived';
+  actor?: string; // 'system' | 'agent:<id>' | 'user:<id>'
+  metadataJson?: string; // JSON con datos adicionales del evento
+  createdAt: string;
 }
