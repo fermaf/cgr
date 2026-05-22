@@ -533,6 +533,9 @@ export function Home() {
 
             {!hasActiveQuery && state !== "loading" && (
                 <div className="space-y-12">
+                    {/* FASE 1: Bento Grid de PJOs */}
+                    <PjoBentoGrid />
+
                     <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
                         <article className="overflow-hidden rounded-[2rem] border border-cgr-navy/10 bg-gradient-to-br from-cgr-navy via-[#113a63] to-[#0a223e] text-white shadow-xl">
                             <div className="space-y-5 p-6 md:p-8">
@@ -570,11 +573,6 @@ export function Home() {
                             </div>
                         </article>
                     </section>
-
-                    {/* FASE 1: Bento Grid de PJOs */}
-                    <div className="pt-4">
-                        <PjoBentoGrid />
-                    </div>
                 </div>
             )}
 

@@ -9,7 +9,7 @@ type NvidiaEmbeddingResponse = {
 };
 
 const DEFAULT_NVIDIA_EMBEDDING_API_URL = 'https://integrate.api.nvidia.com/v1/embeddings';
-const DEFAULT_NVIDIA_EMBEDDING_MODEL = 'nvidia/llama-3.2-nv-embedqa-1b-v2';
+const DEFAULT_NVIDIA_EMBEDDING_MODEL = 'nvidia/llama-nemotron-embed-1b-v2';
 const DEFAULT_NVIDIA_EMBEDDING_DIMENSIONS = 1024;
 const DEFAULT_NVIDIA_EMBEDDING_RPM_LIMIT = 18;
 
