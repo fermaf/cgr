@@ -102,6 +102,21 @@ export class EnrichmentWorkflow extends WorkflowEntrypoint<Env, EnrichmentParams
       });
 
       if (dictamenesParaEnriquecer.length === 0) {
+        if (env.VECTORIZATION_WORKFLOW) {
+          await step.do('trigger-vectorization-workflow-no-enrichment', async () => {
+            logInfo('NO_ENRICHMENT_PENDING_TRIGGERING_VECTORIZATION', {
+              reason: 'no_enrichment_needed'
+            });
+            const vectInstance = await env.VECTORIZATION_WORKFLOW.create({
+              params: {
+                recursive: true
+              }
+            });
+            logInfo('VECTORIZATION_WORKFLOW_TRIGGERED_NO_ENRICH_PENDING', {
+              vectorizationInstanceId: vectInstance.id
+            });
+          });
+        }
         return { ok: 0, error: 0, total: 0, mensaje: 'Sin pendientes de enrichment' };
       }
 
@@ -372,6 +387,20 @@ export class EnrichmentWorkflow extends WorkflowEntrypoint<Env, EnrichmentParams
               recursive: true,
               allowedStatuses: params.allowedStatuses
             }
+          });
+        });
+      } else if (env.VECTORIZATION_WORKFLOW) {
+        await step.do('trigger-vectorization-workflow', async () => {
+          logInfo('ENRICHMENT_COMPLETED_TRIGGERING_VECTORIZATION', {
+            reason: 'enrichment_completed_or_non_recursive'
+          });
+          const vectInstance = await env.VECTORIZATION_WORKFLOW.create({
+            params: {
+              recursive: true
+            }
+          });
+          logInfo('VECTORIZATION_WORKFLOW_TRIGGERED', {
+            vectorizationInstanceId: vectInstance.id
           });
         });
       }

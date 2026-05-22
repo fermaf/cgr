@@ -36,6 +36,7 @@ import { buildDoctrineLines, buildDoctrineSearch } from './lib/doctrineLines';
 import { buildGuidedDoctrineFlow, buildGuidedDoctrineFamily } from './lib/doctrineGuided';
 import { normalizeQueryLight } from './lib/queryUnderstanding/queryRewrite';
 import { normalizeLegalSourceForPresentation } from './lib/legalSourcesCanonical';
+import { getDoctrinalMetadata } from './services/doctrinal';
 import { logInfo, logError, setLogLevel } from './lib/log';
 
 function errorMessage(error: unknown): string {
@@ -1250,21 +1251,7 @@ app.get('/api/v1/dictamenes/:id', async (c) => {
     const tagsResult = (canonicalTags.results || []).map(r => r.etiqueta_display);
 
     // --- DOCTRINAL METADATA ---
-    const doctrinalMetaRow = await db.prepare(
-      `SELECT estado_vigencia, estado_intervencion_cgr, rol_principal,
-              reading_role, reading_weight, currentness_score, confidence_global
-       FROM dictamen_metadata_doctrinal WHERE dictamen_id = ?`
-    ).bind(id).first<any>();
-
-    const doctrinalMetadata = doctrinalMetaRow ? {
-      rol_principal: doctrinalMetaRow.rol_principal,
-      estado_vigencia: doctrinalMetaRow.estado_vigencia,
-      estado_intervencion_cgr: doctrinalMetaRow.estado_intervencion_cgr,
-      reading_role: doctrinalMetaRow.reading_role,
-      reading_weight: doctrinalMetaRow.reading_weight,
-      currentness_score: doctrinalMetaRow.currentness_score,
-      confidence_global: doctrinalMetaRow.confidence_global
-    } : null;
+    const doctrinalMetadata = await getDoctrinalMetadata(c.env, id);
 
     return c.json({
       meta: {
@@ -2548,6 +2535,116 @@ app.get('/api/v1/public/pjos', async (c) => {
     return c.json({ total: rows.results?.length ?? 0, offset, limit, pjos: rows.results ?? [] });
   } catch (e: unknown) {
     return c.json({ error: 'Error interno' }, 500);
+  }
+});
+
+// GET /api/v1/public/pjos/:id/freshness — Señales de frescura y tensión doctrinal del PJO
+app.get('/api/v1/public/pjos/:id/freshness', async (c) => {
+  const id = c.req.param('id');
+
+  try {
+    const pjo = await c.env.DB.prepare(`
+      SELECT p.id, p.regimen_id, p.pregunta, p.estado,
+             r.nombre AS regimen_nombre, r.estado AS regimen_estado
+      FROM problemas_juridicos_operativos p
+      JOIN regimenes_jurisprudenciales r ON r.id = p.regimen_id
+      WHERE p.id = ?
+    `).bind(id).first<Record<string, unknown>>();
+
+    if (!pjo) {
+      return c.json({ error: 'PJO no encontrado' }, 404);
+    }
+
+    const metrics = await c.env.DB.prepare(`
+      SELECT
+        COUNT(*) AS miembros_total,
+        COUNT(m.dictamen_id) AS miembros_con_metadata,
+        ROUND(AVG(m.currentness_score), 3) AS avg_currentness,
+        ROUND(AVG(m.doctrinal_centrality_score), 3) AS avg_centrality,
+        ROUND(MIN(m.currentness_score), 3) AS min_currentness,
+        ROUND(MAX(m.currentness_score), 3) AS max_currentness,
+        ROUND(MAX(m.currentness_score) - MIN(m.currentness_score), 3) AS tension_spread,
+        SUM(CASE WHEN m.currentness_score >= 0.8 THEN 1 ELSE 0 END) AS muy_frescos,
+        SUM(CASE WHEN m.currentness_score >= 0.6 AND m.currentness_score < 0.8 THEN 1 ELSE 0 END) AS frescos,
+        SUM(CASE WHEN m.currentness_score >= 0.4 AND m.currentness_score < 0.6 THEN 1 ELSE 0 END) AS moderados,
+        SUM(CASE WHEN m.currentness_score < 0.4 THEN 1 ELSE 0 END) AS antiguos,
+        SUM(CASE WHEN m.currentness_score < 0.4 AND m.doctrinal_centrality_score >= 0.7 THEN 1 ELSE 0 END) AS centrales_antiguos,
+        SUM(CASE WHEN m.signals_litigious_matter = 1 THEN 1 ELSE 0 END) AS senales_litigiosidad,
+        SUM(CASE WHEN m.signals_abstention = 1 THEN 1 ELSE 0 END) AS senales_abstencion,
+        ROUND(AVG(m.drift_risk_score), 3) AS avg_drift_risk
+      FROM pjo_dictamenes pd
+      LEFT JOIN dictamen_metadata_doctrinal m ON m.dictamen_id = pd.dictamen_id
+      WHERE pd.pjo_id = ?
+    `).bind(id).first<Record<string, unknown>>();
+
+    const roleRows = await c.env.DB.prepare(`
+      SELECT rol, COUNT(*) AS total
+      FROM pjo_dictamenes
+      WHERE pjo_id = ?
+      GROUP BY rol
+      ORDER BY total DESC
+    `).bind(id).all<Record<string, unknown>>();
+
+    const sampleRows = await c.env.DB.prepare(`
+      SELECT pd.dictamen_id, pd.rol, pd.relevancia, pd.reading_order,
+             d.fecha_documento, d.materia,
+             m.currentness_score, m.doctrinal_centrality_score, m.estado_vigencia
+      FROM pjo_dictamenes pd
+      JOIN dictamenes d ON d.id = pd.dictamen_id
+      LEFT JOIN dictamen_metadata_doctrinal m ON m.dictamen_id = pd.dictamen_id
+      WHERE pd.pjo_id = ?
+      ORDER BY
+        CASE pd.rol
+          WHEN 'rector' THEN 0
+          WHEN 'fundante' THEN 1
+          WHEN 'aplicativo' THEN 2
+          WHEN 'historico' THEN 3
+          ELSE 4
+        END,
+        COALESCE(pd.reading_order, 9999),
+        m.doctrinal_centrality_score DESC,
+        m.currentness_score DESC
+      LIMIT 12
+    `).bind(id).all<Record<string, unknown>>();
+
+    const tensionSpread = Number(metrics?.tension_spread ?? 0);
+    const centralesAntiguos = Number(metrics?.centrales_antiguos ?? 0);
+    const muyFrescos = Number(metrics?.muy_frescos ?? 0);
+    const senalesLitigiosidad = Number(metrics?.senales_litigiosidad ?? 0);
+    const senalesAbstencion = Number(metrics?.senales_abstencion ?? 0);
+
+    const tensionLevel = (
+      tensionSpread >= 0.5 ||
+      (centralesAntiguos > 0 && muyFrescos > 0) ||
+      senalesLitigiosidad > 0 ||
+      senalesAbstencion > 0
+    )
+      ? 'alta'
+      : tensionSpread >= 0.3 || centralesAntiguos > 0
+        ? 'media'
+        : 'baja';
+
+    const reasons = [
+      tensionSpread >= 0.5 ? 'alta dispersión de frescura entre miembros' : null,
+      centralesAntiguos > 0 ? 'hay dictámenes antiguos con centralidad alta' : null,
+      muyFrescos > 0 ? 'hay dictámenes recientes con peso doctrinal' : null,
+      senalesLitigiosidad > 0 ? 'existen señales de litigiosidad' : null,
+      senalesAbstencion > 0 ? 'existen señales de abstención competencial' : null,
+    ].filter((reason): reason is string => Boolean(reason));
+
+    return c.json({
+      pjo,
+      freshness: {
+        ...metrics,
+        tension_level: tensionLevel,
+        reasons,
+      },
+      roles: roleRows.results ?? [],
+      sample: sampleRows.results ?? [],
+    });
+  } catch (e: unknown) {
+    logError('PJO_FRESHNESS_ERROR', e, { pjo_id: id });
+    return c.json({ error: errorMessage(e) }, 500);
   }
 });
 

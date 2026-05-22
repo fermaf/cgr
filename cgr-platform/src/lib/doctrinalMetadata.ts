@@ -225,7 +225,6 @@ type ReprocessOptions = {
 };
 
 export type LoadDoctrinalMetadataOptions = {
-  computeMissing?: boolean;
   full?: boolean;
 };
 
@@ -1518,20 +1517,25 @@ export async function loadDoctrinalMetadataByIds(
     .bind(DOCTRINAL_METADATA_PIPELINE_VERSION, ...uniqueIds)
     .all<DictamenMetadataDoctrinalRow>();
 
-  const byId = Object.fromEntries((existing.results ?? []).map((row) => [row.dictamen_id, row]));
-  if (options.computeMissing === false) {
-    return byId;
-  }
-  const missingIds = uniqueIds.filter((id) => !byId[id]);
+  return Object.fromEntries((existing.results ?? []).map((row) => [row.dictamen_id, row]));
+}
 
-  for (const id of missingIds) {
-    const computed = await computeAndPersistDictamenMetadata(env, id, 'runtime_on_demand');
-    if (computed) {
-      byId[id] = computed;
-    }
-  }
+export async function fetchMetadataFromD1(
+  env: Env,
+  dictamenId: string,
+  options: LoadDoctrinalMetadataOptions = {}
+): Promise<DictamenMetadataDoctrinalRow | DictamenMetadataLean | null> {
+  await ensureDoctrinalMetadataSchema(env);
+  const columns = options.full ? '*' : DOCTRINAL_METADATA_LEAN_COLUMNS.join(', ');
+  const row = await env.DB.prepare(
+    `SELECT ${columns}
+     FROM dictamen_metadata_doctrinal
+     WHERE pipeline_version = ?
+       AND dictamen_id = ?
+     LIMIT 1`
+  ).bind(DOCTRINAL_METADATA_PIPELINE_VERSION, dictamenId).first<DictamenMetadataDoctrinalRow>();
 
-  return byId;
+  return row ?? null;
 }
 
 export async function reprocessDoctrinalMetadata(env: Env, options: ReprocessOptions = {}): Promise<ReprocessResult> {
