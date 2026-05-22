@@ -10,6 +10,7 @@ import {
 } from '../storage/d1';
 import { logError, logInfo, setLogLevel } from '../lib/log';
 import { persistIncident } from '../storage/incident_d1';
+import { isEmbeddingError, isEmbeddingRateLimitError } from '../clients/embeddingProvider';
 
 interface VectorizationParams {
   batchSize?: number;
@@ -18,16 +19,7 @@ interface VectorizationParams {
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-const NVIDIA_MIN_DELAY_MS = 3500;
-
-function isNvidiaEmbeddingRateLimit(error: any): boolean {
-  const message = String(error?.message ?? '');
-  return message.includes('NVIDIA embedding rate limit exceeded') || message.includes('NVIDIA embedding error: 429');
-}
-
-function isNvidiaEmbeddingError(error: any): boolean {
-  return String(error?.message ?? '').includes('NVIDIA embedding');
-}
+const EMBEDDING_MIN_DELAY_MS = 3500;
 
 export class VectorizationWorkflow extends WorkflowEntrypoint<Env, VectorizationParams> {
   async run(event: WorkflowEvent<VectorizationParams>, step: WorkflowStep) {
@@ -39,7 +31,7 @@ export class VectorizationWorkflow extends WorkflowEntrypoint<Env, Vectorization
       setLogLevel(env.LOG_LEVEL);
 
       const batchSize = Math.min(params.batchSize ?? 18, 18);
-      const delayMs = Math.max(params.delayMs ?? NVIDIA_MIN_DELAY_MS, NVIDIA_MIN_DELAY_MS);
+      const delayMs = Math.max(params.delayMs ?? EMBEDDING_MIN_DELAY_MS, EMBEDDING_MIN_DELAY_MS);
       logInfo('VECTORIZATION_RUN_START', { instanceId: event.instanceId, batchSize, delayMs });
 
       const dictamenesParaVectorizar = await step.do('fetch-vectorization-ids', async () => {
@@ -116,15 +108,15 @@ export class VectorizationWorkflow extends WorkflowEntrypoint<Env, Vectorization
               return { ok: false, pineconeQuotaExceeded: true };
             }
 
-            if (isNvidiaEmbeddingRateLimit(error)) {
-              await updateDictamenStatus(db, id, 'enriched_pending_vectorization', 'NVIDIA_EMBEDDING_RATE_LIMITED', {
+            if (isEmbeddingRateLimitError(error)) {
+              await updateDictamenStatus(db, id, 'enriched_pending_vectorization', 'EMBEDDING_RATE_LIMITED', {
                 detail: error.message
               });
-              return { ok: false, nvidiaRateLimited: true };
+              return { ok: false, embeddingRateLimited: true };
             }
 
-            if (isNvidiaEmbeddingError(error)) {
-              await updateDictamenStatus(db, id, 'enriched_pending_vectorization', 'NVIDIA_EMBEDDING_ERROR', {
+            if (isEmbeddingError(error)) {
+              await updateDictamenStatus(db, id, 'enriched_pending_vectorization', 'EMBEDDING_ERROR', {
                 detail: error.message
               });
               return { ok: false, error: error.message };
@@ -149,8 +141,8 @@ export class VectorizationWorkflow extends WorkflowEntrypoint<Env, Vectorization
           break;
         }
 
-        if (result.nvidiaRateLimited) {
-          await step.sleep('wait-for-nvidia-embedding-rate-limit', '60 seconds');
+        if (result.embeddingRateLimited) {
+          await step.sleep('wait-for-embedding-rate-limit', '60 seconds');
           break;
         }
 
