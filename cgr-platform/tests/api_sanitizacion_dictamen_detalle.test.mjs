@@ -20,6 +20,19 @@ function sanitizeRaw(raw) {
   if (safeRaw.raw_data && typeof safeRaw.raw_data === 'object' && safeRaw.raw_data.documento_completo !== undefined) {
     delete safeRaw.raw_data.documento_completo;
   }
+  // Extensión P1 (2026-09-03): documento_completo_raw — misma clase de dato.
+  if (safeRaw.documento_completo_raw !== undefined) {
+    delete safeRaw.documento_completo_raw;
+  }
+  if (safeRaw._source && typeof safeRaw._source === 'object' && safeRaw._source.documento_completo_raw !== undefined) {
+    delete safeRaw._source.documento_completo_raw;
+  }
+  if (safeRaw.source && typeof safeRaw.source === 'object' && safeRaw.source.documento_completo_raw !== undefined) {
+    delete safeRaw.source.documento_completo_raw;
+  }
+  if (safeRaw.raw_data && typeof safeRaw.raw_data === 'object' && safeRaw.raw_data.documento_completo_raw !== undefined) {
+    delete safeRaw.raw_data.documento_completo_raw;
+  }
   if (safeRaw.documento_completo !== undefined) {
     delete safeRaw.documento_completo;
   }
@@ -262,3 +275,36 @@ test('index.ts: sanitización P1 con JSON.parse(JSON.stringify(raw)) presente', 
 
 // ─── EJECUCIÓN ───────────────────────────────────────────────────────
 // node --test tests/api_sanitizacion_dictamen_detalle.test.mjs
+
+// ─── TESTS 13-15: Extensión P1 — documento_completo_raw ──────────────
+
+test('sanitizeRaw: elimina documento_completo_raw de la raíz (extensión P1)', () => {
+  const raw = {
+    doc_id: '020445N19',
+    documento_completo_raw: '<html>HTML íntegro del dictamen que NO debe exponerse</html>',
+  };
+  const result = sanitizeRaw(raw);
+  assert.equal(result.documento_completo_raw, undefined);
+  assert.equal(result.doc_id, '020445N19');
+});
+
+test('sanitizeRaw: elimina documento_completo_raw de _source y raw_data (extensión P1)', () => {
+  const raw = {
+    _source: { documento_completo_raw: '<p>Desde _source</p>', url: 'http://...' },
+    raw_data: { documento_completo_raw: '<p>Desde raw_data</p>' },
+  };
+  const result = sanitizeRaw(raw);
+  assert.equal(result._source.documento_completo_raw, undefined);
+  assert.equal(result._source.url, 'http://...');
+  assert.equal(result.raw_data.documento_completo_raw, undefined);
+});
+
+test('index.ts: sanitización de documento_completo_raw presente en el handler (extensión P1)', async () => {
+  const source = await readFile(new URL('../src/index.ts', import.meta.url), 'utf8');
+  const handlerStart = source.indexOf("app.get('/api/v1/dictamenes/:id'");
+  const handlerSection = source.substring(handlerStart, handlerStart + 8000);
+  assert.ok(
+    handlerSection.includes('documento_completo_raw'),
+    'Sanitización de documento_completo_raw no encontrada en el handler'
+  );
+});

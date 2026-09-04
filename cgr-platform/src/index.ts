@@ -1201,6 +1201,21 @@ app.get('/api/v1/dictamenes/:id', async (c) => {
     if (safeRaw.raw_data && typeof safeRaw.raw_data === 'object' && (safeRaw.raw_data as Record<string, unknown>).documento_completo !== undefined) {
       delete (safeRaw.raw_data as Record<string, unknown>).documento_completo;
     }
+    // Extensión P1 (hallazgo post-deploy 2026-09-03): el schema KV también
+    // contiene documento_completo_raw (HTML íntegro del documento) en la raíz.
+    // Misma clase de dato sensible que documento_completo — se sanitiza igual.
+    if (safeRaw.documento_completo_raw !== undefined) {
+      delete safeRaw.documento_completo_raw;
+    }
+    if (safeRaw._source && typeof safeRaw._source === 'object' && (safeRaw._source as Record<string, unknown>).documento_completo_raw !== undefined) {
+      delete (safeRaw._source as Record<string, unknown>).documento_completo_raw;
+    }
+    if (safeRaw.source && typeof safeRaw.source === 'object' && (safeRaw.source as Record<string, unknown>).documento_completo_raw !== undefined) {
+      delete (safeRaw.source as Record<string, unknown>).documento_completo_raw;
+    }
+    if (safeRaw.raw_data && typeof safeRaw.raw_data === 'object' && (safeRaw.raw_data as Record<string, unknown>).documento_completo_raw !== undefined) {
+      delete (safeRaw.raw_data as Record<string, unknown>).documento_completo_raw;
+    }
     if (safeRaw.documento_completo !== undefined) {
       delete safeRaw.documento_completo;
     }
