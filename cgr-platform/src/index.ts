@@ -38,6 +38,7 @@ import { normalizeQueryLight } from './lib/queryUnderstanding/queryRewrite';
 import { normalizeLegalSourceForPresentation } from './lib/legalSourcesCanonical';
 import { getDoctrinalMetadata } from './services/doctrinal';
 import { logInfo, logError, setLogLevel } from './lib/log';
+import { getSourceJsonWithFallbackStrict, SourceLocalMissingException } from './lib/kvSourceResolver';
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -306,15 +307,6 @@ function requireAdminToken(c: Context<{ Bindings: Env }>): Response | null {
   if (hasValidAdminToken(c)) return null;
   if (c.env.ENVIRONMENT === 'local' && isLocalRequest(c)) return null;
   return c.json({ error: 'Unauthorized' }, 403);
-}
-
-async function getSourceJsonWithFallback(env: Env, rawKey: string): Promise<unknown | null> {
-  const candidates = rawKey.startsWith('dictamen:') ? [rawKey, rawKey.replace(/^dictamen:/, '')] : [rawKey, `dictamen:${rawKey}`];
-  for (const candidate of candidates) {
-    const rawJson = await env.DICTAMENES_SOURCE.get(candidate, 'json').catch(() => null);
-    if (rawJson) return rawJson;
-  }
-  return null;
 }
 
 // Exportamos las clases Workflow para que Cloudflare pueda asociarlas (bind)
@@ -1188,10 +1180,29 @@ app.get('/api/v1/dictamenes/:id', async (c) => {
 
     const enrichment = await getLatestEnrichment(db, id);
     const rawRef = await getLatestRawRef(db, id);
-    let raw = {};
+    let raw: Record<string, unknown> = {};
     if (rawRef) {
-      const rawJson = await getSourceJsonWithFallback(c.env, rawRef.raw_key);
+      const rawJson = await getSourceJsonWithFallbackStrict(c.env, rawRef.raw_key);
       raw = rawJson || {};
+    }
+
+    // P1: sanitizar documento_completo antes de exponer en API pública.
+    // NOTA (deuda técnica P1.1, revisión CTO 2026-05-22 R3.1): la sanitización
+    // cubre exactamente estas 4 ubicaciones (raíz, _source, source, raw_data).
+    // Si el schema KV evoluciona y documento_completo aparece en una nueva
+    // ubicación anidada, DEBE agregarse aquí explícitamente.
+    const safeRaw = JSON.parse(JSON.stringify(raw));
+    if (safeRaw._source && typeof safeRaw._source === 'object' && (safeRaw._source as Record<string, unknown>).documento_completo !== undefined) {
+      delete (safeRaw._source as Record<string, unknown>).documento_completo;
+    }
+    if (safeRaw.source && typeof safeRaw.source === 'object' && (safeRaw.source as Record<string, unknown>).documento_completo !== undefined) {
+      delete (safeRaw.source as Record<string, unknown>).documento_completo;
+    }
+    if (safeRaw.raw_data && typeof safeRaw.raw_data === 'object' && (safeRaw.raw_data as Record<string, unknown>).documento_completo !== undefined) {
+      delete (safeRaw.raw_data as Record<string, unknown>).documento_completo;
+    }
+    if (safeRaw.documento_completo !== undefined) {
+      delete safeRaw.documento_completo;
     }
 
     const relsIn = await db.prepare(
@@ -1279,7 +1290,7 @@ app.get('/api/v1/dictamenes/:id', async (c) => {
         fuentes_legales: fuentesResult.map((source) => normalizeLegalSourceForPresentation(source)),
         doctrinal_metadata: doctrinalMetadata
       },
-      raw: raw,
+      raw: safeRaw,
       extrae_jurisprudencia: enrichment ? {
         titulo: enrichment.titulo,
         resumen: enrichment.resumen,
@@ -1577,7 +1588,7 @@ app.post('/api/v1/dictamenes/:id/sync-vector', async (c) => {
     const rawRef = await getLatestRawRef(db, id);
     let rawJson: any = {};
     if (rawRef) {
-      rawJson = await getSourceJsonWithFallback(c.env, rawRef.raw_key);
+      rawJson = await getSourceJsonWithFallbackStrict(c.env, rawRef.raw_key);
     }
     const sourceContent = rawJson?._source ?? rawJson?.source ?? rawJson?.raw_data ?? rawJson;
 
@@ -1629,7 +1640,7 @@ app.post('/api/v1/dictamenes/:id/re-process', async (c) => {
   const rawRef = await getLatestRawRef(db, id);
   if (!rawRef) return c.json({ error: 'No se encontró referencia KV para este dictamen' }, 404);
 
-  let rawJson = await getSourceJsonWithFallback(c.env, rawRef.raw_key) as DictamenRaw | null;
+  let rawJson = await getSourceJsonWithFallbackStrict(c.env, rawRef.raw_key) as DictamenRaw | null;
   if (!rawJson) return c.json({ error: 'No se encontró JSON en KV' }, 404);
 
   try {
@@ -1907,7 +1918,7 @@ app.post('/api/v1/dictamenes/sync-vector-mass', async (c) => {
       const rawRef = await getLatestRawRef(db, id);
       if (!enrichment || !rawRef) continue;
 
-      const rawJson: any = await getSourceJsonWithFallback(c.env, rawRef.raw_key);
+      const rawJson: any = await getSourceJsonWithFallbackStrict(c.env, rawRef.raw_key);
       if (!rawJson) continue;
 
       const sourceContent = rawJson?._source ?? rawJson?.source ?? rawJson?.raw_data ?? rawJson;
@@ -2073,7 +2084,7 @@ app.post('/api/v1/admin/relations-gap/analyze', async (c) => {
       continue;
     }
 
-    const rawJson = await getSourceJsonWithFallback(c.env, rawRef.raw_key) as DictamenRaw | null;
+    const rawJson = await getSourceJsonWithFallbackStrict(c.env, rawRef.raw_key) as DictamenRaw | null;
     if (!rawJson) {
       results.push({ id, error: 'RAW_JSON_NOT_FOUND', applied: false, acciones_juridicas_emitidas: [] });
       continue;

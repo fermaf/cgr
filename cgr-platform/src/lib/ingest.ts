@@ -13,6 +13,7 @@ import {
   getOrInsertDivisionId,
   logDictamenEvent,
 } from '../storage/d1';
+import { putWithVerify } from '../storage/kvVerify';
 
 function getSource(raw: DictamenRaw): DictamenSource {
   const rawAny = raw as any;
@@ -249,38 +250,48 @@ async function ingestDictamen(
     });
   }
 
-  // 2. Guardar JSON crudo en KV con clave = dictamen:{ID}
+  // 2. Guardar JSON crudo en KV con verificación post-write (fase 1 — bug_report 2026-05-22).
+  //    putWithVerify: retry 429, get inmediato, validación JSON, documento_completo, sha256.
   const kvKey = getKvKey(dictamenId);
   const payload = JSON.stringify(raw);
   const now = new Date().toISOString();
 
-  try {
-    await env.DICTAMENES_SOURCE.put(kvKey, payload);
+  const verifyResult = await putWithVerify(
+    env.DICTAMENES_SOURCE,
+    kvKey,
+    payload,
+    { expectedDocumentoCompleto: true },
+  );
 
+  if (!verifyResult.ok) {
+    // Verificación fallida: marcar en_source=0 con mensaje real.
     await env.DB.prepare(
-      `INSERT INTO kv_sync_status (dictamen_id, en_source, source_written_at)
+      `INSERT INTO kv_sync_status (dictamen_id, en_source, source_error)
+       VALUES (?, 0, ?)
+       ON CONFLICT(dictamen_id) DO UPDATE SET
+         en_source = 0,
+         source_error = excluded.source_error,
+         updated_at = ?`
+    )
+      .bind(dictamenId, verifyResult.error ?? 'KV verification failed', now)
+      .run();
+
+    throw new Error(
+      `[ingest] KV verification failed for ${dictamenId}: ${verifyResult.error}`,
+    );
+  }
+
+  // Verificación exitosa: payload legible, documento_completo presente, sha256 calculado.
+  await env.DB.prepare(
+    `INSERT INTO kv_sync_status (dictamen_id, en_source, source_written_at)
      VALUES (?, 1, ?)
      ON CONFLICT(dictamen_id) DO UPDATE SET
        en_source = 1,
        source_written_at = excluded.source_written_at,
        updated_at = excluded.source_written_at`
-    )
-      .bind(dictamenId, now)
-      .run();
-
-  } catch (error: any) {
-    await env.DB.prepare(
-      `INSERT INTO kv_sync_status (dictamen_id, en_source, source_error)
-     VALUES (?, 0, ?)
-     ON CONFLICT(dictamen_id) DO UPDATE SET
-       source_error = excluded.source_error,
-       updated_at = ?`
-    )
-      .bind(dictamenId, error?.message ?? String(error), now)
-      .run();
-
-    throw error;
-  }
+  )
+    .bind(dictamenId, now)
+    .run();
 
   await logDictamenEvent(env.DB, {
     dictamen_id: dictamenId,

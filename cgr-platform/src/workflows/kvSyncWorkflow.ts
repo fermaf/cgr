@@ -1,6 +1,8 @@
 import { WorkflowEntrypoint, WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
 import type { Env } from '../types';
 import { logInfo, logError, setLogLevel } from '../lib/log';
+import { getSourceJsonWithFallbackStrict, getDictamenSourceStrict, SourceLocalMissingException } from '../lib/kvSourceResolver';
+import { putWithVerify } from '../storage/kvVerify';
 
 interface KVSyncParams {
     limit?: number;
@@ -49,29 +51,30 @@ export class KVSyncWorkflow extends WorkflowEntrypoint<Env, KVSyncParams> {
                 const resultado = await step.do(`sync-kv-${id}`, async () => {
                 await sleep(delayMs);
 
-                // Intento 1: Buscar la llave legada en Mongo format 
-                // Asumimos que la llave histórica en dictamenes_source está bajo el mismo ID puro (sin prefijo)
-                // O quizás tenga un prefijo diferente. Aquí intentaremos leerlo como está almacenado para confirmar.
-                // En pasos anteriores vimos que los keys "000007N21" viven a nivel de DICTAMENES_PASO, no sabemos SOURCE.
-                // Generalmente se guardaron en source con "dictamen:ID" pero queremos standarizar todo a "ID".
-
+                // ── Buscar fuente legacy con el resolver estricto ──
+                // getDictamenSourceStrict busca SOURCE:id → SOURCE:dictamen:id → PASO:id
+                // y devuelve la resolución exacta (namespace + key).
                 let legacyJson: any = null;
-                const legacyKey = `dictamen:${id}`; // Buscar "dictamen:000007N21"
                 let legacyKeyFound = false;
 
                 try {
-                    legacyJson = await sourceKv.get(legacyKey, { type: 'json' });
-                    if (legacyJson) legacyKeyFound = true;
-                } catch (e) {
-                    console.warn(`[KVSync] No se encontró clave ${legacyKey} en SOURCE.`);
-                }
-
-                // Si no se encuentra como dictamen:ID, intentar con ID puro (ya migrado a medias)
-                if (!legacyJson) {
-                    try {
-                        legacyJson = await sourceKv.get(id, { type: 'json' });
-                    } catch (e) {
-                        console.error(`[KVSync] No se encontró JSON para ${id} ni en dictamen:${id} ni puro.`);
+                    const strictResult = await getDictamenSourceStrict(env, id);
+                    legacyJson = strictResult.rawJson;
+                    // Detectamos si la fuente viene de la llave legacy dictamen:id
+                    legacyKeyFound = strictResult.resolution.key === `dictamen:${id}`;
+                    console.log(
+                        `[KVSync] Fuente encontrada: ${strictResult.resolution.namespace}:${strictResult.resolution.key} ` +
+                        `(${strictResult.resolution.payload_bytes} bytes, ` +
+                        `doc_completo=${strictResult.resolution.has_documento_completo})`
+                    );
+                } catch (error) {
+                    if (error instanceof SourceLocalMissingException) {
+                        console.warn(
+                            `[KVSync] No se encontró JSON para ${id} en ningún namespace KV. ` +
+                            `Probes: ${error.attempts.map(a => `${a.namespace}:${a.key}`).join(', ')}`
+                        );
+                    } else {
+                        console.error(`[KVSync] Error inesperado buscando fuente para ${id}:`, error);
                     }
                 }
 
@@ -84,39 +87,79 @@ export class KVSyncWorkflow extends WorkflowEntrypoint<Env, KVSyncParams> {
                     return { ok: false };
                 }
 
-                // Escribir el mismo objeto bajo la llave estandarizada (pura: "id")
-                // Y registrarlo en kv_sync_status
+                // ── Escribir bajo llave estandarizada con verificación post-write ──
+                // Fase 1 — bug_report 2026-05-22: validar antes de marcar en_source=1
+                // y antes de borrar la llave legacy.
                 const now = new Date().toISOString();
-                try {
-                    await sourceKv.put(id, JSON.stringify(legacyJson));
+                const payloadStr = JSON.stringify(legacyJson);
 
-                    await db.prepare(
-                        `INSERT INTO kv_sync_status (dictamen_id, en_source, source_written_at)
-                         VALUES (?, 1, ?)
-                         ON CONFLICT(dictamen_id) DO UPDATE SET en_source = 1, source_written_at = excluded.source_written_at, updated_at = excluded.source_written_at`
-                    ).bind(id, now).run();
+                // putWithVerify: put con retry 429 + get inmediato + validación JSON.
+                // No exigimos documento_completo aquí porque los datos legacy (mongoDb)
+                // pueden tener estructura variable.
+                const verifyResult = await putWithVerify(
+                    sourceKv,
+                    id,
+                    payloadStr,
+                    { expectedDocumentoCompleto: false },
+                );
 
-                    // Si la llave antigua existía como dictamen:id, se elimina para no duplicar datos
-                    if (legacyKeyFound) {
-                        try {
-                            await sourceKv.delete(`dictamen:${id}`);
-                            console.log(`[KVSync][CLEANUP] Llave legacy dictamen:${id} eliminada.`);
-                        } catch (delErr) {
-                            console.warn(`[KVSync][WARNING] No se pudo eliminar la llave legacy dictamen:${id}`);
-                        }
-                    }
-
-                    console.log(`[KVSync][OK] Sincronizado KV para ${id}`);
-                    return { ok: true };
-                } catch (error: any) {
-                    console.error(`[KVSync][ERROR] Falló escritura para ${id}:`, error);
+                if (!verifyResult.ok) {
+                    // Verificación fallida: marcar error y NO borrar la llave legacy.
+                    console.error(
+                        `[KVSync][VERIFY-FAIL] ${id}: ${verifyResult.error}`,
+                    );
                     await db.prepare(
                         `INSERT INTO kv_sync_status (dictamen_id, en_source, source_error)
                          VALUES (?, 0, ?)
-                         ON CONFLICT(dictamen_id) DO UPDATE SET source_error = excluded.source_error, updated_at = ?`
-                    ).bind(id, error.message, now).run();
+                         ON CONFLICT(dictamen_id) DO UPDATE SET
+                           en_source = 0,
+                           source_error = excluded.source_error,
+                           updated_at = ?`,
+                    )
+                        .bind(id, verifyResult.error ?? 'KV verification failed', now)
+                        .run();
                     return { ok: false };
                 }
+
+                // Verificación exitosa: marcar en_source=1.
+                await db.prepare(
+                    `INSERT INTO kv_sync_status (dictamen_id, en_source, source_written_at)
+                     VALUES (?, 1, ?)
+                     ON CONFLICT(dictamen_id) DO UPDATE SET
+                       en_source = 1,
+                       source_written_at = excluded.source_written_at,
+                       updated_at = excluded.source_written_at`,
+                )
+                    .bind(id, now)
+                    .run();
+
+                // ── Sólo ahora, tras verificar que la nueva llave es legible,
+                //     borrar la llave legacy dictamen:id ──
+                const legacyKey = `dictamen:${id}`;
+                if (legacyKeyFound) {
+                    try {
+                        await sourceKv.delete(legacyKey);
+                        console.log(
+                            `[KVSync][CLEANUP] Llave legacy ${legacyKey} eliminada tras verificación OK.`,
+                        );
+                    } catch (delErr: unknown) {
+                        const delMsg =
+                            delErr instanceof Error
+                                ? delErr.message
+                                : String(delErr);
+                        console.warn(
+                            `[KVSync][WARNING] No se pudo eliminar llave legacy ${legacyKey}: ${delMsg}`,
+                        );
+                        // No es fatal: la nueva llave ya está verificada.
+                    }
+                }
+
+                console.log(
+                    `[KVSync][OK] Sincronizado KV para ${id} — ` +
+                        `${verifyResult.payload_bytes} bytes, ` +
+                        `doc_completo=${verifyResult.documento_completo_present ?? false}`,
+                );
+                return { ok: true };
                 });
 
                 if (resultado.ok) ok++; else errores++;

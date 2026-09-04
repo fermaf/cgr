@@ -10,6 +10,7 @@ import {
 } from '../storage/d1';
 import { logError, logInfo, setLogLevel } from '../lib/log';
 import { persistIncident } from '../storage/incident_d1';
+import { getSourceJsonWithFallbackStrict } from '../lib/kvSourceResolver';
 import { isEmbeddingError, isEmbeddingRateLimitError } from '../clients/embeddingProvider';
 
 interface VectorizationParams {
@@ -27,7 +28,6 @@ export class VectorizationWorkflow extends WorkflowEntrypoint<Env, Vectorization
       const params = event.payload ?? {};
       const env = this.env;
       const db = env.DB;
-      const sourceKv = env.DICTAMENES_SOURCE;
       setLogLevel(env.LOG_LEVEL);
 
       const batchSize = Math.min(params.batchSize ?? 18, 18);
@@ -61,10 +61,7 @@ export class VectorizationWorkflow extends WorkflowEntrypoint<Env, Vectorization
             const rawRef = await getLatestRawRef(db, id);
             let rawJson: DictamenRaw | null = null;
             if (rawRef) {
-              rawJson = await sourceKv.get(rawRef.raw_key, { type: 'json' }) as DictamenRaw | null;
-              if (!rawJson && !rawRef.raw_key.startsWith('dictamen:')) {
-                rawJson = await sourceKv.get(`dictamen:${id}`, { type: 'json' }) as DictamenRaw | null;
-              }
+              rawJson = await getSourceJsonWithFallbackStrict(env, id) as DictamenRaw | null;
             }
             const sourceContent = rawJson?._source ?? rawJson?.source ?? (rawJson as any)?.raw_data ?? rawJson ?? {};
             const currentModel = (enrichment as any)._modelo_llm ?? env.MISTRAL_MODEL;

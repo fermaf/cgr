@@ -17,6 +17,7 @@ import {
 import { logError, logInfo, logWarn, setLogLevel } from '../lib/log';
 import { applyRetroUpdates } from '../lib/relations';
 import { persistIncident } from '../storage/incident_d1';
+import { getSourceJsonWithFallbackStrict } from '../lib/kvSourceResolver';
 
 interface EnrichmentParams {
   batchSize?: number;
@@ -82,7 +83,6 @@ export class EnrichmentWorkflow extends WorkflowEntrypoint<Env, EnrichmentParams
       const params = event.payload ?? {};
       const env = this.env;
       const db = env.DB;
-      const sourceKv = env.DICTAMENES_SOURCE;
       const pasoKv = env.DICTAMENES_PASO;
       const mistralModel = env.MISTRAL_MODEL;
       setLogLevel(env.LOG_LEVEL);
@@ -138,10 +138,7 @@ export class EnrichmentWorkflow extends WorkflowEntrypoint<Env, EnrichmentParams
               return { ok: false };
             }
 
-            let rawJson = await sourceKv.get(rawRef.raw_key, { type: 'json' }) as DictamenRaw | null;
-            if (!rawJson && !rawRef.raw_key.startsWith('dictamen:')) {
-              rawJson = await sourceKv.get(`dictamen:${id}`, { type: 'json' }) as DictamenRaw | null;
-            }
+            let rawJson = await getSourceJsonWithFallbackStrict(env, id) as DictamenRaw | null;
 
             if (!rawJson) {
               await updateDictamenStatus(db, id, 'error_sin_KV_source', 'KV_SOURCE_MISSING', { detail: 'Sin JSON en KV' });

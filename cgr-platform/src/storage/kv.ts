@@ -1,4 +1,6 @@
 // Helpers para KV (estado y cursores).
+import type { KVNamespace, KVNamespacePutOptions } from '@cloudflare/workers-types';
+
 async function getJson<T>(kv: KVNamespace, key: string): Promise<T | null> {
   const raw = await kv.get(key);
   if (!raw) return null;
@@ -43,4 +45,4 @@ async function setCursor(kv: KVNamespace, name: string, value: string) {
   await putWithRetry(kv, `cursor:${name}`, value);
 }
 
-export { getJson, putJson, getCursor, setCursor };
+export { getJson, putJson, putWithRetry, sleep2 as sleep, getCursor, setCursor };
