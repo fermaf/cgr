@@ -22,6 +22,15 @@ interface VectorizationParams {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const EMBEDDING_MIN_DELAY_MS = 3500;
 
+// ─── Circuit breaker (G5): pausa del molino NVIDIA ───────────────────
+// El modelo nvidia/llama-nemotron-embed-1b-v2 está EOL (410 Gone desde
+// 2026-08-25) y el workflow giraba en bucle (~10k checkout/día). Este
+// breaker corta el bucle por early-exit: no checkout, no relanzamiento.
+// Reversible: poner VECTORIZATION_PAUSED=false (o borrar la var) y
+// redeployar. Default 'true' = pausado por seguridad.
+// Implementación en ../vectorizationBreaker (importable en tests node).
+import { isVectorizationPaused, logPausaThrottled } from './vectorizationBreaker';
+
 export class VectorizationWorkflow extends WorkflowEntrypoint<Env, VectorizationParams> {
   async run(event: WorkflowEvent<VectorizationParams>, step: WorkflowStep) {
     try {
@@ -29,6 +38,16 @@ export class VectorizationWorkflow extends WorkflowEntrypoint<Env, Vectorization
       const env = this.env;
       const db = env.DB;
       setLogLevel(env.LOG_LEVEL);
+
+      // Circuit breaker: si la vectorización está pausada, salir de inmediato
+      // sin checkout y sin relanzar. Log throttled a 1/hora vía D1.
+      if (isVectorizationPaused(env)) {
+        await step.do('vectorization-paused-check', async () => {
+          await logPausaThrottled(db, event.instanceId);
+        });
+        logInfo('VECTORIZATION_PAUSED', { instanceId: event.instanceId, motivo: 'circuit-breaker' });
+        return { ok: 0, error: 0, total: 0, pausado: true, mensaje: 'VECTORIZATION_PAUSED: circuit breaker activo, sin checkout ni relanzamiento' };
+      }
 
       const batchSize = Math.min(params.batchSize ?? 18, 18);
       const delayMs = Math.max(params.delayMs ?? EMBEDDING_MIN_DELAY_MS, EMBEDDING_MIN_DELAY_MS);

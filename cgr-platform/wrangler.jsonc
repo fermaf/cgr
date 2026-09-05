@@ -105,7 +105,8 @@
     "ANALYTICS_CACHE_TTL_SECONDS": "900",
     "GEMINI_RPM_LIMIT_PER_KEY": "2",
     "MISTRAL_QUOTA_COOLDOWN_HOURS": "12",
-    "GEMINI_API_URL": "https://gateway.ai.cloudflare.com/v1/63ac4f10cdedc71a1b09256622380278/cgr-gateway/google-ai-studio"
+    "GEMINI_API_URL": "https://gateway.ai.cloudflare.com/v1/63ac4f10cdedc71a1b09256622380278/cgr-gateway/google-ai-studio",
+    "VECTORIZATION_PAUSED": "true"
   },
   "env": {
     "staging": {
@@ -135,6 +136,8 @@
         "GEMINI_RPM_LIMIT_PER_KEY": "2",
         "MISTRAL_QUOTA_COOLDOWN_HOURS": "12",
         "GEMINI_API_URL": "https://gateway.ai.cloudflare.com/v1/63ac4f10cdedc71a1b09256622380278/cgr-gateway/google-ai-studio"
+,
+        "VECTORIZATION_PAUSED": "true"
       },
       "kv_namespaces": [
         {
@@ -219,6 +222,8 @@
         "GEMINI_RPM_LIMIT_PER_KEY": "2",
         "MISTRAL_QUOTA_COOLDOWN_HOURS": "12",
         "GEMINI_API_URL": "https://gateway.ai.cloudflare.com/v1/63ac4f10cdedc71a1b09256622380278/cgr-gateway/google-ai-studio"
+,
+        "VECTORIZATION_PAUSED": "true"
       },
       "queues": {
         "producers": [

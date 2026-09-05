@@ -70,6 +70,7 @@ declare namespace Cloudflare {
 		GEMINI_RPM_LIMIT_PER_KEY: "2";
 		MISTRAL_QUOTA_COOLDOWN_HOURS: "12";
 		GEMINI_API_URL: "https://gateway.ai.cloudflare.com/v1/63ac4f10cdedc71a1b09256622380278/cgr-gateway/google-ai-studio";
+		VECTORIZATION_PAUSED?: string;
 		WORKFLOW: Workflow<Parameters<import("./src/index").IngestWorkflow['run']>[0]['payload']>;
 		ENRICHMENT_WORKFLOW: Workflow<Parameters<import("./src/index").EnrichmentWorkflow['run']>[0]['payload']>;
 		VECTORIZATION_WORKFLOW: Workflow<Parameters<import("./src/index").VectorizationWorkflow['run']>[0]['payload']>;
